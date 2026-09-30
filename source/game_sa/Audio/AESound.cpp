@@ -12,6 +12,10 @@
 #include "AEAudioEnvironment.h"
 #include "AEAudioHardware.h"
 #include "AEAudioUtility.h"
+#include "Pools/Pools.h"
+#include "Entity/Ped/Ped.h"
+#include "Entity/Vehicle/Vehicle.h"
+#include "Entity/Object/Object.h"
 
 void CAESound::InjectHooks() {
     RH_ScopedClass(CAESound);
@@ -248,8 +252,22 @@ void CAESound::CalculateVolume() {
 // 0x4EFF50
 void CAESound::UpdateParameters(int16 curPlayPos) {
     if (IsLifespanTiedToPhysicalEntity()) {
-        if (m_PhysicalEntity) {
-            SetPosition(m_PhysicalEntity->GetPosition());
+        // NOTSA(stability): the tied physical may already be deleted from its
+        // pool while this sound still holds the pointer (freed-memory read at
+        // GetPosition -> AV). Validate before dereferencing.
+        const auto PhysInPool = [](CPhysical* p) -> bool {
+            if (!p) {
+                return false;
+            }
+            // IsObjectValid is pointer-arithmetic only - safe for dangling ptrs
+            // (e.g. 0xDDDDDE0D). Do NOT dereference (GetType etc.) before this!
+            return CPools::IsValidPointer<CPed>(static_cast<CPed*>(p))
+                || CPools::IsValidPointer<CVehicle>(static_cast<CVehicle*>(p))
+                || CPools::IsValidPointer<CObject>(static_cast<CObject*>(p));
+        };
+        CPhysical* phys = static_cast<CPhysical*>(static_cast<CEntity*>(m_PhysicalEntity));
+        if (phys && PhysInPool(phys)) {
+            SetPosition(phys->GetPosition());
         } else {
             m_HasRequestedStopped = true;
         }

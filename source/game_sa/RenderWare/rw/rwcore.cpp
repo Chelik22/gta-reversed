@@ -2,6 +2,11 @@
 
 #include "rwcore.h"
 
+RwBool _rwIm3DTransformPipeOpen(RxPipeline** pipeline);
+void   _rwIm3DTransformPipeClose(RxPipeline** pipeline);
+void   _rwIm3DRenderPipeClose(RxPipeline** pipelines);
+RwBool _rwIm3DRenderPipeOpen(RxPipeline** pipelines);
+
 void RwCoreInjectHooks() {
     RH_ScopedCategory("Renderware");
     RH_ScopedNamespaceName("RwCore");
@@ -10,30 +15,410 @@ void RwCoreInjectHooks() {
     RH_ScopedGlobalInstall(RwCameraEndUpdate, 0x7EE180);
     RH_ScopedGlobalInstall(RwCameraClear, 0x7EE340);
     RH_ScopedGlobalInstall(RwCameraShowRaster, 0x7EE370);
+
+    // NIGHT-DISABLED RxHeapCreate 0x809F90
+    // NIGHT-DISABLED RxHeapDestroy 0x809F30
+    // NIGHT-DISABLED _rxHeapReset 0x809EC0
+    // NIGHT-DISABLED RxHeapAlloc 0x809AA0
+    // NIGHT-DISABLED RxHeapFree 0x8098B0
+    // NIGHT-DISABLED RxHeapRealloc 0x809D10
+    // NIGHT-DISABLED _rxPacketDestroy 0x80F070
+    // NIGHT-DISABLED RxRenderStateVectorSetDefaultRenderStateVector 0x80EA40
+    // NIGHT-DISABLED RwImageResample 0x80C600
+    // NIGHT-DISABLED RwImageCreateResample 0x80CD10
+    // NIGHT-DISABLED _rwIm3DTransformPipeOpen 0x80A0A0
+    // NIGHT-DISABLED _rwIm3DTransformPipeClose 0x80A110
+    // NIGHT-DISABLED _rwIm3DRenderPipeClose 0x80A140
+    // NIGHT-DISABLED _rwIm3DRenderPipeOpen 0x80A1A0
+}
+
+/* --- RxHeap internals (static helpers were left unreversed in the original binary; referenced by address) --- */
+
+/* Formats an error message & reports it, same as the RWERROR() macro would.
+ * The message formatter (0x8088D0) and RwErrorSet (0x808820) are the RW error helpers. */
+static void RxHeapReportError(RwUInt32 code, RwUInt32 arg) {
+    RwError err;
+    err.pluginID  = 1; // rwcore plugin ID, as in the binary's error reporting pattern
+    err.errorCode = ((RwInt32(__cdecl *)(RwUInt32, RwUInt32))0x8088D0)(code, arg);
+    RwErrorSet(&err);
+}
+
+/* 0x8099F0: Grow the heap's free-block array by 32 entries if needed and return the next free entry */
+static rxHeapFreeBlock* _rxHeapGetFreeBlock(RxHeap* heap) {
+    if (heap->entriesUsed >= heap->entriesAlloced) {
+        heap->entriesAlloced += 0x20;
+        const auto newBlocks = (rxHeapFreeBlock*)(RWSRCGLOBAL(memoryFuncs).rwrealloc)(heap->freeBlocks, heap->entriesAlloced * sizeof(rxHeapFreeBlock), 0x1030409u);
+        if (!newBlocks) {
+            RxHeapReportError(0x80000013u, heap->entriesAlloced << 3);
+            heap->entriesAlloced -= 0x20;
+            return nullptr;
+        }
+        if (newBlocks != heap->freeBlocks) {
+            // The array moved: fix up the freeEntry back pointers of all used entries
+            auto blk = newBlocks;
+            for (auto i = heap->entriesUsed; i != 0; i--, blk++) {
+                blk->ptr->freeEntry = blk;
+            }
+        }
+        heap->freeBlocks = newBlocks;
+    }
+    if (!heap->freeBlocks) {
+        return nullptr;
+    }
+    return &heap->freeBlocks[heap->entriesUsed++];
+}
+
+/* 0x809BF0: Carve a block out of a super block and insert its free block into the heap's free list after `insertAfter`.
+ * `insertAfter` may also be a rxHeapSuperBlockDescriptor (both share the {pointer, size} layout) */
+static RwBool _rxHeapAddSuperBlock(rxHeapSuperBlockDescriptor* superBlock, rxHeapFreeBlock* insertAfter, RxHeap* heap) {
+    const auto entry = _rxHeapGetFreeBlock(heap);
+    if (!entry) {
+        return FALSE;
+    }
+
+    auto head    = (rxHeapBlockHeader*)superBlock->start;                            /* Block header at the super block start */
+    auto userBlk = (rxHeapBlockHeader*)((RwUInt8*)head + sizeof(rxHeapBlockHeader)); /* The (free) user area right after it */
+    auto tail    = (rxHeapBlockHeader*)((RwUInt8*)head + superBlock->size - sizeof(rxHeapBlockHeader));
+
+    memset(head, 0, sizeof(*head));
+    *tail = *head; /* The tail block starts out as a copy of the (zeroed) head block */
+
+    head->next         = userBlk;
+    userBlk->prev      = head;
+    userBlk->next      = tail;
+    userBlk->freeEntry = entry;
+    userBlk->size      = (RwUInt8*)tail - (RwUInt8*)userBlk;
+
+    entry->ptr  = userBlk;
+    entry->size = userBlk->size;
+
+    if (insertAfter) {
+        // Link the tail block of the previous super block to our head block.
+        // NOTE: (insertAfter->ptr + insertAfter->size) is the tail block header of the previous super block.
+        auto prevTail = (rxHeapBlockHeader*)((RwUInt8*)insertAfter->ptr + insertAfter->size);
+        prevTail->next = head;
+        head->prev     = prevTail;
+    }
+    return TRUE;
+}
+
+/* 0x809C70: Allocate `size` bytes from a free block, splitting it if the remainder is big enough */
+static void* _rxHeapAllocFromFreeBlock(RxHeap* heap, rxHeapFreeBlock* freeBlock, RwUInt32 size) {
+    if (freeBlock->size - size < 0x100) {
+        // Take the whole block: remove this entry from the free list (swap with last)
+        const auto userPtr = (RwUInt8*)freeBlock->ptr + sizeof(rxHeapBlockHeader);
+        if (&heap->freeBlocks[heap->entriesUsed - 1] != freeBlock) {
+            *freeBlock = heap->freeBlocks[heap->entriesUsed - 1];
+            heap->freeBlocks[heap->entriesUsed - 1].ptr->freeEntry = freeBlock;
+        }
+        heap->entriesUsed--;
+        freeBlock->ptr->freeEntry = nullptr;
+        return userPtr;
+    }
+
+    // Split: block keeps `size`, the remainder becomes a new free block right after it
+    auto hdr       = freeBlock->ptr;
+    auto remainder = (rxHeapBlockHeader*)((RwUInt8*)hdr + sizeof(rxHeapBlockHeader) + size);
+
+    remainder->size      = freeBlock->size - size - sizeof(rxHeapBlockHeader);
+    remainder->prev      = hdr;
+    remainder->next      = hdr->next;
+    remainder->freeEntry = freeBlock;
+
+    hdr->size = size;
+    hdr->next = remainder;
+    if (remainder->next) {
+        remainder->next->prev = remainder;
+    }
+
+    freeBlock->ptr  = remainder;
+    freeBlock->size = remainder->size;
+    return (RwUInt8*)hdr + sizeof(rxHeapBlockHeader);
 }
 
 RxHeap* RxHeapCreate(RwUInt32 size) {
-    return ((RxHeap*(__cdecl *)(RwUInt32))0x809F90)(size);
+    ZoneScoped;
+    if (size < 0x400) {
+        size = 0x400;
+    }
+
+    auto heap = (RxHeap*)RwMalloc(sizeof(RxHeap), 0x40409u);
+    if (!heap) {
+        return nullptr;
+    }
+
+    RwUInt32 alignedSize = (size + 0x1F) & ~0x1F;
+    if (alignedSize < 0x80) {
+        alignedSize = 0x80;
+    }
+
+    auto superBlock = (rxHeapSuperBlockDescriptor*)RwMalloc(alignedSize + 0x8B, 0x1040409u);
+    if (superBlock) {
+        superBlock->size  = alignedSize;
+        superBlock->next  = nullptr;
+        superBlock->start = (void*)(((uintptr)superBlock + 0x8B) & ~0x7Fu);
+
+        heap->superBlockSize = alignedSize;
+        heap->head           = superBlock;
+        heap->headBlock      = nullptr;
+        heap->freeBlocks     = nullptr;
+        heap->entriesAlloced = 0;
+        heap->entriesUsed    = 0;
+        heap->dirty          = TRUE;
+
+        rxHeapFreeBlock* prev = nullptr;
+        for (auto sb = superBlock->next; sb != nullptr; sb = sb->next) { /* Never taken for a fresh heap, kept for faithfulness */
+            if (!_rxHeapAddSuperBlock(sb, prev, heap)) {
+                goto fail;
+            }
+            if (!prev) {
+                heap->headBlock = (rxHeapBlockHeader*)sb->start;
+            }
+            prev = (rxHeapFreeBlock*)sb;
+        }
+
+        if (_rxHeapAddSuperBlock(heap->head, prev, heap)) {
+            if (!prev) {
+                heap->headBlock = (rxHeapBlockHeader*)heap->head->start;
+            }
+            heap->dirty = FALSE;
+            return heap;
+        }
+    fail:
+        RwFree(superBlock);
+    }
+    RwFree(heap);
+    return nullptr;
 }
 
 void RxHeapDestroy(RxHeap* heap) {
-    ((void(__cdecl *)(RxHeap*))0x809F30)(heap);
+    ZoneScoped;
+    if (!heap) {
+        return;
+    }
+    if (heap->freeBlocks) {
+        RwFree(heap->freeBlocks);
+        heap->freeBlocks = nullptr;
+    }
+    for (auto sb = heap->head; sb != nullptr;) {
+        const auto next = sb->next;
+        RwFree(sb);
+        sb = next;
+    }
+    RwFree(heap);
 }
 
 RwBool _rxHeapReset(RxHeap* heap) {
-    return ((RwBool(__cdecl *)(RxHeap*))0x809EC0)(heap);
+    ZoneScoped;
+    heap->entriesUsed = 0;
+
+    rxHeapFreeBlock* prev = nullptr;
+    for (auto sb = heap->head->next; sb != nullptr; sb = sb->next) {
+        if (!_rxHeapAddSuperBlock(sb, prev, heap)) {
+            return FALSE;
+        }
+        if (!prev) {
+            heap->headBlock = (rxHeapBlockHeader*)sb->start;
+        }
+        prev = (rxHeapFreeBlock*)sb;
+    }
+
+    if (!_rxHeapAddSuperBlock(heap->head, prev, heap)) {
+        return FALSE;
+    }
+    if (!prev) {
+        heap->headBlock = (rxHeapBlockHeader*)heap->head->start;
+    }
+    heap->dirty = FALSE;
+    return TRUE;
 }
 
 void* RxHeapAlloc(RxHeap* heap, RwUInt32 size) {
-    return ((void*(__cdecl *)(RxHeap*, RwUInt32))0x809AA0)(heap, size);
+    ZoneScoped;
+    const RwUInt32 alignedSize = (size + 0x1F) & ~0x1F;
+
+    // Try the free blocks, largest first
+    for (RwUInt32 i = heap->entriesUsed; i != 0; i--) {
+        const auto fb = &heap->freeBlocks[i - 1];
+        if (alignedSize <= fb->size) {
+            heap->dirty = TRUE;
+            return _rxHeapAllocFromFreeBlock(heap, fb, alignedSize);
+        }
+    }
+
+    // No fit: add a new super block
+    RwUInt32 superBlockSize = alignedSize + 0x60;
+    if (superBlockSize < heap->superBlockSize) {
+        superBlockSize = heap->superBlockSize;
+    }
+
+    auto superBlock = (rxHeapSuperBlockDescriptor*)RwMalloc(superBlockSize + 0x8B, 0x1040409u);
+    if (superBlock) {
+        superBlock->size  = superBlockSize;
+        superBlock->next  = nullptr;
+        superBlock->start = (void*)(((uintptr)superBlock + 0x8B) & ~0x7Fu);
+
+        if (_rxHeapAddSuperBlock(superBlock, (rxHeapFreeBlock*)heap->head, heap)) {
+            RwUInt32 totalSize = 0;
+            for (auto sb = superBlock; sb != nullptr; sb = sb->next) {
+                totalSize += sb->size;
+            }
+
+            RwChar buffer[256];
+            rwsprintf(buffer, "Heap resized from %d to %d bytes", totalSize - superBlockSize, totalSize);
+
+            const auto headBlock = (rxHeapBlockHeader*)superBlock->start;
+            if ((uintptr)headBlock != 0xFFFFFFE0u) {
+                heap->dirty = TRUE;
+                return _rxHeapAllocFromFreeBlock(heap, (headBlock + 1)->freeEntry, alignedSize);
+            }
+        } else {
+            RwFree(superBlock);
+        }
+    }
+
+    RxHeapReportError(0x80000013u, alignedSize);
+    return nullptr;
 }
 
 void RxHeapFree(RxHeap* heap, void* block) {
-    ((void(__cdecl *)(RxHeap*, void*))0x8098B0)(heap, block);
+    ZoneScoped;
+    auto hdr = (rxHeapBlockHeader*)((RwUInt8*)block - sizeof(rxHeapBlockHeader));
+
+    const bool prevFree = hdr->prev && hdr->prev->freeEntry;
+    const bool nextFree = hdr->next && hdr->next->freeEntry;
+
+    if (prevFree) {
+        if (nextFree) {
+            // Merge all three blocks (prev, this, next)
+            const auto nextFreeBlk = hdr->next->freeEntry;
+            if (&heap->freeBlocks[heap->entriesUsed - 1] != nextFreeBlk) {
+                *nextFreeBlk = heap->freeBlocks[heap->entriesUsed - 1];
+                heap->freeBlocks[heap->entriesUsed - 1].ptr->freeEntry = nextFreeBlk;
+            }
+            heap->entriesUsed--;
+
+            hdr->prev->size = hdr->prev->size + hdr->size + 0x40 + hdr->next->size;
+            hdr->prev->freeEntry->size = hdr->prev->size;
+            hdr->prev->next = hdr->next->next;
+            if (hdr->next->next) {
+                hdr->next->next->prev = hdr->prev;
+            }
+            return;
+        }
+        // Merge with previous only
+        hdr->prev->size += hdr->size + 0x20;
+        hdr->prev->freeEntry->size = hdr->prev->size;
+        hdr->prev->next = hdr->next;
+        if (hdr->next) {
+            hdr->next->prev = hdr->prev;
+        }
+        return;
+    }
+
+    if (nextFree) {
+        // Merge with next only
+        hdr->size += hdr->next->size + 0x20;
+        hdr->freeEntry = hdr->next->freeEntry;
+        hdr->freeEntry->ptr  = hdr;
+        hdr->freeEntry->size = hdr->size;
+        const auto nextNext = hdr->next->next;
+        hdr->next = nextNext;
+        if (nextNext) {
+            nextNext->prev = hdr;
+        }
+        return;
+    }
+
+    // Neither neighbour is free: add a new free entry for this block
+    if (const auto fb = _rxHeapGetFreeBlock(heap)) {
+        fb->ptr  = hdr;
+        fb->size = hdr->size;
+        hdr->freeEntry = fb;
+    }
 }
 
 void* RxHeapRealloc(RxHeap* heap, void* block, RwUInt32 newSize, RwBool allowCopy) {
-    return ((void*(__cdecl *)(RxHeap*, void*, RwUInt32, RwBool))0x809D10)(heap, block, newSize, allowCopy);
+    ZoneScoped;
+    auto hdr = (rxHeapBlockHeader*)((RwUInt8*)block - sizeof(rxHeapBlockHeader));
+    const RwUInt32 alignedSize = (newSize + 0x1F) & ~0x1F;
+    const RwInt32  delta       = alignedSize - hdr->size;
+
+    if (delta <= 0) {
+        // Shrink (or no change)
+        if (-delta > 0xFF) {
+            if (const auto fb = _rxHeapGetFreeBlock(heap)) {
+                auto remainder = (rxHeapBlockHeader*)((RwUInt8*)block + alignedSize);
+                remainder->size      = -delta - 0x20;
+                remainder->prev      = hdr;
+                remainder->freeEntry = fb;
+                remainder->next      = hdr->next;
+                hdr->size = alignedSize;
+                hdr->next = remainder;
+                if (remainder->next) {
+                    remainder->next->prev = remainder;
+                }
+                fb->ptr  = remainder;
+                fb->size = remainder->size;
+            }
+        }
+        return block;
+    }
+
+    // Grow: if the next block is free and big enough, absorb it
+    if (hdr->next && hdr->next->freeEntry && delta <= (RwInt32)(hdr->next->size + 0x20)) {
+        const RwUInt32 totalSize = hdr->next->size + 0x20 + hdr->size;
+        if (totalSize - alignedSize < 0x100) {
+            // Absorb the whole next block
+            const auto nextFreeBlk = hdr->next->freeEntry;
+            if (&heap->freeBlocks[heap->entriesUsed - 1] != nextFreeBlk) {
+                *nextFreeBlk = heap->freeBlocks[heap->entriesUsed - 1];
+                heap->freeBlocks[heap->entriesUsed - 1].ptr->freeEntry = nextFreeBlk;
+            }
+            heap->entriesUsed--;
+
+            hdr->size = totalSize;
+            const auto nextNext = hdr->next->next;
+            hdr->next = nextNext;
+            if (nextNext) {
+                nextNext->prev = hdr;
+            }
+            return block;
+        }
+
+        // Absorb only part of the next block
+        auto remainder = (rxHeapBlockHeader*)((RwUInt8*)block + alignedSize);
+        remainder->freeEntry = hdr->next->freeEntry;
+        remainder->prev      = hdr;
+        remainder->size      = hdr->next->size - delta;
+        const auto nextNext  = hdr->next->next;
+        remainder->next      = nextNext;
+        if (nextNext) {
+            nextNext->prev = remainder;
+        }
+        hdr->size = alignedSize;
+        hdr->next = remainder;
+        remainder->freeEntry->ptr  = remainder;
+        remainder->freeEntry->size = remainder->size;
+        return block;
+    }
+
+    // Cannot grow in place: allocate a new block, copy and free the old one
+    if (const auto newBlock = (RwUInt8*)RxHeapAlloc(heap, alignedSize)) {
+        const RwUInt32 oldSize = hdr->size;
+        RwUInt32 i;
+        for (i = 0; i < (oldSize & ~0x3u); i += 4) {
+            *(RwUInt32*)(newBlock + i) = *(RwUInt32*)((RwUInt8*)block + i);
+        }
+        for (; i < oldSize; i++) {
+            newBlock[i] = ((const RwUInt8*)block)[i];
+        }
+        RxHeapFree(heap, block);
+        return newBlock;
+    }
+
+    RxHeapReportError(0x80000013u, alignedSize);
+    return nullptr;
 }
 
 void RxPipelineSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
@@ -80,8 +465,25 @@ RxCluster* RxClusterSetData(RxCluster* cluster, void* data, RwInt32 stride, RwIn
     return ((RxCluster*(__cdecl *)(RxCluster*, void*, RwInt32, RwInt32))0x8053A0)(cluster, data, stride, numElements);
 }
 
+/* 0xC9A6B0: Pointer to the global RxHeap used by the packet/cluster machinery */
+static inline auto& rxPacketGlobalHeap = StaticRef<RxHeap*>(0xC9A6B0);
+
+/* 0x80F070 */
 void _rxPacketDestroy(RxPacket* Packet) {
-    ((void(__cdecl *)(RxPacket*))0x80F070)(Packet);
+    ZoneScoped;
+    Packet->pipeline->embeddedPacketState = (rxEmbeddedPacketState)1; /* Mark the pipeline's embedded packet as free */
+
+    auto cluster = Packet->clusters;
+    for (RwUInt32 i = Packet->numClusters; i != 0; i--, cluster++) {
+        if (cluster->clusterRef != nullptr) {
+            if (cluster->data != nullptr && !(cluster->flags & 2)) {
+                RxHeapFree(rxPacketGlobalHeap, cluster->data);
+            }
+            memset(cluster, 0, 8);                   /* flags, stride, data (currentData is left as-is!) */
+            memset((RwUInt8*)cluster + 0xC, 0, 0xC); /* numAlloced, numUsed, clusterRef (attributes left as-is) */
+        }
+    }
+    Packet->flags = 0;
 }
 
 RxCluster* RxClusterInitializeData(RxCluster* cluster, RwUInt32 numElements, RwUInt16 stride) {
@@ -232,16 +634,105 @@ RwBool RwD3D9DynamicVertexBufferCreate(RwUInt32 size, void* vertexBuffer) {
     return ((RwBool(__cdecl *)(RwUInt32, void*))0x7F5A00)(size, vertexBuffer);
 }
 
-void RwD3D9DynamicVertexBufferDestroy() {
-    ((void(__cdecl *)(void))0x7F5AE0)();
+// 0x7F5AE0: Resets the internal bookkeeping (cached base/offset) of a single dynamic vertex buffer.
+// NOTE: the previous definition here was `RwD3D9DynamicVertexBufferDestroy(void)` which did not
+// match the `void* vertexBuffer` signature declared in rwcore.h (identified 2026-09-27).
+void RwD3D9DynamicVertexBufferDestroy(void* vertexBuffer) {
+    ((void(__cdecl *)(void*))0x7F5AE0)(vertexBuffer);
 }
 
 RwBool RwD3D9DynamicVertexBufferLock(RwUInt32 vertexSize, RwUInt32 numVertex, void* vertexBufferOut, void* vertexDataOut, RwUInt32* baseIndexOut) {
     return ((RwBool(__cdecl *)(RwUInt32, RwUInt32, void*, void*, RwUInt32*))0x7F5B10)(vertexSize, numVertex, vertexBufferOut, vertexDataOut, baseIndexOut);
 }
 
-RwBool RwD3D9DynamicVertexBufferUnlock() {
-    return ((RwBool(__cdecl *)(void))0x7F5C90)();
+// 0x7F5C90: IDirect3DVertexBuffer9::Unlock() on the given dynamic vertex buffer.
+// NOTE: the previous definition here was `RwD3D9DynamicVertexBufferUnlock(void)` which did not
+// match the `void* vertexBuffer` signature declared in rwcore.h (identified 2026-09-27).
+RwBool RwD3D9DynamicVertexBufferUnlock(void* vertexBuffer) {
+    return ((RwBool(__cdecl *)(void*))0x7F5C90)(vertexBuffer);
+}
+
+/*
+ * Dynamic vertex buffer module (driver/d3d9, identified from binary 2026-09-27).
+ * Pool of either one or four D3DPOOL_DEFAULT vertex buffers (256 KiB each,
+ * the 4-buffer round-robin is used when the driver-cap global has bit 0x10000 set).
+ */
+
+// 0x7F5940: Creates the dynamic vertex buffer pool (1 or 4 x 256 KiB buffers) and resets the slot index.
+RwBool _rwD3D9DynamicVertexBufferCreateAll() {
+    return ((RwBool(__cdecl *)(void))0x7F5940)();
+}
+
+// 0x7F5800: Clears the current slot's cached offsets and advances the round-robin slot index (mod 4).
+void _rwD3D9DynamicVertexBufferAdvanceSlot() {
+    ((void(__cdecl *)(void))0x7F5800)();
+}
+
+// 0x7F5840: Resets all slots' bookkeeping and, when the pool is the 4-buffer variant,
+// releases each slot's D3D vertex buffer and unlinks its allocation record.
+void _rwD3D9DynamicVertexBufferResetAll() {
+    ((void(__cdecl *)(void))0x7F5840)();
+}
+
+// 0x7F5CB0: Opens the dynamic vertex buffer module: tears down any previous state,
+// (re)creates the 4 bookkeeping freelists and the vertex buffer pool.
+RwBool _rwD3D9DynamicVertexBufferOpen() {
+    return ((RwBool(__cdecl *)(void))0x7F5CB0)();
+}
+
+// 0x7F5D20: Closes the dynamic vertex buffer module: releases every D3D vertex buffer,
+// frees all allocation records and destroys the bookkeeping freelists.
+void _rwD3D9DynamicVertexBufferClose() {
+    ((void(__cdecl *)(void))0x7F5D20)();
+}
+
+/*
+ * D3D9 device module (driver/d3d9, identified from binary 2026-09-27).
+ */
+
+// 0x7F6B00: Invalidates the cached D3D render states, sampler states and the 4 texture stage caches.
+void _rwD3D9RenderStateInvalidateCache() {
+    ((void(__cdecl *)(void))0x7F6B00)();
+}
+
+// 0x7F6B40: Opens the device resource cache: (re)creates the 0x40-byte-record freelist,
+// clears the 65-slot resource table and allocates the default record.
+void _rwD3D9DeviceResourceCacheOpen() {
+    ((void(__cdecl *)(void))0x7F6B40)();
+}
+
+// 0x7F6BF0: Probes IDirect3D9 for the highest supported format value in the range [2, 16]
+// and caches the maximum plus the derived per-format values in the driver globals.
+void _rwD3D9DeviceProbeMaxFormatSupport() {
+    ((void(__cdecl *)(void))0x7F6BF0)();
+}
+
+// 0x7F7100: Full device shutdown: frees the display-mode list and resource caches, unbinds all
+// D3D streams/indices/textures/shaders, tears down the raster and dynamic vertex buffer modules
+// and finally releases the IDirect3DDevice9.
+RwBool _rwD3D9DeviceClose() {
+    return ((RwBool(__cdecl *)(void))0x7F7100)();
+}
+
+// 0x7F72E0: Fills a std-function dispatch table (RwEngineInstance->stdFunc[]) of `count` entries
+// with the NA stub, then installs the ~27 known driver/game handlers by message code
+// (e.g. camera begin-update/clear, show-raster and the game-side overrides at 0x4C9F90-0x4CD820).
+RwBool _rwD3D9StdFuncTableInit(void** table, void* param, RwInt32 count) {
+    return ((RwBool(__cdecl *)(void**, void*, RwInt32))0x7F72E0)(table, param, count);
+}
+
+// 0x7F7540: Enumerates adapter display modes via IDirect3D9::EnumAdapterModes, deduplicates them
+// per format keeping the highest refresh rate and classifies D3DFMT 21-25/35 as the supported
+// (32/16 bpp) format set used for the video mode list.
+void _rwD3D9BuildDisplayModeList() {
+    ((void(__cdecl *)(void))0x7F7540)();
+}
+
+// 0x7F8300: Device-reset handler: waits via IDirect3DDevice9::TestCooperativeLevel, releases video
+// memory, resets the device with the cached D3DPRESENT_PARAMETERS (re-probing the display format
+// when necessary), reacquires the swap chain/back buffer and restores rasters, stream sources and Im3D.
+RwBool _rwD3D9DeviceReset() {
+    return ((RwBool(__cdecl *)(void))0x7F8300)();
 }
 
 void RwRasterSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
@@ -329,8 +820,42 @@ RwInt32 RwRasterGetPluginOffset(RwUInt32 pluginID) {
     return ((RwInt32(__cdecl *)(RwUInt32))0x7FAE40)(pluginID);
 }
 
+/* 0xC9BC60: RwGlobals offset of the rx pipeline globals (rwPipeGlobals) */
+static inline auto& rxPipeGlobalsOffset = StaticRef<RwInt32>(0xC9BC60);
+
+/* 0x80EA40 */
 RxRenderStateVector* RxRenderStateVectorSetDefaultRenderStateVector(RxRenderStateVector* rsvp) {
-    return ((RxRenderStateVector*(__cdecl *)(RxRenderStateVector*))0x80EA40)(rsvp);
+    ZoneScoped;
+    if (!rsvp) {
+        RxHeapReportError(0x80000016u, 0);
+        return nullptr;
+    }
+
+    auto& pipeGlobals = *(rwPipeGlobals*)((RwUInt8*)RwEngineInstance + rxPipeGlobalsOffset);
+    if (RwEngineInstance->engineStatus == rwENGINESTATUSSTARTED) {
+        // Engine is running: just copy the current default render state vector
+        memcpy(rsvp, &pipeGlobals.defaultRenderState, sizeof(RxRenderStateVector));
+        return rsvp;
+    }
+
+    if (rsvp != &pipeGlobals.defaultRenderState) {
+        RxHeapReportError(0x80000018u, 0);
+        return nullptr;
+    }
+
+    // Reset the default render state vector to sane defaults
+    rsvp->Flags         = 7;
+    rsvp->ShadeMode     = (RwShadeMode)2;
+    rsvp->SrcBlend      = (RwBlendFunction)5;
+    rsvp->DestBlend     = (RwBlendFunction)6;
+    rsvp->TextureRaster = nullptr;
+    rsvp->AddressModeU  = (RwTextureAddressMode)1;
+    rsvp->AddressModeV  = (RwTextureAddressMode)1;
+    rsvp->FilterMode    = (RwTextureFilterMode)2;
+    memset(&rsvp->BorderColor, 0xFF, sizeof(rsvp->BorderColor));
+    rsvp->FogType       = (RwFogType)0;
+    memset(&rsvp->FogColor, 0xFF, sizeof(rsvp->FogColor));
+    return rsvp;
 }
 
 RwImage* RwImageCreate(RwInt32 width, RwInt32 height, RwInt32 depth) {
@@ -435,6 +960,33 @@ RwBool RwTextureGenerateMipmapName(RwChar* name, RwChar* maskName, RwUInt8 mipLe
 
 RwBool RwTextureRasterGenerateMipmaps(RwRaster* raster, RwImage* image) {
     return ((RwBool(__cdecl *)(RwRaster*, RwImage*))0x7F3CD0)(raster, image);
+}
+
+/*
+ * Texture/image loading internals (identified from binary 2026-09-27).
+ */
+
+// 0x7F44C0: Builds one palette shared by a set of images: if all images already reference the
+// same cached palette (image->palette), copies it out; otherwise quantizes the images jointly via
+// the RwPalQuant module (RwPalQuantAddImage/GetPalette), converts each image to the new palette,
+// caches it in every image and copies it to `paletteOut`.
+RwBool _rwImagePaletteUnify(RwRGBA* paletteOut, RwImage* imageToKeep, RwImage** images, RwInt32 numImages, RwInt32 paletteDepth) {
+    return ((RwBool(__cdecl *)(RwRGBA*, RwImage*, RwImage**, RwInt32, RwInt32))0x7F44C0)(paletteOut, imageToKeep, images, numImages, paletteDepth);
+}
+
+// 0x7F4690: Reads an image (RwImageRead) and resamples it to *widthInOut x *heightInOut
+// (both taken from the file when 0), preserving 4/8-bit paletted sources by quantizing the
+// resized 32-bit image back down to a shared 16/256-color palette.
+RwImage* _rwImageReadResample(const RwChar* name, const RwChar* maskName, RwUInt32 rasterFlags, RwInt32* widthInOut, RwInt32* heightInOut, void* param6, void* param7) {
+    return ((RwImage * (__cdecl*)(const RwChar*, const RwChar*, RwUInt32, RwInt32*, RwInt32*, void*, void*))0x7F4690)(name, maskName, rasterFlags, widthInOut, heightInOut, param6, param7);
+}
+
+// 0x7F4AE0: The RwTextureRead raster pipeline: validates name/maskName, computes the raster
+// format from the texture mip-map callbacks, reads + resamples the image
+// (_rwImageReadResample), creates the D3D9 raster, applies mip-mapping and palettes
+// (_rwImagePaletteUnify) and returns the finished raster.
+RwRaster* _rwTextureReadRaster(const RwChar* name, const RwChar* maskName) {
+    return ((RwRaster * (__cdecl*)(const RwChar*, const RwChar*))0x7F4AE0)(name, maskName);
 }
 
 RwBool _rwTextureSetAutoMipMapState(RwBool enable) {
@@ -821,12 +1373,160 @@ rwD3D9DeviceRestoreCallBack _rwD3D9DeviceGetRestoreCallback() {
    return ((rwD3D9DeviceRestoreCallBack(__cdecl *)(void))0x7FAE30)();
 }
 
-RwImage* RwImageResample(RwImage* dstImage, const RwImage* srcImage) {
-    return ((RwImage*(__cdecl *)(RwImage*, const RwImage*))0x80C600)(dstImage, srcImage);
+/* 0x80CA20: Static helper of RwImageResample -
+ * bilinearly samples a horizontal span of `image` (16.16 fixed point coords) into a float RGBA quad (range 0..1) */
+static void _rwImageResampleSpan(const RwImage* image, RwInt32 x1, RwInt32 x2, RwInt32 y, float* out) {
+    constexpr float INV_65536 = 1.0f / 65536.0f;
+    constexpr float INV_255   = 1.0f / 255.0f;
+
+    const RwReal totalWeight = (RwReal)(x2 - x1) * INV_65536;
+    auto px = (const RwUInt8*)(image->stride * (y >> 16) + ((x1 >> 16) * 4) + image->cpPixels);
+
+    if ((x1 >> 16) == (x2 >> 16)) {
+        // Single pixel span
+        for (int i = 0; i < 4; i++) {
+            out[i] = (RwReal)px[i] * INV_255;
+            out[i] = out[i] * totalWeight;
+        }
+    } else {
+        // First, partial pixel
+        RwInt32 x = (x1 & 0xFFFF0000) + 0x10000;
+        for (int i = 0; i < 4; i++) {
+            out[i] = (RwReal)px[i] * INV_255;
+        }
+        const RwReal w1 = (RwReal)(x - x1) * INV_65536;
+        for (int i = 0; i < 4; i++) {
+            out[i] = out[i] * w1;
+        }
+        // Whole pixels in the middle
+        for (; (x >> 16) != (x2 >> 16); x += 0x10000) {
+            for (int i = 0; i < 4; i++) {
+                out[i] = out[i] + (RwReal)px[4 + i] * INV_255;
+            }
+            px += 4;
+        }
+        // Last, partial pixel
+        const RwReal w2 = (RwReal)(x2 - x) * INV_65536;
+        for (int i = 0; i < 4; i++) {
+            out[i] = out[i] + (RwReal)px[4 + i] * INV_255 * w2;
+        }
+    }
+
+    const RwReal normalize = 1.0f / totalWeight;
+    for (int i = 0; i < 4; i++) {
+        out[i] = out[i] * normalize;
+    }
 }
 
+/* 0x80C600 */
+RwImage* RwImageResample(RwImage* dstImage, const RwImage* srcImage) {
+    ZoneScoped;
+    const RwInt32 dstWidth  = dstImage->width;
+    const RwInt32 srcHeight = srcImage->height;
+    const RwInt32 srcWidth  = srcImage->width;
+    const RwInt32 dstHeight = dstImage->height;
+
+    dstImage->flags = dstImage->flags | (srcImage->flags & 2);
+
+    const RwInt32 xStep = (RwInt32)(((RwReal)srcWidth / (RwReal)dstWidth) * 65536.0f);
+    const RwInt32 yStep = (RwInt32)(((RwReal)srcHeight / (RwReal)dstHeight) * 65536.0f);
+
+    RwInt32 y = 0;
+    for (RwInt32 row = 0; row < dstHeight; row++) {
+        if (dstWidth > 0) {
+            RwInt32 x = 0;
+            const RwInt32 yFracWeight = yStep - 1 + y;
+            const RwInt32 yPix        = yFracWeight >> 16;
+            const RwReal  yWeight     = (RwReal)(yFracWeight - y) * (1.0f / 65536.0f);
+            auto out = (RwUInt8*)(dstImage->stride * row + dstImage->cpPixels + 2);
+
+            for (RwInt32 col = 0; col < dstWidth; col++) {
+                float acc[4];
+                RwInt32 xFracWeight = xStep - 1 + x;
+                const RwInt32 xPix  = xFracWeight >> 16;
+
+                if ((y >> 16) == yPix) {
+                    _rwImageResampleSpan(srcImage, x, xFracWeight, y, acc);
+                    for (int i = 0; i < 4; i++) {
+                        acc[i] = acc[i] * yWeight;
+                    }
+                } else {
+                    RwInt32 yy = (y & 0xFFFF0000) + 0x10000;
+                    _rwImageResampleSpan(srcImage, x, xFracWeight, y, acc);
+                    const RwReal w1 = (RwReal)(yy - y) * (1.0f / 65536.0f);
+                    for (int i = 0; i < 4; i++) {
+                        acc[i] = acc[i] * w1;
+                    }
+                    for (; (yy >> 16) != yPix; yy += 0x10000) {
+                        float tmp[4];
+                        _rwImageResampleSpan(srcImage, x, xFracWeight, yy, tmp);
+                        for (int i = 0; i < 4; i++) {
+                            acc[i] = acc[i] + tmp[i];
+                        }
+                    }
+                    float tmp[4];
+                    _rwImageResampleSpan(srcImage, x, xFracWeight, yy, tmp);
+                    const RwReal w2 = (RwReal)(yFracWeight - yy) * (1.0f / 65536.0f);
+                    for (int i = 0; i < 4; i++) {
+                        acc[i] = acc[i] + tmp[i] * w2;
+                    }
+                }
+
+                const RwReal invYWeight = 1.0f / yWeight;
+                RwUInt8 outPx[4];
+                for (int i = 0; i < 4; i++) {
+                    acc[i] = acc[i] * invYWeight;
+                    outPx[i] = (RwUInt8)(RwInt32)(acc[i] * 255.0f + 0.5f);
+                }
+                out[-2] = outPx[0];
+                out[-1] = outPx[1];
+                out[0]  = outPx[2];
+                out[1]  = outPx[3];
+
+                x += xStep;
+                out += 4;
+            }
+        }
+        y += yStep;
+    }
+    return dstImage;
+}
+
+/* 0x80CD10 */
 RwImage* RwImageCreateResample(const RwImage* srcImage, RwInt32 width, RwInt32 height) {
-    return ((RwImage*(__cdecl *)(const RwImage*, RwInt32, RwInt32))0x80CD10)(srcImage, width, height);
+    ZoneScoped;
+    auto dstImage = RwImageCreate(width, height, 32);
+    if (!dstImage) {
+        return nullptr;
+    }
+    if (!RwImageAllocatePixels(dstImage)) {
+        RwImageDestroy(dstImage);
+        return nullptr;
+    }
+
+    if (srcImage->depth == 32) {
+        if (RwImageResample(dstImage, srcImage)) {
+            return dstImage;
+        }
+    } else {
+        // Convert the source image to 32bpp first (via a helper image)
+        auto tmpImage = RwImageCreate(srcImage->width, srcImage->height, 32);
+        if (tmpImage) {
+            if (RwImageAllocatePixels(tmpImage)) {
+                ((RwImage * (__cdecl *)(RwImage*, const RwImage*))0x803950)(tmpImage, srcImage); /* _rwImageConvertTo32bpp (unreversed) */
+                if (RwImageResample(dstImage, tmpImage)) {
+                    RwImageFreePixels(tmpImage);
+                    RwImageDestroy(tmpImage);
+                    return dstImage;
+                }
+                RwImageFreePixels(tmpImage);
+            }
+            RwImageDestroy(tmpImage);
+        }
+    }
+    RwImageFreePixels(dstImage);
+    RwImageDestroy(dstImage);
+    return nullptr;
 }
 
 RwImage* RwImageSetFromRaster(RwImage* image, RwRaster* raster) {
@@ -968,10 +1668,6 @@ void _rwObjectHasFrameReleaseFrame() {
 
 RwBool _rwFrameSyncDirty() {
     return ((RwBool(__cdecl *)(void))0x809550)();
-}
-
-void _rwFrameSyncHierarchyLTM(RwFrame* frame) {
-    ((void(__cdecl *)(RwFrame*))0x8097D0)(frame);
 }
 
 RwInt32 RwTextureRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
@@ -1176,4 +1872,196 @@ void _rwObjectHasFrameReleaseFrame(void *object) {
 
 RwUInt32 RwRGBAToPixel(RwRGBA* rgbIn, RwInt32 rasterFormat) {
     return plugin::CallAndReturn<RwUInt32, 0x803740, RwRGBA*, RwInt32>(rgbIn, rasterFormat);
+}
+
+/****************************************************************************
+ * Frame internals (identified from binary; slice work, see night2 report)  *
+ ****************************************************************************/
+
+/* 0x809700: Recursively synchronizes LTM of a frame and its children,
+ * invoked by _rwFrameSyncDirty() (0x809550) for every dirty frame.
+ * Name taken from the RW SDK header (rwcore.h). */
+void _rwFrameSyncHierarchyLTM(RwFrame* frame) {
+    ((void(__cdecl*)(RwFrame*, RwUInt32))0x809700)(frame, 0);
+}
+
+/* 0x8076A0: Recursive helper of _rwFrameListInitialize() (0x8075D0);
+ * appends frame and all its descendants to the linear frame list. */
+RwBool _rwFrameListAddFrameRecursive(RwFrame** listCursor, RwFrame* frame) {
+    return ((RwBool(__cdecl*)(RwFrame**, RwFrame*))0x8076A0)(listCursor, frame);
+}
+
+/* 0x802F60: Returns the current image file search path (set by RwImageSetPath).
+ * Name taken from the RW SDK header (rwcore.h). */
+RwChar* RwImageGetPath() {
+    return ((RwChar*(__cdecl*)(void))0x802F60)();
+}
+
+/****************************************************************************
+ * D3D9 driver raster<->image conversion (driver/d3d9 raster.c equivalents) *
+ * Identified by decompilation: D3DFORMAT tables, _RwD3D9RasterExtOffset    *
+ * usage, RwRasterLock/Unlock + RwPalQuant* calls, and the                  *
+ * "Conversion to/from compressed rasters is not supported" error strings.  *
+ ****************************************************************************/
+
+/* 0x8001E0: Fills a D3D9 raster from an image (raster->image depth
+ * conversion, palettized vs true color dispatch). Errors on compressed
+ * (DXT) destination rasters. */
+RwBool _rwD3D9RasterSetFromImage(RwRaster* raster, RwImage* image) {
+    return ((RwBool(__cdecl*)(RwRaster*, RwImage*))0x8001E0)(raster, image);
+}
+
+/* 0x800C80: Palettized (4/8bpp) path of _rwD3D9RasterSetFromImage;
+ * quantizes via RwPalQuantAddImage/ResolvePalette/MatchImage. */
+void _rwD3D9RasterSetFromImagePalettized(RwRaster* raster, RwImage* image) {
+    ((void(__cdecl*)(RwRaster*, RwImage*))0x800C80)(raster, image);
+}
+
+/* 0x801390: True-color (24/32bpp) path of _rwD3D9RasterSetFromImage. */
+void _rwD3D9RasterSetFromImageNonPalettized(RwRaster* raster, RwImage* image) {
+    ((void(__cdecl*)(RwRaster*, RwImage*))0x801390)(raster, image);
+}
+
+/* 0x7FF270: Reads a raster back into an image. Errors on compressed
+ * rasters and on palettizing conversions; dispatches per image depth. */
+RwBool _rwD3D9RasterGetImage(RwImage* image, RwRaster* raster) {
+    return ((RwBool(__cdecl*)(RwImage*, RwRaster*))0x7FF270)(image, raster);
+}
+
+/* 0x7FF450: 32bpp destination path of _rwD3D9RasterGetImage
+ * (expands 4/8bpp palettes to RGBA). */
+void _rwD3D9RasterGetImageTrueColor(RwImage* image, RwRaster* raster) {
+    ((void(__cdecl*)(RwImage*, RwRaster*))0x7FF450)(image, raster);
+}
+
+/* 0x7FF8C0: 16bpp destination path of _rwD3D9RasterGetImage
+ * (per-D3DFMT unpack switch). */
+void _rwD3D9RasterGetImage16bpp(RwImage* image, RwRaster* raster) {
+    ((void(__cdecl*)(RwImage*, RwRaster*))0x7FF8C0)(image, raster);
+}
+
+/* 0x7FFFF0: Scans image alpha and checks D3D9 device format support
+ * (via RwD3D9CheckDeviceFormat-ish helper at 0x4CBDE0) to pick the
+ * rwRASTERFORMAT mask a raster of this image should use. */
+RwUInt32 _rwD3D9ImageFindUsedFormat(RwImage* image) {
+    return ((RwUInt32(__cdecl*)(RwImage*))0x7FFFF0)(image);
+}
+
+/* 0x7FF070: Converts one pixel from a rw raster format (0x100=555,
+ * 0x200=565, 0x300=4444, 0x400=luminance, 0x500=888, 0x600=8888, ...)
+ * into RGBA8888. */
+RwBool _rwD3D9ConvertPixelFromRasterFormat(void* dstPixel, const void* srcPixel, RwUInt32 rasterFormat) {
+    return ((RwBool(__cdecl*)(void*, const void*, RwUInt32))0x7FF070)(dstPixel, srcPixel, rasterFormat);
+}
+
+/* 0x7FEE20: Inverse of _rwD3D9ConvertPixelFromRasterFormat; packs an
+ * RGBA8888 pixel into the target raster format (computes luminance for
+ * L-format). */
+RwBool _rwD3D9ConvertPixelToRasterFormat(RwUInt32* dstPixel, const RwUInt8* rgba, RwUInt32 rasterFormat) {
+    return ((RwBool(__cdecl*)(RwUInt32*, const RwUInt8*, RwUInt32))0x7FEE20)(dstPixel, rgba, rasterFormat);
+}
+
+/* 0x7FED70: Clamps/rounds texture dimensions to device limits
+ * (max texture size globals 0xC9BF58/0xC9BF5C, D3DPTEXTURECAPS_POW2 in
+ * 0xC9BF3C) - rounds up to next power of two when the device needs it. */
+void _rwD3D9AdjustTextureDimensions(RwInt32* width, RwInt32* height, RwUInt32 flags) {
+    ((void(__cdecl*)(RwInt32*, RwInt32*, RwUInt32))0x7FED70)(width, height, flags);
+}
+
+/* 0x7FEC70: Cached shade-mode render state setter used by the driver's
+ * RwRenderStateSet (0x7FE420); queues D3DRS_SHADEMODE (9) in the driver's
+ * dirty state list (0xC98B40). */
+RwBool _rwD3D9RenderStateSetShadeMode(RwInt32 shadeMode) {
+    return ((RwBool(__cdecl*)(RwInt32))0x7FEC70)(shadeMode);
+}
+
+/* 0x7FED00: Cached cull-mode render state setter; queues D3DRS_CULLMODE
+ * (22) in the driver's dirty state list. */
+RwBool _rwD3D9RenderStateSetCullMode(RwInt32 cullMode) {
+    return ((RwBool(__cdecl*)(RwInt32))0x7FED00)(cullMode);
+}
+
+/* 0x7FECC0: Cached mag-filter sampler setter; applies directly via
+ * IDirect3DDevice9::SetSamplerState(0, D3DSAMP_MAGFILTER, filter). */
+RwBool _rwD3D9TextureSetMagFilter(RwUInt32 d3dMagFilter) {
+    return ((RwBool(__cdecl*)(RwUInt32))0x7FECC0)(d3dMagFilter);
+}
+
+/* ---------------------------------------------------------------------------
+ * IM3D default pipelines (identified from binary 2026-09-27)
+ * --------------------------------------------------------------------------- */
+
+/* 0x80E990: Address of the IM3D transform node definition ("ImmInstance.csl") */
+static RxNodeDefinition* _rwIm3DGetTransformNodeDefinition() {
+    return &StaticRef<RxNodeDefinition>(0x8E2918);
+}
+
+/* 0x80E9A0: Address of the IM3D render node definition ("nodeD3D9SubmitNoLight.csl") */
+static RxNodeDefinition* _rwIm3DGetRenderNodeDefinition() {
+    return &StaticRef<RxNodeDefinition>(0x8E2978);
+}
+
+/* 0x80A0A0 */
+RwBool _rwIm3DTransformPipeOpen(RxPipeline** pipeline) {
+    ZoneScoped;
+    if (auto pipe = RxPipelineCreate()) {
+        pipe->pluginId = 1;
+        if (auto locked = RxPipelineLock(pipe)) {
+            locked = RxLockedPipeAddFragment(locked, nullptr, _rwIm3DGetTransformNodeDefinition());
+            if (auto unlocked = RxLockedPipeUnlock(locked)) {
+                *pipeline = unlocked;
+                RwIm3DSetTransformPipeline(unlocked);
+                return TRUE;
+            }
+        }
+        _rxPipelineDestroy(pipe);
+    }
+    return FALSE;
+}
+
+/* 0x80A110 */
+void _rwIm3DTransformPipeClose(RxPipeline** pipeline) {
+    ZoneScoped;
+    RwIm3DSetTransformPipeline(nullptr);
+    if (*pipeline != nullptr) {
+        _rxPipelineDestroy(*pipeline);
+        *pipeline = nullptr;
+    }
+}
+
+/* 0x80A140 */
+void _rwIm3DRenderPipeClose(RxPipeline** pipelines) {
+    ZoneScoped;
+    ((void(__cdecl*)(void))0x80DFB0)(); /* _rwD3D8Im3DRenderPipeCloseDevice (driver side, unreversed) */
+    RwIm3DSetRenderPipeline(nullptr, rwPRIMTYPETRIFAN);
+    RwIm3DSetRenderPipeline(nullptr, rwPRIMTYPEPOLYLINE);
+    RwIm3DSetRenderPipeline(nullptr, rwPRIMTYPELINELIST);
+    RwIm3DSetRenderPipeline(nullptr, rwPRIMTYPETRILIST);
+    RwIm3DSetRenderPipeline(nullptr, rwPRIMTYPETRISTRIP);
+    if (pipelines[0] != nullptr) {
+        _rxPipelineDestroy(pipelines[0]);
+    }
+    pipelines[0] = pipelines[1] = pipelines[2] = pipelines[3] = pipelines[4] = nullptr;
+}
+
+/* 0x80A1A0 */
+RwBool _rwIm3DRenderPipeOpen(RxPipeline** pipelines) {
+    ZoneScoped;
+    if (auto pipe = RxPipelineCreate()) {
+        pipe->pluginId = 1;
+        if (auto locked = RxPipelineLock(pipe)) {
+            locked = RxLockedPipeAddFragment(locked, nullptr, _rwIm3DGetRenderNodeDefinition());
+            if (auto unlocked = RxLockedPipeUnlock(locked)) {
+                pipelines[0] = pipelines[1] = pipelines[2] = pipelines[3] = pipelines[4] = unlocked;
+                RwIm3DSetRenderPipeline(unlocked, rwPRIMTYPETRIFAN);
+                RwIm3DSetRenderPipeline(unlocked, rwPRIMTYPEPOLYLINE);
+                RwIm3DSetRenderPipeline(unlocked, rwPRIMTYPELINELIST);
+                RwIm3DSetRenderPipeline(unlocked, rwPRIMTYPETRILIST);
+                RwIm3DSetRenderPipeline(unlocked, rwPRIMTYPETRISTRIP);
+                return ((RwBool(__cdecl*)(void))0x80E020)(); /* _rwD3D8Im3DRenderPipeOpenDevice (driver side, unreversed) */
+            }
+        }
+        _rxPipelineDestroy(pipe);
+    }
+    return FALSE;
 }

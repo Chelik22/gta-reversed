@@ -131,14 +131,14 @@ public:
     bool            m_bPauseMode{false};
     bool            m_bRetuneJustStarted{false};
     bool            m_bRadioAutoSelect{true};
-    std::array<uint8, RADIO_COUNT>       m_nTracksInARow{};
-    uint8           m_nSavedGameClockDays{0xff};
-    uint8           m_nSavedGameClockHours{0xff};
-    std::array<int32, RADIO_COUNT>       m_aListenTimes{}; // Filled from `CStats::FavoriteRadioStationList`
-    uint32          m_nTimeRadioStationRetuned{0};
-    uint32          m_nTimeToDisplayRadioName{0};
-    uint32          m_nSavedTimeMs{0};
-    uint32          m_nRetuneStartedTime;
+    std::array<uint8, 14>                m_nTracksInARow{};   // 0x8. Indexed by `eRadioID` (0..13)
+    uint8           m_nSavedGameClockDays{0xff};              // 0x16
+    uint8           m_nSavedGameClockHours{0xff};             // 0x17
+    std::array<int32, 14>                m_aListenTimes{};    // 0x18. Filled from `CStats::FavoriteRadioStationList` (14 entries)
+    uint32          m_nTimeToDisplayRadioName{0};             // 0x50
+    uint32          field_54{0};                              // 0x54 - unknown, never accessed by any reversed function so far
+    uint32          m_nSavedTimeMs{0};                        // 0x58 - time of the last radio save (see `StopRadio`)
+    uint32          m_nRetuneStartedTime;                     // 0x5C
     uint32          field_60{0};
     int32           m_HwClientHandle;
     eRadioTrackMode m_nMode{eRadioTrackMode::RADIO_STOPPED};
@@ -151,9 +151,12 @@ public:
     float           m_f84{0.0f};
     tRadioSettings  m_RequestedSettings{}; // settings1
     tRadioSettings  m_ActiveSettings{}; // settings2
-    std::array<tRadioState, RADIO_COUNT> m_aRadioState{};
+    // 0x100. 14 entries (indexed by station id 0..13).
+    // NOTE: The original also writes to indices `station + 6` (up to 19) which spills past
+    // the end of the array into whatever follows the singleton in memory - bug compatible.
+    std::array<tRadioState, 14> m_aRadioState{};
     uint32          field_368{0};
-    uint8           m_nUserTrackPlayMode{};
+    uint8           m_nUserTrackPlayMode{};                   // 0x36C
 
 public:
     static constexpr auto DJBANTER_INDEX_HISTORY_COUNT = 15;
@@ -249,7 +252,7 @@ protected:
     int32 ChooseIdentIndex(eRadioID id);
     int32 ChooseAdvertIndex(eRadioID id);
     int32 ChooseDJBanterIndex(eRadioID id);
-    int32 ChooseDJBanterIndexFromList(eRadioID id, int32** list);
+    int32 ChooseDJBanterIndexFromList(eRadioID id, const std::array<int32, 2>* banterList); //!< `banterList` - {first, last} index range per station
     int8  ChooseMusicTrackIndex(eRadioID id);
     static int8  ChooseTalkRadioShow();
 

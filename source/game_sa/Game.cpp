@@ -578,7 +578,16 @@ bool CGame::InitialiseCoreDataAfterRW() {
 bool CGame::InitialiseEssentialsAfterRW() {
     CMemoryMgr::PushMemId(MEM_30);
     TheText.Load(false);
-    if (!CCarFXRenderer::Initialise() || !CGrassRenderer::Initialise() || !CCustomBuildingRenderer::Initialise()) {
+    if (!CCarFXRenderer::Initialise()) {
+        spdlog::warn("NOTSA(quit-trace): CCarFXRenderer::Initialise FAILED");
+        return false;
+    }
+    if (!CGrassRenderer::Initialise()) {
+        spdlog::warn("NOTSA(quit-trace): CGrassRenderer::Initialise FAILED");
+        return false;
+    }
+    if (!CCustomBuildingRenderer::Initialise()) {
+        spdlog::warn("NOTSA(quit-trace): CCustomBuildingRenderer::Initialise FAILED");
         return false;
     }
     CMemoryMgr::PopMemId();

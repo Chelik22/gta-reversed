@@ -3,6 +3,17 @@
 #include <reversiblebugfixes/Bugs.hpp>
 #include "PedDamageResponseCalculator.h"
 
+#include "PedGroups.h"
+#include "PedStats.h"
+#include "PedIntelligence.h"
+#include "Localisation.h"
+#include "Events/EventDamage.h"
+#include "PlayerPed.h"
+#include "Tasks/TaskTypes/TaskSimpleFight.h"
+#include "World.h"
+#include "Timer.h"
+#include "General.h"
+
 void CPedDamageResponseCalculator::InjectHooks() {
     RH_ScopedClass(CPedDamageResponseCalculator);
     RH_ScopedCategoryGlobal();
@@ -12,7 +23,7 @@ void CPedDamageResponseCalculator::InjectHooks() {
     RH_ScopedInstall(AccountForPedArmour, 0x4AD550, { .reversed = false });
     RH_ScopedInstall(ComputeWillForceDeath, 0x4AD610, { .reversed = false });
     RH_ScopedInstall(ComputeWillKillPed, 0x4B3210);
-    RH_ScopedInstall(IsBleedingWeapon, 0x4B5C2A, { .reversed = false });
+    // NB: IsBleedingWeapon is not a real function (0x4B5C2A is inside ComputeDamageResponse) - it's an inlined weapon check, do not install.
     RH_ScopedInstall(ComputeDamageResponse, 0x4B5AC0, { .reversed = false });
 }
 
@@ -37,9 +48,49 @@ CPedDamageResponseCalculator* CPedDamageResponseCalculator::Constructor(CEntity*
  * @addr 0x4AD430
  */
 void CPedDamageResponseCalculator::AccountForPedDamageStats(CPed* ped, CPedDamageResponse& response) {
-    plugin::CallMethod<0x4AD430, CPedDamageResponseCalculator*, CPed*, CPedDamageResponse&>(this, ped, response);
-}
+    // NOTE: `response` is unused by the original
+    const bool damageFactorWasSpecial = m_fDamageFactor == StaticRef<float>(0x8A6260); // DAT_008A6260 == 5555.5498f (`ms_damageFactor`)
+    const bool isPlayer            = ped->IsPlayer();
 
+    if (isPlayer)
+        m_fDamageFactor = m_fDamageFactor * 0.33f; // 0x85AD74 - players only take 33% of the damage
+    else
+        m_fDamageFactor = ped->m_pStats->m_fDefendWeakness * m_fDamageFactor; // Ped stats based damage
+
+    bool doClamp = false;
+    if (m_pDamager && m_pDamager->GetIsTypePed() && isPlayer) {
+        // The damager is a ped and the victim is a player
+        if (!CPedGroups::AreInSameGroup(ped, m_pDamager->AsPed()))
+            return;
+        if (m_weaponType == WEAPON_EXPLOSION || m_weaponType == WEAPON_FLAMETHROWER)
+            return;
+        if (damageFactorWasSpecial)
+            return;
+        doClamp = true;
+    } else {
+        if (ped && ped->IsPlayer() && m_pDamager) {
+            if (!m_pDamager->GetIsTypePed())
+                return;
+            if (CPedIntelligence::AreFriends(*ped, *m_pDamager->AsPed()))
+                doClamp = true; // Friends of the player only get clamped
+        }
+        if (!doClamp) {
+            if (!m_pDamager)
+                return;
+            if (!m_pDamager->GetIsTypePed())
+                return;
+            if (ped->m_nPedType != PED_TYPE_PLAYER_NETWORK) // Original checks the low byte of m_nPedType (ped + 0x484) against 2
+                return;
+            if (!CPedGroups::AreInSameGroup(ped, m_pDamager->AsPed()))
+                return;
+            if (m_weaponType == WEAPON_EXPLOSION || m_weaponType == WEAPON_FLAMETHROWER)
+                return;
+        }
+    }
+
+    // Clamp damage dealt by team members / friends
+    m_fDamageFactor = std::min(12.5f, m_fDamageFactor * 0.1f); // 0.1f @ 0x858B1C
+}
 /*!
  *
  * @param ped
@@ -47,8 +98,6 @@ void CPedDamageResponseCalculator::AccountForPedDamageStats(CPed* ped, CPedDamag
  * @addr 0x4AD550
  */
 void CPedDamageResponseCalculator::AccountForPedArmour(CPed* ped, CPedDamageResponse& response) {
-    plugin::CallMethod<0x4AD550, CPedDamageResponseCalculator*, CPed*, CPedDamageResponse&>(this, ped, response);
-    return; // todo: not tested
 
     if (ped->m_fArmour == 0.0f)
         return;
@@ -69,7 +118,6 @@ void CPedDamageResponseCalculator::AccountForPedArmour(CPed* ped, CPedDamageResp
         m_fDamageFactor = 0.0f;
     }
 }
-
 /*!
  *
  * @param ped
@@ -109,9 +157,91 @@ void CPedDamageResponseCalculator::AdjustPedDamage(CPed* ped) {
  * @addr 0x4AD610
  */
 bool CPedDamageResponseCalculator::ComputeWillForceDeath(CPed* ped, CPedDamageResponse& response) {
-    return plugin::CallMethodAndReturn<bool, 0x4AD610, CPedDamageResponseCalculator*, CPed*, CPedDamageResponse&>(this, ped, response);
-}
+    // NOTE: `response` is unused by the original
+    if (ped->bNoCriticalHits) // ped + 0x470 & 0x1000 - cannot be killed by a single hit
+        return false;
 
+    bool forceDeath = false;
+
+    switch (m_weaponType) {
+    case WEAPON_KATANA: {
+        // Katana decapitation of the player mid-fight
+        if (!m_pDamager || !m_pDamager->GetIsTypePed())
+            return false;
+        if (!ped->IsPlayer())
+            return false;
+
+        const auto fightTask = ped->GetIntelligence()->GetTaskFighting(); // 0x600F30
+        if (!fightTask)
+            return false;
+        if (fightTask->m_nComboSet != 11)
+            return false;
+        if (fightTask->m_nCurrentMove == FIGHT_ATTACK_HIT_3 && (CGeneral::GetRandomNumber() & 1) != 0)
+            return true;
+        forceDeath = (CGeneral::GetRandomNumber() & 7) == 0;
+        break;
+    }
+    case WEAPON_GRENADE:
+    case WEAPON_RLAUNCHER:
+    case WEAPON_RLAUNCHER_HS:
+    case WEAPON_REMOTE_SATCHEL_CHARGE:
+    case WEAPON_EXPLOSION: {
+        // Explosions can only instakill in uncut versions, and only on foot
+        if (!CLocalisation::KillPeds())
+            return false;
+        if (ped->IsPlayer())
+            return false;
+        if (ped->bInVehicle)
+            return false;
+        forceDeath = ped->m_fHealth < m_fDamageFactor + 1.0f; // 1.0f @ 0x858624
+        break;
+    }
+    case WEAPON_PISTOL:
+    case WEAPON_PISTOL_SILENCED:
+    case WEAPON_DESERT_EAGLE:
+    case WEAPON_SHOTGUN:
+    case WEAPON_SAWNOFF_SHOTGUN:
+    case WEAPON_SPAS12_SHOTGUN:
+    case WEAPON_MICRO_UZI:
+    case WEAPON_MP5:
+    case WEAPON_AK47:
+    case WEAPON_M4:
+    case WEAPON_TEC9:
+    case WEAPON_FREEFALL_BOMB:
+    case WEAPON_MINIGUN:
+    case WEAPON_UZI_DRIVEBY: {
+        // Bullets can only instakill by a shot to the head
+        uint32 rnd;
+        if (!ped->IsPlayer() && !ped->bNoCriticalHits)
+            rnd = (m_weaponType == WEAPON_COUNTRYRIFLE || m_weaponType == WEAPON_SNIPERRIFLE)
+                      ? 0 // Rifles always have a chance to instakill
+                      : (CGeneral::GetRandomNumber() & 7);
+        else
+            rnd = 1;
+
+        // Being shot while in a vehicle by a (free-aiming at the right bone) player forces death
+        const bool inVehicle = ped->bInVehicle && ped->m_pVehicle;
+        const bool damagerForcesDeath =
+            inVehicle
+            && !ped->bNoCriticalHits
+            && !ped->IsPlayer()
+            && m_pDamager
+            && m_pDamager->GetIsTypePed()
+            && m_pDamager->AsPed()->IsPlayer()
+            && (   m_pDamager->AsPed()->GetPlayerData()->m_nTargetBone == 5
+                || (m_pDamager->AsPed()->GetPlayerData()->m_nPlayerFlags & 0x8)); // m_bFreeAiming
+        if (rnd != 0 && !damagerForcesDeath)
+            return false;
+
+        forceDeath = m_bodyPart == PED_PIECE_HEAD;
+        break;
+    }
+    default:
+        return false;
+    }
+
+    return forceDeath;
+}
 /*!
  *
  * @param ped
@@ -166,7 +296,6 @@ void CPedDamageResponseCalculator::ComputeWillKillPed(CPed* ped, CPedDamageRespo
         );
     }
 }
-
 /*!
  *
  * @param ped
@@ -191,6 +320,55 @@ bool CPedDamageResponseCalculator::IsBleedingWeapon(CPed* ped) const {
  * @addr 0x4B5AC0
  */
 void CPedDamageResponseCalculator::ComputeDamageResponse(CPed* ped, CPedDamageResponse& response, bool bSpeak) {
-    plugin::CallMethod<0x4B5AC0, CPedDamageResponseCalculator*, CPed*, CPedDamageResponse&, bool>(this, ped, response, bSpeak);
-}
+    if (response.m_bDamageCalculated)
+        return;
 
+    response.m_fDamageHealth      = 0.0f;
+    response.m_fDamageArmor       = 0.0f;
+    response.m_bHealthZero        = false;
+    response.m_bForceDeath        = false;
+    response.m_bDamageCalculated  = true;
+    response.m_bCheckIfAffectsPed = true;
+
+    AccountForPedDamageStats(ped, response); // 0x4AD430
+    AccountForPedArmour(ped, response);      // 0x4AD550
+    ComputeWillKillPed(ped, response, bSpeak); // 0x4B3210
+
+    // Count the hits done if the damager is the local player (or their vehicle)
+    if (m_pDamager) {
+        if (m_pDamager == FindPlayerPed() || m_pDamager == FindPlayerVehicle()) {
+            if (m_pDamager != ped && 3.0f < response.GetTotalDamage()) // 3.0f @ 0x858B3C
+                CWorld::Players[CWorld::PlayerInFocus].m_nHavocCaused++;
+        }
+    }
+
+    if (ped == FindPlayerPed())
+        FindPlayerPed()->AnnoyPlayerPed(false); // 0x60A040
+
+    // The damager is a player ped and the victim is a player => make the player's group react
+    if (ped->IsPlayer() && m_pDamager && m_pDamager->GetIsTypePed()) {
+        CEventDamage event{ const_cast<CEntity*>(m_pDamager), 0, m_weaponType, m_bodyPart, 0, false, ped->bInVehicle }; // 0x4AD830
+        FindPlayerPed()->MakeGroupRespondToPlayerTakingDamage(event); // 0x60A110
+    }
+
+    if (response.GetTotalDamage() > 0.0f) { // 0.0f @ 0x858B50
+        // Melee cutting weapons make peds bleed
+        if (!ped->IsPlayer() && (m_weaponType == WEAPON_KNIFE || m_weaponType == WEAPON_KATANA || m_weaponType == WEAPON_CHAINSAW))
+            ped->m_nBleedTimer = 200;
+
+        if (ped == FindPlayerPed())
+            CWorld::Players[CWorld::PlayerInFocus].m_nLastTimeEnergyLost = CTimer::GetTimeInMS();
+
+        ped->m_nLastWeaponDamage = (char)m_weaponType;
+        if (m_pDamager) {
+            ped->m_pLastEntityDamage = const_cast<CEntity*>(m_pDamager);
+            ped->m_pLastEntityDamage->RegisterReference(reinterpret_cast<CEntity**>(&ped->m_pLastEntityDamage)); // 0x571B70
+            ped->m_nLastEntityDamageTime = CTimer::GetTimeInMS();
+
+            if (m_pDamager->GetIsTypePed() && m_pDamager->AsPed()->IsPlayer()) {
+                // NB: The original calls this and discards the result (the compiler kept the call)
+                (void)FindPlayerPed()->GetPlayerGroup().GetMembership().IsMember(ped); // 0x5F6A10
+            }
+        }
+    }
+}

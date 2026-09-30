@@ -71,6 +71,7 @@ void MessageLoop() {
     MSG msg;
     while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE | PM_NOYIELD)) {
         if (msg.message == WM_QUIT) {
+            spdlog::warn("NOTSA(quit-trace): WM_QUIT in MessageLoop -> RsGlobal.quit");
             RsGlobal.quit = true;
         } else {
             TranslateMessage(&msg);
@@ -117,6 +118,9 @@ auto Win32_InitInstance(HINSTANCE hInstance) {
 
 // 0x7468E0
 bool IsAlreadyRunning() {
+    // NOTSA(test): never treat another instance as "already running" - enables
+    // multi-instance (sandbox + manual play side by side). Local-only change.
+    return false;
     CreateEvent(nullptr, false, true, APP_CLASS);
     if (GetLastError() != ERROR_ALREADY_EXISTS) {
         return false;
@@ -135,6 +139,9 @@ bool IsForegroundApp() {
 
 // Code from winmain, 0x748DCF
 bool ProcessGameLogic(INT nCmdShow) {
+    if (RsGlobal.quit) {
+        spdlog::warn("NOTSA(quit-trace): ProcessGameLogic: RsGlobal.quit set -> loop exit");
+    }
     if (RsGlobal.quit || FrontEndMenuManager.m_bStartGameLoading) {
         return false;
     }
@@ -230,6 +237,7 @@ bool ProcessGameLogic(INT nCmdShow) {
             CLoadingScreen::DoPCTitleFadeIn();
         }
         if (!CGame::InitialiseEssentialsAfterRW()) {
+            spdlog::warn("NOTSA(quit-trace): InitialiseEssentialsAfterRW FAILED (renderer init) -> quit");
             RsGlobal.quit = true;
         }
         CGame::InitialiseCoreDataAfterRW();

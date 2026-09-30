@@ -85,7 +85,7 @@ public:
     void CalculateTrianglePlanes();
     void RemoveTrianglePlanes();
     void GetTrianglePoint(CVector& outVec, int32 vertId);
-    void GetShadTrianglePoint(CVector& outVec, int32 vertId);
+    void GetShadTrianglePoint(CVector& outVec, int32 vertId) const;
     void SetLinkPtr(CLink<CCollisionData*>* link);
     CLink<CCollisionData*>* GetLinkPtr();
 

@@ -46,17 +46,24 @@ float CGeneral::LimitAngle(float angle) {
 
 // 0x53CB50
 float CGeneral::LimitRadianAngle(float angle) {
-    float result = std::clamp(angle, -25.0f, 25.0f);
-
-    while (result >= PI) {
-        result -= 2 * PI;
+    // Original uses 2 explicit ifs (not std::clamp) - see 0x53CB50
+    if (angle < -25.0f) {
+        angle = -25.0f;
     }
 
-    while (result < -PI) {
-        result += 2 * PI;
+    if (angle > 25.0f) {
+        angle = 25.0f;
     }
 
-    return result;
+    while (angle >= PI) {
+        angle -= 2 * PI;
+    }
+
+    while (angle < -PI) {
+        angle += 2 * PI;
+    }
+
+    return angle;
 }
 
 // 0x53CBE0

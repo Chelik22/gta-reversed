@@ -364,7 +364,11 @@ struct D3D9ProxyDevice {
             vm.mode.Width  = pp->BackBufferWidth;
             vm.mode.Height = pp->BackBufferHeight;
         } else {
-            NOTSA_DEBUGBREAK();
+            // NOTSA(ovfix): A failed Reset is recoverable (the engine retries next frame) -
+            // esp. D3DERR_DEVICELOST, which is a normal, transient DX9 state (eg. window
+            // moved/minimized during load). Debug-breaking here turned a recoverable
+            // condition into an unhandled int3 crash of the whole process.
+            SPDLOG_WARN("Proxy_Reset failed: {:#010x}", (uintptr_t)hr);
         }
 
         return hr;

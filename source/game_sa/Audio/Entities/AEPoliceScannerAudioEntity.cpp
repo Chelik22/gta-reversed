@@ -33,6 +33,17 @@ void CAEPoliceScannerAudioEntity::Reset() {
 }
 
 // 0x4E71E0
+// BLOCKER (not reversed yet): Builds a police-scanner "sentence" (2 x tScannerSlot[5]) and passes it
+// to `PlayPoliceScannerDialogue()`. Requires `event == AE_CRIME_COMMITTED` and 2 <= crimeType <= 0x16.
+// Sentence words are picked from static tables: generic opening word from 0x8C8160 (rand(0..3)),
+// crime word 0x8C8168[crimeType], zone name word 0x8C87A8[zoneIdx] (only if zone word loaded,
+// byte 0x8C8930[zoneIdx]), position words (left/right/in-front/behind) computed from the zone's
+// bounding box vs `point` (0x572360 = FindSmallestZoneForPosition, matched against table 0x8C8198, 0xC2 entries).
+// Then the perpetrator is looked up (FindPlayerVehicle/FindPlayerPed for player 0 and 1, matched via veh+0x21C),
+// swim/jetpack tasks (CPedIntelligence::GetTaskSwim/GetTaskJetPack) pick more words, and if the ped is in a
+// vehicle the vehicle type (veh+0x1D4, tables 0x8C89F8/0x8C8A54) and color/remap (veh+0x434, 0x8C8A88, CVehicle::GetRemapIndex) words are added.
+// Not translated because all those static word tables (0x8C8160..0x8C8A88) and several veh/zone offsets still
+// need to be identified/named against the repo headers.
 void CAEPoliceScannerAudioEntity::AddAudioEvent(eAudioEvents event, eCrimeType crimeType, const CVector& point) {
     plugin::CallMethod<0x4E71E0, CAEPoliceScannerAudioEntity*, eAudioEvents, eCrimeType, const CVector&>(this, event, crimeType, point);
 }
@@ -128,8 +139,6 @@ void CAEPoliceScannerAudioEntity::FinishedPlayingScannerDialogue() {
 
 // 0x4E6F60
 void CAEPoliceScannerAudioEntity::PlayLoadedDialogue() {
-    return plugin::CallMethod<0x4E6F60, CAEPoliceScannerAudioEntity*>(this);
-
     int16 i;
     for (i = 0; i < NUM_POLICE_SCANNER_SLOTS; ++i) {
         if (s_SlotState[i] == FIVE) {
@@ -322,17 +331,17 @@ void CAEPoliceScannerAudioEntity::InjectHooks() {
     RH_ScopedInstall(Reset, 0x4E6E90);
     RH_ScopedInstall(AddAudioEvent, 0x4E71E0, { .reversed = false });
     RH_ScopedInstall(PrepSlots, 0x4E6BC0);
-    RH_ScopedInstall(LoadSlots, 0x4E6CD0, { .reversed = false });
+    RH_ScopedInstall(LoadSlots, 0x4E6CD0);
     RH_ScopedInstall(EnableScanner, 0x4E6DB0);
     RH_ScopedInstall(DisableScanner, 0x4E71B0);
     RH_ScopedInstall(StopScanner, 0x4E6DC0);
     RH_ScopedInstall(FinishedPlayingScannerDialogue, 0x4E6C30);
-    RH_ScopedInstall(PlayLoadedDialogue, 0x4E6F60, { .reversed = false });
+    RH_ScopedInstall(PlayLoadedDialogue, 0x4E6F60);
     RH_ScopedInstall(PopulateScannerDialogueLists, 0x4E6B60);
     RH_ScopedInstall(CanWePlayNewScannerDialogue, 0x4E6C00);
     RH_ScopedInstall(PlayPoliceScannerDialogue, 0x4E6ED0);
     RH_ScopedVMTInstall(UpdateParameters, 0x4E7590);
-    RH_ScopedInstall(Service, 0x4E7630, { .reversed = false });
+    RH_ScopedInstall(Service, 0x4E7630);
 }
 
 CAEPoliceScannerAudioEntity* CAEPoliceScannerAudioEntity::Constructor() {

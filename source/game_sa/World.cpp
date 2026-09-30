@@ -1320,6 +1320,13 @@ void CWorld::RemoveFallenPeds() {
         if (vecPedPos.z > MAP_Z_LOW_LIMIT) {
             continue;
         }
+        // NOTSA(stability): a ped whose transform is garbage (memory corruption)
+        // must not go through the teleport/remove chains below - the corrupted
+        // fields poison the pathfinder and crash later. Drop it quietly.
+        if (fabsf(vecPedPos.x) > 1e5f || fabsf(vecPedPos.y) > 1e5f || fabsf(vecPedPos.z) > 1e4f) {
+            NOTSA_LOG_WARN("Ped has CORRUPT transform ({:4f} {:4f} {:4f}) - skipping fall handling", vecPedPos.x, vecPedPos.y, vecPedPos.z);
+            continue;
+        }
         NOTSA_LOG_WARN("&&&&&&Another ped has fallen through the map&&&&&&&&&& {:4f} {:4f} {:4f}", vecPedPos.x, vecPedPos.y, vecPedPos.z); // R* log
         if (!ped->IsCreatedBy(ePedCreatedBy::PED_GAME) || ped->IsPlayer()) {
             CNodeAddress pathNodeAddress = ThePaths.FindNodeClosestToCoors(vecPedPos, PATH_TYPE_PED, 1000000.0f, 0, 0, 0, 0, 0);
@@ -1339,6 +1346,11 @@ void CWorld::RemoveFallenPeds() {
 
 // 0x565E80
 void CWorld::RemoveFallenCars() {
+    // NOTSA(stability): deleting fallen (mission) vehicles mid-cutscene used to
+    // leave dangling references in the cutscene object lists -> freeze/AV later.
+    if (CCutsceneMgr::IsRunning()) {
+        return;
+    }
     for (int32 i = GetVehiclePool()->GetSize(); i; i--) {
         CVehicle* vehicle = GetVehiclePool()->GetAt(i - 1);
         if (!vehicle) {

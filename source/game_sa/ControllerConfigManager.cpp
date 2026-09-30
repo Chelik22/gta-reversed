@@ -1145,15 +1145,21 @@ void CControllerConfigManager::AffectPadFromKeyBoard() {
         for (const auto& type : CONTROLLER_TYPES_KEYBOARD) {
             const auto key = action.Keys[+type].m_uiActionInitiator;
 
-            if (GetIsKeyboardKeyDown(key) && inMenu && !GetIsKeyBlank(key, type)) {
+            if (GetIsKeyBlank(key, type)) {
+                continue;
+            }
+
+            if (GetIsKeyboardKeyDown(key)) {
+                // Key is currently held down - fill the pad state.
+                // (The original checks `!padNumber && !m_bMenuActive` here.)
                 if (inMenu) {
                     AffectControllerStateOn_ButtonDown(key, type);
                 }
-                auto* pad = CPad::GetPad();
-                if (!pad || FrontEndMenuManager.m_bMenuActive) {
-                    continue;
+            } else if (!FrontEndMenuManager.m_bMenuActive) { // NOTSA(fix): The original calls this when the key is NOT down (and only requires the menu to not be active), not while it is held.
+                // Key is not down - reset the states of the actions that latch.
+                if (auto* pad = CPad::GetPad()) {
+                    AffectControllerStateOn_ButtonUp_All_Player_States(key, type, GetControllerState(*pad, type));
                 }
-                AffectControllerStateOn_ButtonUp_All_Player_States(key, type, GetControllerState(*pad, type));
             }
         }
     }
@@ -1172,8 +1178,10 @@ void CControllerConfigManager::AffectPadFromMouse() {
         }
 
         if (GetIsMouseButtonUp(button)) {
-            if (auto* pad = CPad::GetPad()) {
-                AffectControllerStateOn_ButtonUp_All_Player_States(button, eControllerType::MOUSE, GetControllerState(*pad, eControllerType::MOUSE));
+            if (!FrontEndMenuManager.m_bMenuActive) { // NOTSA(fix): The original requires the menu to not be active here too
+                if (auto* pad = CPad::GetPad()) {
+                    AffectControllerStateOn_ButtonUp_All_Player_States(button, eControllerType::MOUSE, GetControllerState(*pad, eControllerType::MOUSE));
+                }
             }
         }
     }

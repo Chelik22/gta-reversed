@@ -131,6 +131,13 @@ public:
     bool ProcessJoyStickEvent(const SDL_Event& e, CControllerState& cs);
 
     static bool ProcessEvent(const SDL_Event& e, bool ignoreMouseEvents, bool ignoreKeyboardEvents);
+
+    //! NOTSA(fix): Rebuild `TempKeyState` from the OS keyboard state.
+    //! Must be called when the window (re)gains keyboard focus - SDL3 releases
+    //! all pressed keys on focus loss (unlike Win32, which the original was built on),
+    //! which would otherwise permanently drop held keys (frozen player input).
+    //! See Pad_SDL.cpp for details.
+    static void RestoreKeyboardStateFromOS();
 #endif
 
     void Clear(bool enablePlayerControls, bool resetPhase);
@@ -224,7 +231,11 @@ public:
     [[nodiscard]] bool GroupControlBackJustDown() const noexcept            { return !DisablePlayerControls && IsDPadDownPressed(); }                                        // 0x541260
 
     // KEYBOARD
-    [[nodiscard]] bool IsFKeyJustDown(eFKeyID key) const noexcept           { return NewKeyState.FKeys[key] && OldKeyState.FKeys[key]; }
+    // FIX: "just down" must be EDGE-triggered (New && !Old). The old `New && Old`
+    // returned true the whole time the key was HELD — with F7 that toggled the
+    // debug UI every frame while held, and any accidental F7 tap left the UI active,
+    // which gates ALL pad updates in UpdatePads => game input dead ("movement stops").
+    [[nodiscard]] bool IsFKeyJustDown(eFKeyID key) const noexcept           { return NewKeyState.FKeys[key] && !OldKeyState.FKeys[key]; }
     [[nodiscard]] bool IsFKeyJustPressed(eFKeyID key) const noexcept        { return NewKeyState.FKeys[key] && !OldKeyState.FKeys[key]; }
     [[nodiscard]] bool IsF1JustPressed() const noexcept                     { return IsFKeyJustPressed(FKEY1); }
     [[nodiscard]] bool IsF2JustPressed() const noexcept                     { return IsFKeyJustPressed(FKEY2); }

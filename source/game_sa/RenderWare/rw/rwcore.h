@@ -1430,6 +1430,52 @@ extern RwBool RwD3D9DynamicVertexBufferLock(RwUInt32 vertexSize,
 
 extern RwBool RwD3D9DynamicVertexBufferUnlock(void *vertexBuffer);
 
+/*
+ * Dynamic vertex buffer module internals (identified from the gta_sa.exe binary, 2026-09-27).
+ */
+
+/* Creates the dynamic vertex buffer pool (1 or 4 x 256 KiB buffers). */
+extern RwBool _rwD3D9DynamicVertexBufferCreateAll(void);
+
+/* Clears the current slot's cached offsets and advances the round-robin slot index. */
+extern void _rwD3D9DynamicVertexBufferAdvanceSlot(void);
+
+/* Resets all slots' bookkeeping, releasing the D3D vertex buffers when required. */
+extern void _rwD3D9DynamicVertexBufferResetAll(void);
+
+/* Opens the module: creates the bookkeeping freelists and the vertex buffer pool. */
+extern RwBool _rwD3D9DynamicVertexBufferOpen(void);
+
+/* Closes the module: releases all vertex buffers, records and freelists. */
+extern void _rwD3D9DynamicVertexBufferClose(void);
+
+/*
+ * D3D9 device module internals (identified from the gta_sa.exe binary, 2026-09-27).
+ */
+
+/* Invalidates the cached D3D render states, sampler states and texture stage caches. */
+extern void _rwD3D9RenderStateInvalidateCache(void);
+
+/* Opens the device resource cache: freelist + 65-slot resource table + default record. */
+extern void _rwD3D9DeviceResourceCacheOpen(void);
+
+/* Probes IDirect3D9 for the highest supported format value in the range [2, 16]. */
+extern void _rwD3D9DeviceProbeMaxFormatSupport(void);
+
+/* Full device shutdown: releases every device-owned resource and the IDirect3DDevice9. */
+extern RwBool _rwD3D9DeviceClose(void);
+
+/* Fills a std-function dispatch table (RwEngineInstance->stdFunc[]) with driver/game handlers. */
+extern RwBool _rwD3D9StdFuncTableInit(void **table,
+                                      void *param,
+                                      RwInt32 count);
+
+/* Enumerates and deduplicates adapter display modes for the video mode list. */
+extern void _rwD3D9BuildDisplayModeList(void);
+
+/* Device-reset handler: TestCooperativeLevel/Reset plus full render-state restore. */
+extern RwBool _rwD3D9DeviceReset(void);
+
 #ifdef    __cplusplus
 }
 #endif /* __cplusplus */
@@ -2956,6 +3002,30 @@ extern RwBool       RwTextureGenerateMipmapName(RwChar * name,
                                                 RwInt32 format);
 extern RwBool       RwTextureRasterGenerateMipmaps(RwRaster * raster,
                                                    RwImage * image);
+
+    /*
+     * Texture/image loading internals (identified from the gta_sa.exe binary, 2026-09-27).
+     */
+
+    /* Builds one palette shared by a set of images via the RwPalQuant module. */
+extern RwBool       _rwImagePaletteUnify(RwRGBA *paletteOut,
+                                         RwImage *imageToKeep,
+                                         RwImage **images,
+                                         RwInt32 numImages,
+                                         RwInt32 paletteDepth);
+
+    /* RwImageRead plus resampling to *widthInOut x *heightInOut, preserving 4/8-bit palettes. */
+extern RwImage     *_rwImageReadResample(const RwChar *name,
+                                         const RwChar *maskName,
+                                         RwUInt32 rasterFlags,
+                                         RwInt32 *widthInOut,
+                                         RwInt32 *heightInOut,
+                                         void *param6,
+                                         void *param7);
+
+    /* RwTextureRead raster pipeline: image read + D3D9 raster creation + mipmaps + palette. */
+extern RwRaster    *_rwTextureReadRaster(const RwChar *name,
+                                         const RwChar *maskName);
 
     /* LEGACY-SUPPORT mip mapping */
 extern RwBool       _rwTextureSetAutoMipMapState(RwBool enable);

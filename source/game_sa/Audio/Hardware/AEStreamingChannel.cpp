@@ -113,6 +113,10 @@ void CAEStreamingChannel::SetReady() {
 
 // 0x4F1F30
 void CAEStreamingChannel::SetBassEQ(eBassSetting mode, float gain) {
+    // NOTSA(stability): no DirectSound buffer when audio hardware is absent (headless)
+    if (!m_pDirectSoundBuffer8) {
+        return;
+    }
     if (mode == eBassSetting::NORMAL) {
         if (m_bEQEnabled) {
             RemoveFX();

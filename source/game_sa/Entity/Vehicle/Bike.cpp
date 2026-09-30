@@ -266,24 +266,28 @@ bool CBike::DamageKnockOffRider(CVehicle* vehicle, float damageIntensity, uint16
     }
     return true;
 }
-
 // dummy function
 // 0x6B5F40
 CPed* CBike::KnockOffRider(eWeaponType arg0, uint8 arg1, CPed* ped, bool arg3) {
     return ped;
 }
-
 // 0x6B5F50
-void CBike::SetRemoveAnimFlags(CPed* ped) {
-    ((void(__thiscall*)(CBike*, CPed*))0x6B5F50)(this, ped);
+void CBike::SetRemoveAnimFlags() {
+    // Only when the bike is a wreck (the original tests `m_nStatus & 7 == 3` == STATUS_PHYSICS/3)
+    if ((m_info.m_nStatus & 7) == 3) {
+        // Mark all anims with the blend mask 0x1000 as auto-removed on blend-out
+        for (auto assoc = RpAnimBlendClumpGetFirstAssociation(GetRpClump(), 0x1000);
+             assoc;
+             assoc = RpAnimBlendGetNextAssociation(assoc, 0x1000)) {
+            assoc->m_Flags |= ANIMATION_IS_BLEND_AUTO_REMOVE;
+        }
+    }
 }
-
 // 0x6B5F90
 void CBike::ReduceHornCounter() {
     if (m_HornCounter)
         m_HornCounter -= 1;
 }
-
 // 0x6B5FB0
 void CBike::ProcessBuoyancy() {
     CVector vecBuoyancyTurnPoint;
@@ -337,7 +341,6 @@ void CBike::ProcessBuoyancy() {
         physicalFlags.bSubmergedInWater = false;
     }
 }
-
 inline void CBike::ProcessPedInVehicleBuoyancy(CPed* ped, bool bIsDriver) {
     if (!ped)
         return;
@@ -381,7 +384,6 @@ void CBike::ProcessDrivingAnims(CPed* driver, bool blend) {
 
     ProcessRiderAnims(driver, this, &m_RideAnimData, m_BikeHandling, 0);
 }
-
 // 0x6B7280
 void CBike::ProcessRiderAnims(CPed* rider, CVehicle* vehicle, CRideAnimData* rideData, tBikeHandlingData* handling, int16 a5) {
     plugin::Call<0x6B7280, CPed*, CVehicle*, CRideAnimData*, tBikeHandlingData*, int16>(rider, vehicle, rideData, handling, a5);
@@ -389,9 +391,118 @@ void CBike::ProcessRiderAnims(CPed* rider, CVehicle* vehicle, CRideAnimData* rid
 
 // 0x6BEB20
 bool CBike::BurstTyre(uint8 tyreComponentId, bool bPhysicalEffect) {
-    return plugin::CallMethodAndReturn<bool, 0x6BEB20, CBike*, uint8, bool>(this, tyreComponentId, bPhysicalEffect);
-}
+    // 0x6BEB40 - Tyres can't burst if they're invincible or the vehicle is destroyed
+    if (vehicleFlags.bTyresDontBurst || physicalFlags.bRenderScorched) {
+        return false;
+    }
 
+    // 0x6BEB5C - Map car piece to bike wheel (0 = front, 1 = rear).
+    // Values other than CAR_PIECE_WHEEL_LF (0xD) / CAR_PIECE_WHEEL_RL (0xF) are
+    // passed through unmodified (just like the original code does).
+    if (tyreComponentId == CAR_PIECE_WHEEL_LF) {
+        tyreComponentId = 0;
+    } else if (tyreComponentId == CAR_PIECE_WHEEL_RL) {
+        tyreComponentId = 1;
+    }
+
+    bool burst = false; // [ESP+0x13]
+    if (m_nWheelStatus[tyreComponentId] == WHEEL_STATUS_OK) {
+        burst = true;
+        m_nWheelStatus[tyreComponentId] = WHEEL_STATUS_BURST;
+        m_vehicleAudio.AddAudioEvent(AE_TYRE_BURST, 0.0f); // 0x6BEB98
+
+        // 0x6BEBA6 - Force real physics on simple-physics vehicles
+        if (GetStatus() == STATUS_SIMPLE) {
+            CCarCtrl::SwitchVehicleToRealPhysics(this);
+        }
+
+        // 0x6BEBBA - Physical effect
+        constexpr auto force = 0.02f; // 0x8D322C
+        if (bPhysicalEffect) {
+            ApplyMoveForce(GetRight() * CGeneral::GetRandomNumberInRange(-force, force) * m_fMass);
+            ApplyTurnForce(
+                GetRight() * CGeneral::GetRandomNumberInRange(-force, force) * m_fTurnMass,
+                GetForward()
+            );
+        }
+    }
+
+    // 0x6BECA5 - Damage/knock off the rider, but only if somebody is driving
+    if (!m_pDriver) {
+        return burst;
+    }
+
+    // 0x6BECB3 - The original re-tests the (remapped) value against 0xD / 0xE.
+    // NOTE: After the remap above the front value is 0, so the 0xD test can never
+    // be true - in the original binary a front tyre burst is just a burst, no knockoff.
+    if (tyreComponentId == CAR_PIECE_WHEEL_LF) { // 0xD - effectively dead after the remap
+        // 0x6BECC1 - Only when the wheel is/was touching the ground
+        // (0x720..0x72C == m_aRatioHistory[0..3])
+        if (m_aRatioHistory[0] >= 1.0f && m_aRatioHistory[1] >= 1.0f) {
+            return burst;
+        }
+
+        // 0x6BED1A - Has to be going fast enough (players get a smaller threshold)
+        const auto speed = m_vecMoveSpeed.Magnitude();
+        if (speed < 0.3f /* 0x8D3230 */) {
+            return burst;
+        }
+        if (GetStatus() == STATUS_PLAYER && speed <= 0.55f /* 0x8D3234 */) {
+            return burst;
+        }
+
+        // 0x6BED73 - Knock off driver (and first passenger) to the front
+        CEventKnockOffBike event{
+            this,
+            m_vecMoveSpeed,
+            m_vecLastCollisionImpactVelocity,
+            0.0f,
+            0.0f,
+            KNOCK_OFF_TYPE_SKIDBACKFRONT,
+            0,
+            0,
+            nullptr,
+            true,
+            false
+        };
+        m_pDriver->GetEventGroup().Add(&event, false); // 0x6BED98
+        if (m_apPassengers[0]) { // 0x6BEDBE
+            CEventKnockOffBike passengerEvent{
+                this,
+                m_vecMoveSpeed,
+                m_vecLastCollisionImpactVelocity,
+                0.0f,
+                0.0f,
+                KNOCK_OFF_TYPE_SKIDBACKFRONT,
+                0,
+                0,
+                nullptr,
+                false, // not the driver
+                false
+            };
+            m_apPassengers[0]->GetEventGroup().Add(&passengerEvent, false); // 0x6BEDF7
+        }
+    } else if (tyreComponentId == 0xE) {
+        // 0x6BECDF - Only when the wheel is/was touching the ground
+        if (m_aRatioHistory[2] >= 1.0f && m_aRatioHistory[3] >= 1.0f) {
+            return burst;
+        }
+
+        // 0x6BED1A - Has to be going fast enough (players get a smaller threshold)
+        const auto speed = m_vecMoveSpeed.Magnitude();
+        if (speed < 0.3f /* 0x8D3230 */) {
+            return burst;
+        }
+        if (GetStatus() == STATUS_PLAYER && speed <= 0.55f /* 0x8D3234 */) {
+            return burst;
+        }
+
+        // 0x6BEE32 - Apply a sideways force (both wheels on the ground, rear hit)
+        const auto force = 0.02f * m_fTurnMass; // 0x8D322C * m_fTurnMass
+        ApplyTurnForce(force * GetRight(), GetForward());
+    }
+    return burst;
+}
 // 0x6BE310
 void CBike::ProcessControlInputs(uint8 playerNum) {
     plugin::CallMethod<0x6BE310, CBike*, uint8>(this, playerNum);
@@ -517,7 +628,6 @@ int32 CBike::ProcessEntityCollision(CEntity* entity, CColPoint* outColPoints) {
 
     return numColPts;
 }
-
 // 0x6B9250
 void CBike::ProcessControl() {
     plugin::CallMethod<0x6B9250, CBike*>(this);
@@ -525,30 +635,88 @@ void CBike::ProcessControl() {
 
 // 0x6B6740
 void CBike::ResetSuspension() {
-    ((void(__thiscall*)(CBike*))0x6B6740)(this);
-}
+    // Reset per-wheel pitch + trailing suspension floats (binary: this+0x750/0x754 and this+0x80C/0x810)
+    for (auto i = 0; i < 2; i++) {
+        m_aWheelPitchAngles[i] = 0.0f;
+        m_aWheelSuspensionHeights[i] = 0.0f;
+    }
 
+    // Wheel contact ratios back to "no contact", wheel counts to zero (binary: this+0x710..0x71C and this+0x730..0x73C)
+    for (auto i = 0; i < NUM_SUSP_LINES; i++) {
+        m_aWheelRatios[i] = 1.0f;
+        m_WheelCounts[i] = 0.0f;
+    }
+}
 // 0x6B6790
 bool CBike::GetAllWheelsOffGround() const {
     return m_nNoOfContactWheels == 0;
 }
-
 // 0x6B67A0
 void CBike::DebugCode() {
     // NOP
 }
 
 // 0x6B6D40
-void CBike::DoSoftGroundResistance(uint32& arg0) {
-    ((void(__thiscall*)(CBike*, uint32&))0x6B6D40)(this, arg0);
-}
+void CBike::DoSoftGroundResistance(uint32& extraHandlingFlags) {
+    const auto IsSoftSurface = [](eSurfaceType surface) { // 0x55E5C0 - CSurfaceData lookup
+        return surface == SURFACE_SAND_BEACH; // TODO(0x55E5C0): verify actual surface id checked here (was bogus "SANDBAR_4")
+    };
 
+    // Wheel is "squashed" / touching ground if its ratio dropped below the threshold (DAT_00871284)
+    constexpr auto WHEEL_CONTACT_RATIO_THRES = 1.0f; // DAT_00871284
+
+    const auto OnSoftGround = [&]() {
+        for (auto i = 0; i < NUM_SUSP_LINES; i++) {
+            if (m_aWheelRatios[i] < WHEEL_CONTACT_RATIO_THRES && IsSoftSurface(m_aWheelColPoints[i].m_nSurfaceTypeB)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (OnSoftGround()) { // 0x6B6DFA
+        const auto mat = GetMatrix();
+        const float velDotUp = DotProduct(m_vecMoveSpeed, mat.GetUp());
+        auto velMinusUp = m_vecMoveSpeed - velDotUp * mat.GetUp();
+
+        // 0x6B6E63 - Extra traction request when the sideways slip is low
+        if (m_fMovingSpeed > 0.3f) { // DAT_00858C24
+            if (velMinusUp.SquaredMagnitude() < sq(0.976f /* DAT_00871320 */)) {
+                extraHandlingFlags += 4;
+            }
+            // Remove the forward component
+            const float fwdDot = DotProduct(velMinusUp, mat.GetForward());
+            velMinusUp -= fwdDot * mat.GetForward();
+        }
+
+        // 0x6B6EE5 - Braking force against the lateral movement
+        const auto forceScale = -(CTimer::GetTimeStep() * m_fMass * 0.01f /* DAT_00871330 */);
+        ApplyMoveForce(forceScale * velMinusUp);
+        return;
+    }
+
+    // 0x6B6F14 - Rail tracks resistance (surface id -78 == 0xB2, i.e. rail track)
+    const auto OnRails = [&]() {
+        for (auto i = 0; i < NUM_SUSP_LINES; i++) {
+            if (m_aWheelRatios[i] < WHEEL_CONTACT_RATIO_THRES && m_aWheelColPoints[i].m_nSurfaceTypeB == (eSurfaceType)-78) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    if (OnRails()) {
+        const auto mat = GetMatrix();
+        const float velDotUp = DotProduct(m_vecMoveSpeed, mat.GetUp());
+        const auto forceScale = -(CTimer::GetTimeStep() * m_fMass * CVehicle::ms_fRailTrackResistance /* 0x8D34AC */);
+        ApplyMoveForce(forceScale * (m_vecMoveSpeed - velDotUp * mat.GetUp()));
+    }
+}
 // 0x6B7130
 void CBike::PlayHornIfNecessary() {
     if (m_autoPilot.carCtrlFlags.bHonkAtCar || m_autoPilot.carCtrlFlags.bHonkAtPed)
         PlayCarHorn();
 }
-
 // 0x6B7150
 void CBike::CalculateLeanMatrix() {
     if (m_bLeanMatrixCalculated)
@@ -563,22 +731,18 @@ void CBike::CalculateLeanMatrix() {
     m_mLeanMatrix.GetPosition() += GetUp() * (1.0f - cos(m_RideAnimData.LeanAngle)) * GetColModel()->GetBoundingBox().m_vecMin.z;
     m_bLeanMatrixCalculated = true;
 }
-
 // 0x6B7F90
 void CBike::FixHandsToBars(CPed* rider) {
     ((void(__thiscall*)(CBike*, CPed*))0x6B7F90)(this, rider);
 }
-
 // 0x6BEEB0
 void CBike::PlaceOnRoadProperly() {
     ((void(__thiscall*)(CBike*))0x6BEEB0)(this);
 }
-
 // 0x6BF230
 void CBike::GetCorrectedWorldDoorPosition(CVector& out, CVector arg1, CVector arg2) {
     ((void(__thiscall*)(CBike*, CVector&, CVector, CVector))0x6BF230)(this, out, arg1, arg2);
 }
-
 // 0x6BEA10
 void CBike::BlowUpCar(CEntity* damager, bool bHideExplosion) {
     plugin::CallMethod<0x6BEA10, CBike*, CEntity*, uint8>(this, damager, bHideExplosion);
@@ -591,7 +755,6 @@ void CBike::Fix() {
     m_nWheelStatus[0] = 0;
     m_nWheelStatus[1] = 0;
 }
-
 // 0x6BD090
 void CBike::PreRender() {
     plugin::CallMethod<0x6BD090, CBike*>(this);
@@ -613,7 +776,6 @@ void CBike::Render() {
 
     RwRenderStateSet(rwRENDERSTATEALPHATESTFUNCTIONREF, RWRSTATE(savedRef));
 }
-
 // 0x6BCFC0
 void CBike::Teleport(CVector destination, bool resetRotation) {
     CWorld::Remove(this);
@@ -628,7 +790,6 @@ void CBike::Teleport(CVector destination, bool resetRotation) {
 
     CWorld::Add(this);
 }
-
 // 0x6B8EC0
 void CBike::VehicleDamage(float damageIntensity, eVehicleCollisionComponent component, CEntity* damager, CVector* vecCollisionCoors, CVector* vecCollisionDirection, eWeaponType weapon) {
     plugin::CallMethod<0x6B8EC0, CBike*, float, eVehicleCollisionComponent, CEntity*, CVector*, CVector*, eWeaponType>(this, damageIntensity, component, damager, vecCollisionCoors, vecCollisionDirection, weapon);
@@ -644,7 +805,6 @@ void CBike::SetModelIndex(uint32 index) {
     CVehicle::SetModelIndex(index);
     SetupModelNodes();
 }
-
 // 0x6B5960
 void CBike::SetupModelNodes() {
     std::ranges::fill(m_aBikeNodes, nullptr);
@@ -678,7 +838,6 @@ void CBike::RemoveRefsToVehicle(CEntity* entityToRemove) {
             entity = nullptr;
     }
 }
-
 // 0x6B6620
 void CBike::ProcessControlCollisionCheck(bool applySpeed) {
     const CMatrix oldMat = GetMatrix();
@@ -708,7 +867,6 @@ void CBike::ProcessControlCollisionCheck(bool applySpeed) {
     SetIsStuck(false);
     SetIsInSafePosition(true);
 }
-
 // 0x6B5990
 void CBike::GetComponentWorldPosition(int32 componentId, CVector& outPos) {
     if (IsComponentPresent(componentId))
@@ -716,7 +874,6 @@ void CBike::GetComponentWorldPosition(int32 componentId, CVector& outPos) {
     else
         NOTSA_LOG_DEBUG("BikeNode missing: model={}, nodeIdx={}", m_nModelIndex, componentId);
 }
-
 // 0x6B58D0
 void CBike::ProcessOpenDoor(CPed* ped, uint32 doorComponentId, uint32 animGroup, uint32 animId, float fTime) {
     // NOP

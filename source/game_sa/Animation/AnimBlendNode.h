@@ -127,8 +127,10 @@ public:
 
         // Find next frame, this should usually be the next one
         // Unless `m_BlendAssoc->m_TimeStep > NextKF->DeltaTime` (In which case `m_KFRemainingTime` becomes negative)
+        // NOTE: Original uses a strict `< 0.0f` (both here and in `I_Update`) - keep it that way,
+        // advancing on `== 0.0f` skips the tail interpolation of the current key frame.
         bool looped = false;
-        while (m_KFRemainingTime <= 0.0f) {
+        while (m_KFRemainingTime < 0.0f) {
             m_KFCurr++;
 
             if (m_KFCurr >= m_Seq->m_FramesNum) {
@@ -167,7 +169,7 @@ public:
 
         if (m_BlendAssoc->IsPlaying()) {
             m_KFRemainingTime -= m_BlendAssoc->m_TimeStep;
-            if (m_KFRemainingTime <= 0.0f) {
+            if (m_KFRemainingTime < 0.0f) { // strict `<` like the original (0x4D06C0)
                 looped = I_NextKeyFrame<IsCompressed>();
             }
         }

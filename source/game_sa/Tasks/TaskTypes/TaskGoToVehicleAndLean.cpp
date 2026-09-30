@@ -8,8 +8,8 @@ void CTaskGoToVehicleAndLean::InjectHooks() {
 
     RH_ScopedInstall(Constructor, 0x660E60);
     RH_ScopedInstall(Destructor, 0x660EE0);
-    RH_ScopedInstall(Clone, 0x6621B0, { .reversed = false });
-    RH_ScopedInstall(MakeAbortable, 0x664500, { .reversed = false });
+    RH_ScopedInstall(Clone, 0x6621B0);
+    RH_ScopedInstall(MakeAbortable, 0x664500);
     RH_ScopedInstall(CreateNextSubTask, 0x664590, { .reversed = false });
     RH_ScopedInstall(CreateFirstSubTask, 0x664D40, { .reversed = false });
     RH_ScopedInstall(ControlSubTask, 0x664E60, { .reversed = false });
@@ -32,9 +32,35 @@ CTaskGoToVehicleAndLean::~CTaskGoToVehicleAndLean() {
     CEntity::SafeCleanUpRef(m_Vehicle);
 }
 
+// 0x6621B0
+CTask* CTaskGoToVehicleAndLean::Clone() const {
+    return new CTaskGoToVehicleAndLean(m_Vehicle, m_LeanAnimDurationInMs);
+}
+
 // 0x664500
 bool CTaskGoToVehicleAndLean::MakeAbortable(CPed* ped, eAbortPriority priority, const CEvent* event) {
-    return plugin::CallMethodAndReturn<bool, 0x664500, CTaskGoToVehicleAndLean*, CPed*, int32, const CEvent*>(this, ped, priority, event);
+    if (priority == ABORT_PRIORITY_URGENT) {
+        if (m_pSubTask) {
+            m_pSubTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, event);
+        }
+        if (m_Vehicle) {
+            m_Vehicle->vehicleFlags.bHasGangLeaningOn = false;
+        }
+        if (m_pSubTask) {
+            m_pSubTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr);
+        }
+    } else {
+        if (!m_pSubTask->MakeAbortable(ped, priority, event)) {
+            return false;
+        }
+        if (m_Vehicle) {
+            m_Vehicle->vehicleFlags.bHasGangLeaningOn = false;
+        }
+        if (m_pSubTask) {
+            m_pSubTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr);
+        }
+    }
+    return true;
 }
 
 // 0x664590

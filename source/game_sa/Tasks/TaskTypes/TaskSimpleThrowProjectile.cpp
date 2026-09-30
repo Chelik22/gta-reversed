@@ -87,14 +87,17 @@ void CTaskSimpleThrowProjectile::StartAnim(CPed* ped) {
     if (!m_bStartThrowFinished) {
         StartAnim(ANIM_ID_GRENADE_WEAPON_START_THROW, 16.f);
     } else {
+        // NOTE: The enum names of THROW(230/0xE6) / THROWU(229/0xE5) are mirrored relative to
+        // the original's usage: the binary plays 0xE5 when the throw happens (button released /
+        // close target / satchel) and 0xE6 while still holding a far target (throw up).
         const auto IsPtCloseToPed = [ped](CVector pos) { return (pos - ped->GetPosition()).SquaredMagnitude() <= sq(10.f); };
         if (   (!m_TargetEntity || IsPtCloseToPed(m_TargetEntity->GetPosition()))
             || (m_TargetPos.IsZero() || IsPtCloseToPed(m_TargetPos))
             || (m_bButtonReleased || ped->GetActiveWeapon().GetType() == WEAPON_REMOTE_SATCHEL_CHARGE)
         ) {
-            StartAnim(ANIM_ID_GRENADE_WEAPON_THROW, 1000.f);
+            StartAnim(ANIM_ID_GRENADE_WEAPON_THROWU /* 0xE5 */, 1000.f);
         } else {
-            StartAnim(ANIM_ID_GRENADE_WEAPON_THROWU, 1000.f); // "U" as in "UP?
+            StartAnim(ANIM_ID_GRENADE_WEAPON_THROW /* 0xE6 */, 1000.f); // still holding - throw up
         }
     }
 }

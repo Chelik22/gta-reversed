@@ -126,14 +126,27 @@ RwTexture* CRealTimeShadow::Update() {
     auto raster = m_camera.GetRwRenderRaster();
     assert(raster);
 
+    // NOTSA(stability): asserts are no-ops in release - a null raster here
+    // crashed the whole game inside RasterBlur (RwRasterGetWidth on null).
+    // Bail out early instead; the caller just won't get a fresh shadow.
+    if (!raster) {
+        return GetShadowRwTexture();
+    }
+
     if (m_bBlurred) {
         raster = m_blurCamera.RasterResample(raster);
         assert(raster);
+        if (!raster) {
+            return GetShadowRwTexture();
+        }
     }
 
     if (m_nBlurPasses) {
         raster = g_realTimeShadowMan.m_BlurCamera.RasterBlur(raster, m_nBlurPasses);
         assert(raster);
+        if (!raster) {
+            return GetShadowRwTexture();
+        }
     }
 
     if (m_bDrawMoreBlur) {

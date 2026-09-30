@@ -269,7 +269,10 @@ int16 CAEAudioHardware::AllocateChannels(uint16 numChannels) {
 void CAEAudioHardware::SetBassSetting(eBassSetting bassSetting, float bassGain) {
     m_BassSetting = bassSetting;
     m_BassGain    = bassGain;
-    m_pStreamingChannel->SetBassEQ(bassSetting, bassGain);
+    // NOTSA(stability): streaming channel is null without audio hardware (headless)
+    if (m_pStreamingChannel) {
+        m_pStreamingChannel->SetBassEQ(bassSetting, bassGain);
+    }
 }
 
 // 0x4D8810
@@ -797,6 +800,13 @@ void CAEAudioHardware::Query3DSoundEffects() {
 
 // 0x4D9870
 void CAEAudioHardware::Service() {
+    // NOTSA(stability): without audio hardware (headless) none of the DS objects
+    // exist — the original would crash on the null listener every Service tick.
+    // Gate on m_bInitialised too: Initialise() may fail AFTER the listener/channel
+    // pointers were partially set, leaving half-constructed state behind.
+    if (!m_bInitialised || !m_pDirectSound3dListener) {
+        return;
+    }
     VERIFY(SUCCEEDED(m_pDirectSound3dListener->CommitDeferredSettings()));
     RescaleChannelVolumes();
     if (m_n3dEffectsQueryResult) {

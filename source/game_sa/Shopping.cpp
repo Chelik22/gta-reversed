@@ -387,7 +387,19 @@ void CShopping::SetPlayerHasBought(uint32 itemKey) {
 
 // 0x49B5E0
 bool CShopping::HasPlayerBought(uint32 itemKey) {
-    return ms_bHasBought[GetItemIndex(itemKey)];
+    // NOTE: `GetItemIndex` is inlined here by the original - it scans all 560 keys,
+    // and on failure uses index -1 (thus reading `ms_bHasBought[-1]`, the byte at 0xA9729F).
+    const auto* keys = reinterpret_cast<const uint32*>(&ms_keys);
+
+    int32 index = 0;
+    for (; index < NUM_ITEMS; index++) {
+        if (keys[index] == itemKey) {
+            break;
+        }
+    }
+
+    const auto* bought = reinterpret_cast<const bool*>(&ms_bHasBought);
+    return bought[index];
 }
 
 /*!

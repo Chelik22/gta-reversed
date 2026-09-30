@@ -241,26 +241,43 @@ float CSprite::CalcHorizonCoors() {
 
 // 0x70E1C0
 void CSprite::Set4Vertices2D(RwIm2DVertex* verts, const CRect& rt, const CRGBA& topLeftColor, const CRGBA& topRightColor, const CRGBA& bottomLeftColor, const CRGBA& bottomRightColor) {
-    for (auto i = 0u; i < 4u; i++) {
-        auto& vert = verts[i];
+    // NOTE: Unrolled (like the original - no loop, no branches), vertex order: BL, BR, TR, TL.
+    // Colors are composed manually (a<<24|r<<16|g<<8|b), exactly like `RwIm2DVertexSetIntRGBA`/the original does.
+    auto& v0 = verts[0]; // Bottom left
+    v0.x = rt.left;
+    v0.y = rt.bottom;
+    v0.z = m_f2DNearScreenZ;
+    v0.rhw = m_fRecipNearClipPlane;
+    v0.emissiveColor = (uint32(bottomLeftColor.a) << 24) | (uint32(bottomLeftColor.r) << 16) | (uint32(bottomLeftColor.g) << 8) | uint32(bottomLeftColor.b);
+    v0.u = 0.0f;
+    v0.v = 0.0f;
 
-        vert.x = (i == 0 || i == 3) ? rt.left : rt.right;
-        vert.y = (i == 0 || i == 1) ? rt.bottom : rt.top;
-        vert.z = m_f2DNearScreenZ;
-        vert.u = (i == 0 || i == 3) ? 0.0f : 1.0f;
-        vert.v = (i == 0 || i == 1) ? 0.0f : 1.0f;
-        vert.rhw = m_fRecipNearClipPlane;
+    auto& v1 = verts[1]; // Bottom right
+    v1.x = rt.right;
+    v1.y = rt.bottom;
+    v1.z = m_f2DNearScreenZ;
+    v1.rhw = m_fRecipNearClipPlane;
+    v1.emissiveColor = (uint32(bottomRightColor.a) << 24) | (uint32(bottomRightColor.r) << 16) | (uint32(bottomRightColor.g) << 8) | uint32(bottomRightColor.b);
+    v1.u = 1.0f;
+    v1.v = 0.0f;
 
-        vert.emissiveColor = [&] {
-        switch (i) {
-            case 0: return bottomLeftColor.ToIntARGB();
-            case 1: return bottomRightColor.ToIntARGB();
-            case 2: return topRightColor.ToIntARGB();
-            case 3: return topLeftColor.ToIntARGB();
-            default: NOTSA_UNREACHABLE();
-        }
-        }();
-    }
+    auto& v2 = verts[2]; // Top right
+    v2.x = rt.right;
+    v2.y = rt.top;
+    v2.z = m_f2DNearScreenZ;
+    v2.rhw = m_fRecipNearClipPlane;
+    v2.emissiveColor = (uint32(topRightColor.a) << 24) | (uint32(topRightColor.r) << 16) | (uint32(topRightColor.g) << 8) | uint32(topRightColor.b);
+    v2.u = 1.0f;
+    v2.v = 1.0f;
+
+    auto& v3 = verts[3]; // Top left
+    v3.x = rt.left;
+    v3.y = rt.top;
+    v3.z = m_f2DNearScreenZ;
+    v3.rhw = m_fRecipNearClipPlane;
+    v3.emissiveColor = (uint32(topLeftColor.a) << 24) | (uint32(topLeftColor.r) << 16) | (uint32(topLeftColor.g) << 8) | uint32(topLeftColor.b);
+    v3.u = 0.0f;
+    v3.v = 1.0f;
 }
 
 // unused

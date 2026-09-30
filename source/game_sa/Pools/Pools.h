@@ -195,5 +195,14 @@ public:
     static bool SaveVehiclePool();
 
     template<notsa::PooledType T>
-    static bool IsValidPointer(T* ptr) { return notsa::PoolOf<T>().IsObjectValid(ptr); }
+    static bool IsValidPointer(T* ptr) {
+        // NOTSA(stability): during shutdown the pool globals are nulled by
+        // CPools::Shutdown while static destructors (e.g. CInterestingEvents)
+        // still run CleanUpOldReference - bail out instead of dereferencing.
+        auto* pool = &notsa::PoolOf<T>(); // MSVC: *nullptr forms a null reference without reading
+        if (!pool || !pool->GetStorage() || pool->GetCapacity() == 0 || pool->GetCapacity() > 0x10000) {
+            return false;
+        }
+        return pool->IsObjectValid(ptr);
+    }
 };

@@ -88,10 +88,11 @@ void CAEStreamThread::WaitForExit() const {
 
 // 0x4F1530
 int16 CAEStreamThread::GetTrackPlayTime() const {
-    if (m_bPreparingStream)
+    // NOTSA(stability): with audio hardware absent (headless) the channel is
+    // never created — the original would deref null here every Service tick.
+    if (m_bPreparingStream || !m_pStreamingChannel)
         return -8;
-    else
-        return m_pStreamingChannel->GetPlayTime();
+    return m_pStreamingChannel->GetPlayTime();
 }
 
 // 0x4F1550
@@ -111,6 +112,10 @@ int32 CAEStreamThread::GetPlayingTrackID() const {
 
 // 0x4F1230
 void CAEStreamThread::PlayTrack(uint32 iTrackId, int32 iNextTrackId, uint32 a3, int32 a4, bool bIsUserTrack, bool bNextIsUserTrack) {
+    // NOTSA(stability): no channel when audio hardware is absent (headless)
+    if (!m_pStreamingChannel) {
+        return;
+    }
     EnterCriticalSection(&m_criticalSection);
 
     if (m_pStreamingChannel->GetPlayTime() == -2) {

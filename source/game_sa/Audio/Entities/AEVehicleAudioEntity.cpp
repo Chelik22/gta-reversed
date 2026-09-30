@@ -2599,13 +2599,32 @@ float CAEVehicleAudioEntity::GetVolForPlayerEngineSound(tVehicleParams& vp, eVeh
 
 // 0x4F5C60
 float CAEVehicleAudioEntity::GetFreqForIdle(float ratio) const noexcept {
-    return CGeneral::GetPiecewiseLinear({ // 0x8CC164:
-        { 0.000f, 0.000f },
-        { 0.075f, 0.700f },
-        { 0.150f, 1.100f },
-        { 0.250f, 1.250f },
-        { 1.000f, 1.700f },
-    }, ratio);
+    // NOTE: Mirrors the original structure (table @ 0x8CC160, 5 entries, sentinel 1.7f).
+    // The original thresholds are exact (note the 1.0001f one!).
+    constexpr float THRESHOLDS[5] = { 0.0f, 0.075f, 0.15f, 0.25f, 1.0001f };
+    constexpr float FREQS[5]      = { 0.0f, 0.7f,  1.1f,  1.25f, 1.7f    };
+
+    if (ratio >= 1.0f) {
+        return 1.7f;
+    }
+
+    int i = 0;
+    for (; i < 5; i++) {
+        if (THRESHOLDS[i] > ratio) {
+            break;
+        }
+    }
+
+    if (i == 5) {
+        return 1.7f;
+    }
+
+    if (ratio <= 0.0f || i == 0) {
+        return 0.0f;
+    }
+
+    const auto t = (ratio - THRESHOLDS[i - 1]) / (THRESHOLDS[i] - THRESHOLDS[i - 1]);
+    return FREQS[i - 1] + t * (FREQS[i] - FREQS[i - 1]);
 }
 
 // 0x4F8070
@@ -3761,6 +3780,9 @@ void CAEVehicleAudioEntity::ProcessDummySeaPlane(tVehicleParams& vp) {
 #pragma region Jet
 
 // 0x4FF900
+// BLOCKER (not reversed yet): Plays/updates the jet engine loop sounds (m_EngineSounds[AE_SOUND_ENGINE_?])
+// for planes (both dummy & player jets). Not translated because its engine-sound state fields and the
+// exact `m_EngineSounds[]` slots/frequency-volume math still need to be mapped out.
 void CAEVehicleAudioEntity::ProcessGenericJet(bool bEngineOn, tVehicleParams& params, float fEngineSpeed, float fAccelRatio, float fBrakeRatio, float fStalledVolume, float fStalledFrequency) {
     plugin::CallMethod<0x4FF900, CAEVehicleAudioEntity*, uint8, tVehicleParams&, float, float, float, float, float>(this, bEngineOn, params, fEngineSpeed, fAccelRatio, fBrakeRatio, fStalledVolume, fStalledFrequency);
 }
@@ -3814,6 +3836,8 @@ void CAEVehicleAudioEntity::ProcessPlayerJet(tVehicleParams& vp) {
 
 #pragma region Hovercraft (Vortex)
 // 0x500F50
+// BLOCKER (not reversed yet): Plays the dummy (non-player) hovercraft fan/loop sounds via
+// `PlayBicycleSound`-style helper calls; needs the hovercraft sound-slot constants to be named first.
 void CAEVehicleAudioEntity::ProcessDummyHovercraft(tVehicleParams& params) {
     plugin::CallMethod<0x500F50, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
 }
@@ -4310,21 +4334,47 @@ void CAEVehicleAudioEntity::PlayBicycleSound(eBicycleSoundType st, eSoundBankSlo
 
 // 0x4F60B0
 float CAEVehicleAudioEntity::GetBaseVolumeForBicycleTyre(float ratio) const noexcept {
-    return CGeneral::GetPiecewiseLinear({ // 0x8CC18C:
-        { 0.00f, 0.00f },
-        { 0.10f, 0.30f },
-        { 0.20f, 0.45f },
-        { 0.50f, 0.85f },
-        { 1.00f, 1.00f },
-        }, ratio);
+    // NOTE: Mirrors the original structure (table @ 0x8CC18C, 5 entries, sentinel 1.f).
+    // The original thresholds are exact (note the 1.0001f one!).
+    constexpr float THRESHOLDS[5] = { 0.0f, 0.1f, 0.2f, 0.5f, 1.0001f };
+    constexpr float VOLUMES[5]    = { 0.0f, 0.3f, 0.45f, 0.85f, 1.0f  };
+
+    if (ratio >= 1.0f) {
+        return 1.0f;
+    }
+
+    int i = 0;
+    for (; i < 5; i++) {
+        if (THRESHOLDS[i] > ratio) {
+            break;
+        }
+    }
+
+    if (i == 5) {
+        return 1.0f;
+    }
+
+    if (ratio <= 0.0f || i == 0) {
+        return 0.0f;
+    }
+
+    const auto t = (ratio - THRESHOLDS[i - 1]) / (THRESHOLDS[i] - THRESHOLDS[i - 1]);
+    return VOLUMES[i - 1] + t * (VOLUMES[i] - VOLUMES[i - 1]);
 }
 
 // 0x4FFDC0
+// BLOCKER (not reversed yet): Plays the dummy bicycle chain/tyre sounds via `PlayBicycleSound`
+// (slots 1=chain, 2=tyre, 3=chain-clang, volumes via `CAEAudioUtility::AudioLog10` + 20 dB scaling).
+// Needs unnamed statics (0xB6BA6C/0xB6BA70 = smoothed speed/prev state, 0xB6BAC8 = last-frame chain-clang
+// state) and CBike fields (+0x648, +0x804, +0x834) to be named before a faithful translation is possible.
 void CAEVehicleAudioEntity::ProcessDummyBicycle(tVehicleParams& params) {
     plugin::CallMethod<0x4FFDC0, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
 }
 
 // 0x500040
+// BLOCKER (not reversed yet): Player variant of `ProcessDummyBicycle` (same 3 `PlayBicycleSound` calls),
+// additionally handling the BMX volume-adjust statics (0xB6BACC/0xB6BAD0) and bike fields +0x818/+0x820
+// (BMX-specific, beyond `CBike`'s size). Same blockers as `ProcessDummyBicycle`.
 void CAEVehicleAudioEntity::ProcessPlayerBicycle(tVehicleParams& params) {
     plugin::CallMethod<0x500040, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
 }

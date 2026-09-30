@@ -11,6 +11,13 @@
 #include "Tasks/TaskTypes/TaskSimpleGoToPoint.h"
 #include "Tasks/TaskTypes/TaskComplexEnterCarAsPassenger.h"
 #include "Tasks/TaskTypes/TaskComplexEnterCarAsPassengerWait.h"
+#include "Tasks/TaskTypes/TaskComplexEnterCar.h"
+#include "Tasks/TaskComplexSequence.h"
+#include "Tasks/TaskComplexUseSequence.h"
+#include "Tasks/TaskSequences.h"
+#include "Events/EventLeaderEnteredCarAsDriver.h"
+#include "PedGroupIntelligence.h"
+#include "PedGroupMembership.h"
 #include "Tasks/TaskTypes/TaskComplexLeaveCar.h"
 #include "Tasks/TaskTypes/TaskComplexLeaveCarAsPassengerWait.h"
 #include "Tasks/TaskTypes/TaskComplexSmartFleeEntity.h"
@@ -119,12 +126,10 @@ bool CGroupEventHandler::IsKillTaskAppropriate(CPedGroup* g, CPed* threat) {
     }
     return false;
 }
-
 // 0x5FA910
 CTaskAllocator* CGroupEventHandler::ComputeWalkAlongsideResponse(CPedGroup* pg, CPed* ped1, CPed* ped2) {
     NOTSA_UNREACHABLE(); // Unused
 }
-
 // 0x5F9BD0
 CTaskAllocator* CGroupEventHandler::ComputeStareResponse(CPedGroup* pg, CPed* stareAt, CPed* originatorPed, int32 timeout, int32 timeoutBias) {
     if (!stareAt) {
@@ -148,7 +153,6 @@ CTaskAllocator* CGroupEventHandler::ComputeStareResponse(CPedGroup* pg, CPed* st
     }
     return nullptr;
 }
-
 // 0x5FC070
 CTaskAllocator* CGroupEventHandler::ComputeResponseVehicleDamage(const CEventVehicleDamage& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_attacker || !e.m_attacker->GetIsTypePed()) {
@@ -164,7 +168,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseVehicleDamage(const CEventVeh
     }
     return nullptr;
 }
-
 // 0x5FBDF0
 CTaskAllocator* CGroupEventHandler::ComputeResponseShotFired(const CEventGunShot& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_firedBy || !e.m_firedBy->GetIsTypePed()) {
@@ -178,7 +181,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseShotFired(const CEventGunShot
     }
     return nullptr;
 }
-
 // 0x5FB390
 CTaskAllocator* CGroupEventHandler::ComputeResponseSexyPed(const CEventSexyPed& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_SexyPed) {
@@ -196,7 +198,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseSexyPed(const CEventSexyPed& 
     }
     return nullptr;
 }
-
 // 0x5FBCB0
 CTaskAllocator* CGroupEventHandler::ComputeResponseSeenCop(const CEventSeenCop& e, CPedGroup* pg, CPed* originator) {
     switch (e.m_TaskId) {
@@ -206,7 +207,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseSeenCop(const CEventSeenCop& 
     }
     return nullptr;
 }
-
 // 0x5FB470
 CTaskAllocator* CGroupEventHandler::ComputeResponsePlayerCommand(const CEventPlayerCommandToGroup& e, CPedGroup* pg, CPed* originator) {
     switch (e.m_command) {
@@ -224,7 +224,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponsePlayerCommand(const CEventPla
     }
     return nullptr;
 }
-
 // 0x5FBB90
 CTaskAllocator* CGroupEventHandler::ComputeResponsePedThreat(const CEventAcquaintancePed& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_AcquaintancePed) {
@@ -244,7 +243,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponsePedThreat(const CEventAcquain
     }
     return nullptr;
 }
-
 // 0x5FB2D0
 CTaskAllocator* CGroupEventHandler::ComputeResponsePedFriend(const CEventAcquaintancePed& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_AcquaintancePed) {
@@ -259,7 +257,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponsePedFriend(const CEventAcquain
     }
     return nullptr;
 }
-
 // 0x5F9840
 CTaskAllocator* CGroupEventHandler::ComputeResponseNewGangMember(const CEventNewGangMember& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_member || pg->GetMembership().IsMember(e.m_member)) {
@@ -280,7 +277,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseNewGangMember(const CEventNew
     pg->GetIntelligence().SetEventResponseTask(e.m_member, tseq);
     return nullptr;
 }
-
 // 0x5F90A0
 CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderExitedCar(const CEventEditableResponse&, CPedGroup* pg, CPed* originator) {
     const auto leader = pg->GetMembership().GetLeader();
@@ -353,12 +349,116 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderExitedCar(const CEventE
     }
     return nullptr;
 }
-
 // 0x5F8900
 CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderEnteredCar(const CEvent& e, CPedGroup* pg, CPed* originator) {
-    return plugin::CallAndReturn<CTaskAllocator*, 0x5F8900, const CEvent&, CPedGroup*, CPed*>(e, pg, originator);
-}
+    const auto& ev            = static_cast<const CEventLeaderEnteredCarAsDriver&>(e);
+    auto* const vehicle = ev.m_vehicle;
+    auto* const leader  = pg->GetMembership().GetLeader();
+    if (!leader || !vehicle) {
+        return nullptr;
+    }
 
+    // Order of the members to process: mission created ones first, then the rest
+    std::array<CPed*, 7> orderedMembers{};
+    size_t               numOrdered{};
+    for (auto* const m : pg->GetMembership().GetFollowers()) {
+        if (m->GetCreatedBy() == PED_MISSION) {
+            orderedMembers[numOrdered++] = m;
+        }
+    }
+    for (auto* const m : pg->GetMembership().GetFollowers()) {
+        if (m->GetCreatedBy() != PED_MISSION) {
+            orderedMembers[numOrdered++] = m;
+        }
+    }
+
+    // Member should wait for the leader if there's only 1 follower and the vehicle is going somewhere
+    // (and is not a single-seater)
+    const auto ShouldMemberWaitForLeader = [&]() {
+        return rng::count_if(pg->GetMembership().GetFollowers(), notsa::NotIsNull{}) == 1
+            && vehicle->m_nVehicleType != (eVehicleType)9    // NOTE: BIKE
+            && vehicle->m_nVehicleSubType != (eVehicleType)2; // NOTE: QUAD
+    };
+
+    int32       numEntered{};
+    const CPed* prevMember{ leader };
+    for (auto* const member : orderedMembers) {
+        if (!member) {
+            continue;
+        }
+
+        if (numEntered < vehicle->m_nMaxPassengers) {
+            const auto seqId = pg->GetIntelligence().GetTaskSeqId();
+            if (ev.m_TaskId == TASK_GROUP_ENTER_CAR_AND_PERFORM_SEQUENCE
+                && seqId >= 0 && seqId < 0x40
+                && CTaskSequences::Get(seqId)->IsActive()
+            ) {
+                // Enter the leader's car, then perform the given task sequence
+                bool wait{ ShouldMemberWaitForLeader() };
+                if (const auto driver = vehicle->m_pDriver; driver && driver != member) {
+                    const bool driverIsGroupMember = notsa::contains(pg->GetMembership().GetFollowers(), driver)
+                        || driver == pg->GetMembership().GetLeader()
+                        || driver->physicalFlags.bAttachedToEntity;
+                    if (driverIsGroupMember) {
+                        wait = false;
+                    }
+                }
+
+                CTaskComplexSequence seq;
+                seq.AddTask(new CTaskComplexEnterCarAsPassengerWait{ vehicle, const_cast<CPed*>(prevMember), wait, (eMoveState)6 });
+                seq.AddTask(new CTaskComplexUseSequence{ seqId });
+                pg->GetIntelligence().SetTask(member, seq, pg->GetIntelligence().GetPedTaskPairs());
+            } else {
+                // Enter the leader's car; any secondary task the member has will be re-assigned after leaving the car
+                bool wait{ ShouldMemberWaitForLeader() };
+                if (const auto driver = vehicle->m_pDriver; driver && driver != member) {
+                    const bool driverIsGroupMember = notsa::contains(pg->GetMembership().GetFollowers(), driver)
+                        || driver == pg->GetMembership().GetLeader()
+                        || driver->physicalFlags.bAttachedToEntity;
+                    if (driverIsGroupMember) {
+                        wait = false;
+                    }
+                }
+
+                CTaskComplexEnterCarAsPassengerWait task{ vehicle, const_cast<CPed*>(prevMember), wait, (eMoveState)6 };
+                pg->GetIntelligence().SetTask(member, task, pg->GetIntelligence().GetPedTaskPairs());
+
+                if (!member->physicalFlags.bAttachedToEntity) {
+                    member->physicalFlags.bAttachedToEntity = true;
+
+                    CTaskComplexSequence seq;
+                    seq.AddTask(new CTaskComplexLeaveCar{ vehicle, 0, 1 });
+                    // Add any secondary task the member might have to the sequence
+                    if (auto* const pair = pg->GetIntelligence().GetPedsTaskPair(member, pg->GetIntelligence().GetSecondaryPedTaskPairs()); pair && pair->Task) {
+                        seq.AddTask(pair->Task->Clone());
+                    }
+                    pg->GetIntelligence().SetTask(member, seq, pg->GetIntelligence().GetSecondaryPedTaskPairs());
+                }
+            }
+            numEntered++;
+            prevMember = member;
+        } else {
+            // No more room in the car - just give the default task
+            CTaskComplexLeaveAnyCar task{ 0, true, false };
+            pg->GetIntelligence().SetTask(member, task, pg->GetIntelligence().GetPedTaskPairs());
+        }
+    }
+
+    // Leader is not a player -> leave the car as well
+    if (!leader->IsPlayer() && !leader->physicalFlags.bAttachedToEntity) {
+        leader->physicalFlags.bAttachedToEntity = true;
+
+        CTaskComplexSequence seq;
+        seq.AddTask(new CTaskComplexLeaveCar{ vehicle, 0, 1 });
+        // Add any secondary task the leader might have to the sequence
+        if (auto* const pair = pg->GetIntelligence().GetPedsTaskPair(leader, pg->GetIntelligence().GetSecondaryPedTaskPairs()); pair && pair->Task) {
+            seq.AddTask(pair->Task->Clone());
+        }
+        pg->GetIntelligence().SetTask(leader, seq, pg->GetIntelligence().GetSecondaryPedTaskPairs());
+    }
+
+    return nullptr;
+}
 // 0x5F9710
 CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderEnterExit(const CEventLeaderEntryExit& e, CPedGroup* pg, CPed* originator) {
     const auto pgms   = &pg->GetMembership();
@@ -379,7 +479,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderEnterExit(const CEventL
     }
     return nullptr;
 }
-
 // 0x5FBD10
 CTaskAllocator* CGroupEventHandler::ComputeResponseGunAimedAt(const CEventGunAimedAt& e, CPedGroup* pg, CPed* originator) {
     const auto src = e.GetSourceEntity();
@@ -395,7 +494,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseGunAimedAt(const CEventGunAim
     }
     return nullptr;
 }
-
 // 0x5F99F0
 CTaskAllocator* CGroupEventHandler::ComputeResponseGather(const CEventPlayerCommandToGroupGather& e, CPedGroup* pg, CPed* originator) {
     for (auto* const m : pg->GetMembership().GetFollowers()) {
@@ -416,7 +514,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseGather(const CEventPlayerComm
     }
     return nullptr;
 }
-
 // 0x5FBE70
 CTaskAllocator* CGroupEventHandler::ComputeResponseDraggedOutCar(const CEventDraggedOutCar& e, CPedGroup* pg, CPed* originator) {
     if (!e.m_CarJacker) {
@@ -434,7 +531,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseDraggedOutCar(const CEventDra
     }
     return nullptr;
 }
-
 // 0x5FB540
 CTaskAllocator* CGroupEventHandler::ComputeResponseDanger(const CEventDanger& e, CPedGroup* pg, CPed* originator) {
     const auto esrc = e.GetSourceEntity();
@@ -446,7 +542,6 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseDanger(const CEventDanger& e,
     }
     return nullptr;
 }
-
 // 0x5FBF50
 CTaskAllocator* CGroupEventHandler::ComputeResponseDamage(const CEventDamage& e, CPedGroup* pg, CPed* originator) {
     const auto src = e.GetSourceEntity();
@@ -463,12 +558,41 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseDamage(const CEventDamage& e,
     }
     return nullptr;
 }
-
 // 0x5F9530
 CTaskAllocator* CGroupEventHandler::ComputeResponsLeaderQuitEnteringCar(const CEvent& e, CPedGroup* pg, CPed* originator) {
-    return plugin::CallAndReturn<CTaskAllocator*, 0x5F9530, const CEvent&, CPedGroup*, CPed*>(e, pg, originator);
-}
+    int32 delay{};
+    for (auto* const member : pg->GetMembership().GetFollowers()) {
+        if (member) {
+            if (!member->bInVehicle || !member->m_pVehicle) {
+                // Member is (still) entering a car - abort the enter task and make them leave the car
+                const auto FindEnterCarTask = [&](eTaskType type) -> CVehicle* {
+                    if (const auto* const task = member->GetIntelligence()->FindTaskByType(type)) {
+                        return static_cast<const CTaskComplexEnterCar*>(task)->GetTargetCar();
+                    }
+                    return nullptr;
+                };
+                auto vehicle = FindEnterCarTask(TASK_COMPLEX_ENTER_CAR_AS_PASSENGER_WAIT);
+                if (!vehicle) {
+                    vehicle = FindEnterCarTask(TASK_COMPLEX_ENTER_CAR_AS_PASSENGER);
+                }
+                if (vehicle) {
+                    // Random value in (-500, 0]
+                    const auto jitter = (int32)((float)CGeneral::GetRandomNumber() * (1.0f / 32767.0f) * -500.0f);
+                    pg->GetIntelligence().SetTask(member, CTaskComplexLeaveCar{ vehicle, 0, delay + jitter + 250, false, false }, pg->GetIntelligence().GetPedTaskPairs());
+                }
+            } else {
+                // Member is already in a vehicle - leave it immediately
+                pg->GetIntelligence().SetTask(member, CTaskComplexLeaveCar{ member->m_pVehicle, 0, delay, true, false }, pg->GetIntelligence().GetPedTaskPairs());
+            }
+        }
 
+        delay += 500;
+        if (delay > 0xDAB) {
+            return nullptr;
+        }
+    }
+    return nullptr;
+}
 // 0x5FAA50
 CTaskAllocator* CGroupEventHandler::ComputeMemberResponses(const CEventEditableResponse& e, CPedGroup* pg, CPed* originator) {
     const std::unique_ptr<CEventEditableResponse> clone{ static_cast<CEventEditableResponse*>(const_cast<CEventEditableResponse&>(e).Clone()) };
@@ -485,7 +609,6 @@ CTaskAllocator* CGroupEventHandler::ComputeMemberResponses(const CEventEditableR
     }
     return nullptr;
 }
-
 // 0x5F9B20
 CTaskAllocator* CGroupEventHandler::ComputeLeanOnVehicleResponse(const CEventLeanOnVehicle& e, CPedGroup* pg, CPed* originator) {
     const auto leader = pg->GetMembership().GetLeader();
@@ -498,7 +621,6 @@ CTaskAllocator* CGroupEventHandler::ComputeLeanOnVehicleResponse(const CEventLea
     );
     return nullptr;
 }
-
 // 0x5FB590
 CTaskAllocator* CGroupEventHandler::ComputeKillThreatsBasicResponse(CPedGroup* pg, CPed* threat, CPed* originator, bool bDamageOriginator) {
     if (!IsKillTaskAppropriate(pg, threat)) {
@@ -509,7 +631,6 @@ CTaskAllocator* CGroupEventHandler::ComputeKillThreatsBasicResponse(CPedGroup* p
     }
     return new CTaskAllocatorKillThreatsBasicRandomGroup{threat};
 }
-
 // 0x5FB670
 CTaskAllocator* CGroupEventHandler::ComputeKillPlayerBasicResponse(CPedGroup* pg, CPed* threat, CPed* originator, bool bDamageOriginator) {
     if (!threat) {
@@ -526,7 +647,6 @@ CTaskAllocator* CGroupEventHandler::ComputeKillPlayerBasicResponse(CPedGroup* pg
     }
     return nullptr;
 }
-
 // 0x5F9D50
 CTaskAllocator* CGroupEventHandler::ComputeHassleThreatResponse(CPedGroup* pg, CPed* threat, CPed* originator, bool bBeAggressive) {
     if (!threat) {
@@ -566,7 +686,6 @@ CTaskAllocator* CGroupEventHandler::ComputeHassleThreatResponse(CPedGroup* pg, C
     }
     return nullptr;
 }
-
 // 0x5FA020
 CTaskAllocator* CGroupEventHandler::ComputeHassleSexyPedResponse(CPedGroup* pg, CPed* sexyPed, CPed* originator) {
     if (!sexyPed) {
@@ -583,7 +702,6 @@ CTaskAllocator* CGroupEventHandler::ComputeHassleSexyPedResponse(CPedGroup* pg, 
     }
     return nullptr;
 }
-
 // 0x5FA820
 CTaskAllocator* CGroupEventHandler::ComputeHandSignalResponse(CPedGroup* pg, CPed* signalAt, CPed* originator) {
     if (!signalAt) {
@@ -600,7 +718,6 @@ CTaskAllocator* CGroupEventHandler::ComputeHandSignalResponse(CPedGroup* pg, CPe
     }
     return nullptr;
 }
-
 // 0x5FA550
 CTaskAllocator* CGroupEventHandler::ComputeGreetResponse(CPedGroup* pg, CPed* toGreet, CPed* originator) {
     if (!toGreet) {
@@ -655,7 +772,6 @@ CTaskAllocator* CGroupEventHandler::ComputeGreetResponse(CPedGroup* pg, CPed* to
     }
     return nullptr;
 }
-
 // 0x5FA290
 CTaskAllocator* CGroupEventHandler::ComputeDoDealResponse(CPedGroup* pg, CPed* dealWith, CPed* originator) { // Pretty much copy-paste of `ComputeGreetResponse`
     if (!dealWith) {
@@ -709,7 +825,6 @@ CTaskAllocator* CGroupEventHandler::ComputeDoDealResponse(CPedGroup* pg, CPed* d
     }
     return nullptr;
 }
-
 // 0x5FA130
 CTaskAllocator* CGroupEventHandler::ComputeFleePedResponse(CPedGroup* pg, CPed* threat, CPed* originator, bool bDamageOriginator) {
     if (!threat) {
@@ -739,12 +854,10 @@ CTaskAllocator* CGroupEventHandler::ComputeFleePedResponse(CPedGroup* pg, CPed* 
     }
     return nullptr;
 }
-
 // 0x5F7A00
 CTaskAllocator* CGroupEventHandler::ComputeDrivebyResponse(CPedGroup* pg, CPed* threat, CPed* originator) {
     return new CTaskAllocatorKillThreatsDriveby{threat};
 }
-
 // 0x5FC200
 CTaskAllocator* CGroupEventHandler::ComputeEventResponseTasks(const CEventGroupEvent& ge, CPedGroup* g) {
     const auto& p = ge.m_ped;

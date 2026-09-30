@@ -150,6 +150,9 @@ public:
     static void SetOrientation(eFontAlignment alignment);
     static void InitPerFrame();
     static void RenderFontBuffer();
+    // 0x719B40 - buffers one already-wrapped line of text into the render buffer
+    // (drop shadow / outline passes are re-issued recursively with offset positions).
+    static void GetTextBuffer(float x, float y, const char* lineStart, const char* lineEnd, float extraSpaceWidth);
     static float GetHeight(bool a1 = false);
     static float GetStringWidth(const GxtChar* string, bool full, bool scriptText);
     static void DrawFonts();

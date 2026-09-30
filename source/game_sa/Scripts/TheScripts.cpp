@@ -1103,7 +1103,12 @@ bool CTheScripts::IsPlayerOnAMission() {
 
 // 0x4861F0
 bool CTheScripts::IsVehicleStopped(CVehicle* veh) {
-    return std::max(CTimer::GetTimeStep(), CTimer::ms_fOldTimeStep) / 100.0f >= veh->m_fMovingSpeed;
+    // Original takes the *minimum* of both timesteps and multiplies by 0.01f (not max()/100.f)
+    const float& timestep     = CTimer::ms_fTimeStep;
+    const float& oldTimestep  = CTimer::ms_fOldTimeStep;
+    const float  step         = timestep < oldTimestep ? timestep : oldTimestep;
+
+    return veh->m_fMovingSpeed <= 0.01f * step;
 }
 
 // 0x5D4FD0
@@ -1374,12 +1379,28 @@ void CTheScripts::WipeLocalVariableMemoryForMissionScript() {
 
 // 0x46A810
 bool CTheScripts::HasCarModelBeenSuppressed(eModelID carModelId) {
-    return notsa::contains(SuppressedVehicleModels, carModelId);
+    // Original scans the array with an explicit loop (40 entries)
+    const auto* models = reinterpret_cast<const eModelID*>(&SuppressedVehicleModels);
+
+    for (int i = 0; i < MAX_NUM_SUPPRESSED_VEHICLE_MODELS; i++) {
+        if (models[i] == carModelId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // 0x46A890
 bool CTheScripts::HasVehicleModelBeenBlockedByScript(eModelID carModelId) {
-    return notsa::contains(VehicleModelsBlockedByScript, carModelId);
+    // Original scans the array with an explicit loop (20 entries)
+    const auto* models = reinterpret_cast<const eModelID*>(&VehicleModelsBlockedByScript);
+
+    for (int i = 0; i < MAX_NUM_VEHICLE_MODELS_BLOCKED_BY_SCRIPT; i++) {
+        if (models[i] == carModelId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // 0x464D40

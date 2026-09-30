@@ -47,17 +47,26 @@ bool BoneNode_c::Init(eBoneTag32 boneTag, RpHAnimBlendInterpFrame* interpFrame) 
 
 // 0x617490
 void BoneNode_c::InitLimits() {
-    const auto& bone = BoneNodeManager_c::ms_boneInfos[GetIdFromBoneTag(m_BoneTag)];
-    m_LimitMin = bone.PoseRots - CVector{
-        bone.MinX,
-        bone.MinY,
-        bone.MinZ
-    };
-    m_LimitMax = bone.PoseRots + CVector{
-        bone.MaxX,
-        bone.MaxY,
-        bone.MaxZ
-    };
+    // NOTE: Mirrors the original structure - the tag search is done inline (32 entries of 40 bytes),
+    // the found entry gets copied to the stack, and all math is done on the component level
+    const auto& infos = reinterpret_cast<const BoneInfo_t(&)[MAX_BONE_NUM]>(BoneNodeManager_c::ms_boneInfos);
+
+    int id = 0;
+    for (; id < MAX_BONE_NUM; id++) {
+        if (infos[id].BoneTag == m_BoneTag) {
+            break;
+        }
+    }
+
+    const auto bone = infos[id]; // Copied by value (original: `rep movsd`, 40 bytes)
+
+    m_LimitMin.x = bone.PoseRots.x - bone.MinX;
+    m_LimitMin.y = bone.PoseRots.y - bone.MinY;
+    m_LimitMin.z = bone.PoseRots.z - bone.MinZ;
+
+    m_LimitMax.x = bone.PoseRots.x + bone.MaxX;
+    m_LimitMax.y = bone.PoseRots.y + bone.MaxY;
+    m_LimitMax.z = bone.PoseRots.z + bone.MaxZ;
 }
 
 // degrees → radians → half-angles → quaternion

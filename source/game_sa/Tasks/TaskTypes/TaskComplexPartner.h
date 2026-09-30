@@ -14,7 +14,7 @@ public:
     int32         field_10;
     char          m_commandName[32];
     int32         m_taskId;
-    CPed*         m_partner;
+    notsa::EntityRef<CPed> m_partner;
     float         m_distanceMultiplier;
     CVector       m_point;
     CVector       m_targetPoint;

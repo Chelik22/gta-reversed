@@ -63,10 +63,13 @@ void CPopulation::InjectHooks() {
     RH_ScopedGlobalInstall(PickRiotRoadBlockCar, 0x6144B0);
     RH_ScopedGlobalInstall(ConvertToRealObject, 0x614580);
     RH_ScopedGlobalInstall(ConvertToDummyObject, 0x614670);
+    // NOTSA(ovfix): This is a stub (`plugin::Call` to 0x614720) - installing it AT 0x614720
+    // makes it call itself infinitely (stack overflow at game load, minRadius/maxRadius=10/50
+    // frames on the stack). Register the hook, but keep it disabled until actually reversed.
     RH_ScopedGlobalInstall(AddToPopulation, 0x614720, { .reversed = false });
     RH_ScopedGlobalInstall(GeneratePedsAtAttractors, 0x615970);
     RH_ScopedGlobalInstall(GeneratePedsAtStartOfGame, 0x615C90);
-    RH_ScopedGlobalInstall(ManageObject, 0x615DC0, { .reversed = false });
+    RH_ScopedGlobalInstall(ManageObject, 0x615DC0);
     RH_ScopedGlobalInstall(ManageDummy, 0x616000);
     RH_ScopedGlobalInstall(ManageAllPopulation, 0x6160A0);
     RH_ScopedGlobalInstall(ManagePopulation, 0x616190);
@@ -77,7 +80,7 @@ void CPopulation::InjectHooks() {
     RH_ScopedGlobalInstall(IsCorrectTimeOfDayForEffect, 0x611B20);
     RH_ScopedGlobalInstall(RemoveSpecificDriverModelsForCar, 0x6119D0);
     RH_ScopedGlobalInstall(Initialise, 0x610E10);
-    RH_ScopedGlobalInstall(Shutdown, 0x610EC0);
+    RH_ScopedGlobalInstall(Shutdown, 0x610EC0, { .reversed = false });
     RH_ScopedGlobalInstall(FindDummyDistForModel, 0x610ED0);
     RH_ScopedGlobalInstall(FindPedDensityMultiplierCullZone, 0x610F00);
     RH_ScopedGlobalInstall(RemovePed, 0x610F20);
@@ -93,8 +96,8 @@ void CPopulation::InjectHooks() {
     RH_ScopedGlobalInstall(ChooseGangOccupation, 0x611550);
     RH_ScopedGlobalInstall(AddExistingPedInCar, 0x611560);
     RH_ScopedGlobalInstall(UpdatePedCount, 0x611570);
-    RH_ScopedGlobalInstall(MoveCarsAndPedsOutOfAbandonedZones, 0x6116A0);
-    RH_ScopedGlobalInstall(DealWithZoneChange, 0x6116B0);
+    RH_ScopedGlobalInstall(MoveCarsAndPedsOutOfAbandonedZones, 0x6116A0, { .reversed = false });
+    RH_ScopedGlobalInstall(DealWithZoneChange, 0x6116B0, { .reversed = false });
     RH_ScopedGlobalInstall(PedCreationDistMultiplier, 0x6116C0);
     RH_ScopedGlobalInstall(CanSolicitPlayerOnFoot, 0x611780);
     RH_ScopedGlobalInstall(CanSolicitPlayerInCar, 0x611790);
@@ -1711,7 +1714,73 @@ void CPopulation::GeneratePedsAtStartOfGame() {
 
 // 0x615DC0
 void CPopulation::ManageObject(CObject* object, const CVector& posn) {
-    ((void(__cdecl*)(CObject*, const CVector&))0x615DC0)(object, posn);
+    if (!object->CanBeDeleted()) {
+        return;
+    }
+
+    const auto dist = (object->GetPosition() - posn).Magnitude();
+
+    if (!object->IsTemporary()) {
+        // Distance to the dummy this object was created from (if any)
+        const float dummyDist = object->m_pDummyObject
+            ? (object->m_pDummyObject->GetPosition() - posn).Magnitude()
+            : 100000.0f;
+
+        const auto modelId = object->m_nModelIndex;
+        const float maxDist = modelId == ModelIndices::MI_SAMSITE || modelId == ModelIndices::MI_SAMSITE2
+            ? 750.0f
+            : 80.0f;
+
+        if (dist <= maxDist) {
+            return;
+        }
+        if (dummyDist <= (float)FindDummyDistForModel((eModelID)modelId)) {
+            return;
+        }
+        ConvertToDummyObject(object);
+        return;
+    }
+
+    // Temporary object handling
+    const auto modelId = object->m_nModelIndex;
+    bool remove{};
+    if (modelId == ModelIndices::MI_ROADWORKBARRIER1 || modelId == ModelIndices::MI_ROADBLOCKFUCKEDCAR1 || modelId == ModelIndices::MI_ROADBLOCKFUCKEDCAR2 || modelId == ModelIndices::MI_BEACHBALL) {
+        remove = dist > 120.0f;
+    } else if (modelId >= ModelIndices::MI_BEACHTOWEL01 && modelId <= ModelIndices::MI_BEACHTOWEL04) {
+        if (dist <= 64.5f) {
+            if (dist <= 35.0f) {
+                return;
+            }
+            if (object->GetIsOnScreen()) {
+                return;
+            }
+        }
+        remove = true;
+    } else {
+        if (dist > 54.5f
+            || (dist > 25.0f && !object->GetIsOnScreen())
+            || object->m_nRemovalTime < CTimer::GetTimeInMS()
+        ) {
+            remove = true;
+        } else if (const auto* const rwObject = object->GetRwObject()) {
+            if (RwObjectGetType(rwObject) == rpCLUMP && object->objectFlags.bFadingIn) {
+                if (CVisibilityPlugins::GetClumpAlpha(object->GetRpClump())) {
+                    remove = !object->IsVisible();
+                } else {
+                    remove = true;
+                }
+            } else {
+                return;
+            }
+        } else {
+            return;
+        }
+    }
+
+    if (remove) {
+        CWorld::Remove(object);
+        delete object;
+    }
 }
 
 // 0x616000

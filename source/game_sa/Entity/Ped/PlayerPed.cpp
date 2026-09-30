@@ -58,7 +58,7 @@ void CPlayerPed::InjectHooks() {
     RH_ScopedInstall(MakePlayerGroupDisappear, 0x60A440);
     RH_ScopedInstall(MakePlayerGroupReappear, 0x60A4B0);
     RH_ScopedInstall(HandleSprintEnergy, 0x60A550);
-    RH_ScopedInstall(GetButtonSprintResults, 0x60A820, { .reversed = false });
+    RH_ScopedInstall(GetButtonSprintResults, 0x60A820, { .reversed = false }); // FIX: body is a self-redirect (was: stack overflow on sprint). NOTE: Caller at 0x60B44C relies on `edx` being preserved - check this still works
     RH_ScopedInstall(HandlePlayerBreath, 0x60A8D0);
     RH_ScopedOverloadedInstall(MakeChangesForNewWeapon, "", 0x60B460, void(CPlayerPed::*)(eWeaponType));
     RH_ScopedGlobalInstall(LOSBlockedBetweenPeds, 0x60B550);
@@ -852,7 +852,7 @@ CPed* CPlayerPed::FindPedToAttack() {
     float closestDistance = std::numeric_limits<float>::max();
 
     CPedGroupMembership& membership = GetPlayerGroup().GetMembership();
-    for (int i = 0; GetPedPool()->GetSize(); i++) {
+    for (int32 i = 0; i < (int32)GetPedPool()->GetSize(); i++) { // FIX: missing '<' — loop ran off the pool end every call
         CPed* ped = GetPedPool()->GetAt(i);
         if (!ped)
             continue;
@@ -1015,6 +1015,9 @@ void CPlayerPed::ProcessControl() {
     GetPlayerData()->m_bRequireHandleBreath = true;
     CPed::ProcessControl();
     bCheckColAboveHead = true;
+    if (m_bWasPostponed) { // 0x60EB7C: original bails out here if control processing was postponed
+        return;
+    }
     float markColor = 1.0f;
     bool limitMarkColor = true;
     CVector effectPos;

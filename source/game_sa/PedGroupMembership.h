@@ -161,7 +161,7 @@ private:
     //! Add a member by placing it at the given index in the `m_members` array
     void AddMember(CPed* member, int32 memIdx);
 
-private:
+public: // NOTE: Fields are public so faithful (inlined, direct-access) ports of the original functions can read them
     CPedGroup*                                 m_group{};
     std::array<CPed*, TOTAL_PED_GROUP_MEMBERS> m_members{}; // m_apMembers[LEADER_MEM_ID] is the leader. The array is not contigous and it might have null values in it!
     float                                      m_separationRange{60.f};

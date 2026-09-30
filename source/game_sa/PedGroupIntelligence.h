@@ -101,6 +101,9 @@ public:
 
     auto&& GetPedGroup(this auto&& self) { return *self.m_pPedGroup; }
 
+    //! @notsa
+    auto GetTaskSeqId(this auto&& self) { return self.m_TaskSeqId; }
+
 private:
     bool ShouldSetHighestPriorityEventAsCurrent();
 

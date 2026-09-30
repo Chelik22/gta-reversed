@@ -10,6 +10,7 @@
 #include "TaskComplexDestroyCar.h"
 // #include "TaskComplexSeekEntity.h"
 #include "TaskComplexDragPedFromCar.h"
+#include "SeekEntity/TaskComplexSeekEntityStandard.h"
 #include "TaskComplexOpenDriverDoor.h"
 #include "TaskComplexOpenPassengerDoor.h"
 
@@ -25,7 +26,7 @@ void CTaskComplexArrestPed::InjectHooks() {
     RH_ScopedVMTInstall(CreateNextSubTask, 0x690220, { .reversed = false });
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x6907A0);
     RH_ScopedVMTInstall(ControlSubTask, 0x68D350, { .reversed = false });
-    RH_ScopedInstall(CreateSubTask, 0x68CF80, { .reversed = false });
+    RH_ScopedInstall(CreateSubTask, 0x68CF80);
 }
 
 // 0x68B990
@@ -265,8 +266,6 @@ CTask* CTaskComplexArrestPed::ControlSubTask(CPed* ped) {
 
 // 0x68CF80
 CTask* CTaskComplexArrestPed::CreateSubTask(eTaskType taskType, CPed* ped) {
-    return plugin::CallMethodAndReturn<CTask*, 0x68CF80, CTaskComplexArrestPed*, int32, CPed*>(this, taskType, ped);
-
     switch (taskType) {
     case TASK_SIMPLE_ARREST_PED:
         if (m_PedToArrest->m_pVehicle) {
@@ -283,10 +282,12 @@ CTask* CTaskComplexArrestPed::CreateSubTask(eTaskType taskType, CPed* ped) {
     case TASK_COMPLEX_DESTROY_CAR:
         return new CTaskComplexDestroyCar(m_PedToArrest->m_pVehicle, 0, 0, 0);
 
-    case TASK_COMPLEX_SEEK_ENTITY: {
-        float radius = m_PedToArrest->bIsBeingArrested ? 4.0f : 3.0f;
-        // return new CTaskComplexSeekEntity<CEntitySeekPosCalculatorStandard>(m_PedToArrest, 50'000, 1000, radius, 2.0f, 2.0f, 1, 1);
-        NOTSA_UNREACHABLE("Not implemented!");
+    case TASK_COMPLEX_SEEK_ENTITY: { // 0x68D014
+        // The original picks one of two static seek-pos calculators (vtables at 0x87097C / 0x870980),
+        // the second one if the target ped is already being arrested (ped+0x474 & 0x40 = bIsBeingArrested),
+        // and uses fixed radii of 2.0f / 2.0f (0x859E30 / 0x859E34).
+        // NOTSA models this as the standard calculator.
+        return new CTaskComplexSeekEntityStandard{ m_PedToArrest, 50'000, 1000, 2.0f, 2.0f, 2.0f, true, true };
     }
     case TASK_COMPLEX_DRAG_PED_FROM_CAR:
         return new CTaskComplexDragPedFromCar(m_PedToArrest, 100'000);

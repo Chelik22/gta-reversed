@@ -7,6 +7,7 @@
 #include <WindowedMode.hpp>
 #include "PostEffects.h"
 #include "UIRenderer.h"
+#include "app.h"
 
 static bool IsInFullscreen()
 {
@@ -38,6 +39,24 @@ void ProcessEvents() {
         case SDL_EVENT_QUIT: {
             RsGlobal.quit = true;
             continue;
+        }
+        case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+            // NOTSA(fix): The original sets this on `WM_SETFOCUS` (WndProc). With SDL3
+            // owning the window procedure it was never set at all, so `IsForegroundApp()`
+            // (used by eg. `CPad::UpdateMouse`) stayed false forever.
+            ForegroundApp = true;
+
+            // NOTSA(fix): SDL3 releases all pressed keys when keyboard focus is lost
+            // (SDL_ResetKeyboard), the original (Win32) does not. Without restoring
+            // the state of the physically held keys here, any focus blip while the
+            // user holds a movement key (eg. `W`) permanently zeroes `LeftStickY`
+            // and hard-freezes the player.
+            CPad::RestoreKeyboardStateFromOS();
+            break;
+        }
+        case SDL_EVENT_WINDOW_FOCUS_LOST: {
+            ForegroundApp = false; // The original sets this on `WM_KILLFOCUS` (WndProc)
+            break;
         }
         case SDL_EVENT_WINDOW_RESIZED: {
             const auto w = e.window.data1,

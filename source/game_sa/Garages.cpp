@@ -262,7 +262,8 @@ bool CGarages::IsGarageOpen(int16 garageId) {
 
 // 0x447D30
 bool CGarages::IsGarageClosed(int16 garageId) {
-    return GetGarage(garageId).IsClosed();
+    // NOTE: Direct array access - the original reads the door state byte inline (216 = sizeof(CGarage))
+    return aGarages[garageId].m_nDoorState == GARAGE_DOOR_CLOSED;
 }
 
 // 0x4479A0

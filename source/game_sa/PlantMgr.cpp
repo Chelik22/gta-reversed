@@ -7,6 +7,11 @@
 #include "PlantSurfPropMgr.h"
 #include "ColHelpers.h"
 #include "ProcObjectMan.h"
+#include "Pools/Pools.h"
+#include "Entity/Ped/Ped.h"
+#include "Entity/Vehicle/Vehicle.h"
+#include "Entity/Object/Object.h"
+#include "Entity/Building.h"
 
 // 0x5DD100 (todo: move)
 static void AtomicCreatePrelitIfNeeded(RpAtomic* atomic) {
@@ -519,11 +524,25 @@ void CPlantMgr::_ColEntityCache_Update(const CVector& cameraPos, bool fast) {
     }
 
     // prune ones that have no entity, too far or not in the same area.
+    // NOTSA(stability): the entity may already be deleted from its pool while
+    // still referenced here (dangling) — validate before any dereference,
+    // otherwise _CalcDistanceSqrToEntity reads freed memory (0xDDDD...).
+    const auto EntityStillInPools = [](CEntity* e) -> bool {
+        if (!e) {
+            return false;
+        }
+        // Pointer-arithmetic only - never dereference a possibly-dangling ptr
+        return CPools::IsValidPointer<CPed>(static_cast<CPed*>(e))
+            || CPools::IsValidPointer<CVehicle>(static_cast<CVehicle*>(e))
+            || CPools::IsValidPointer<CObject>(static_cast<CObject*>(e))
+            || CPools::IsValidPointer<CBuilding>(static_cast<CBuilding*>(e));
+    };
+
     auto* nextEntry = CPlantMgr::m_CloseColEntListHead;
     while (nextEntry) {
         auto* curEntry = nextEntry; // ReleaseEntry() Overwrites m_NextEntry pointer, we need to keep track of it before that can happen
         nextEntry      = curEntry->m_NextEntry;
-        if (!curEntry->m_Entity || _CalcDistanceSqrToEntity(curEntry->m_Entity, cameraPos) > PROC_OBJECTS_MAX_DISTANCE_SQUARED || !curEntry->m_Entity->IsInCurrentArea()) {
+        if (!curEntry->m_Entity || !EntityStillInPools(curEntry->m_Entity) || _CalcDistanceSqrToEntity(curEntry->m_Entity, cameraPos) > PROC_OBJECTS_MAX_DISTANCE_SQUARED || !curEntry->m_Entity->IsInCurrentArea()) {
             curEntry->ReleaseEntry();
         }
     }

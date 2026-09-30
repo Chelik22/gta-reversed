@@ -108,6 +108,11 @@ bool CAudioEngine::Initialise() {
     // NOTSA: Initialize AudioUtility before `AEAudioHardware` to avoid crash (Division by zero in `GetCurrentTimeInMS`)
     CAEAudioUtility::StaticInitialise();
 
+    // NOTSA(stability): pre-allocate the event-volume table so ORIGINAL (unhooked)
+    // audio code can never deref null when audio hardware is absent (headless runs).
+    // StaticInitialise() below will re-read the real table over it on success.
+    CAEAudioEntity::StaticInitialise();
+
     if (!AEAudioHardware.Initialise()) {
         NOTSA_LOG_ERR("Failed to initialise Audio Hardware");
         return false;
@@ -135,6 +140,7 @@ bool CAudioEngine::Initialise() {
         return false;
     }
 
+    // NOTSA: table already pre-allocated at the top of Initialise(); re-load contents only.
     if (!CAEAudioEntity::StaticInitialise()) {
         return false;
     }
@@ -173,6 +179,10 @@ void CAudioEngine::InitialisePostLoading() {
     m_GlobalWeaponAE = new CAEGlobalWeaponAudioEntity();
     m_GlobalWeaponAE->Initialise();
 
+    // NOTSA(stability): without audio hardware the banks can never finish loading and
+    // the original spins here forever. Cap the wait — NOTE: must use WALL CLOCK
+    // (GetTickCount): the game timer is frozen during loading, so CTimer would never advance.
+    const auto waitStart = GetTickCount();
     while (   !AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_COLLISIONS, SND_BANK_SLOT_COLLISIONS)
            || !AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_BULLET_HITS, SND_BANK_SLOT_BULLET_HITS)
            || !AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_VEHICLE_GEN, SND_BANK_SLOT_VEHICLE_GEN)
@@ -186,6 +196,10 @@ void CAudioEngine::InitialisePostLoading() {
            || !AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_SWIMMING, SND_BANK_SLOT_SWIMMING)
            || !AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_APACHE_D, SND_BANK_SLOT_COP_HELI)
     ) {
+        if (GetTickCount() - waitStart > 10'000) {
+            NOTSA_LOG_WARN("InitialisePostLoading: bank load wait timed out (no audio hardware?) — continuing without sounds");
+            break;
+        }
         AEAudioHardware.Service();
     }
 }
@@ -550,18 +564,18 @@ void CAudioEngine::SetMissionAudioPosition(uint8 slotId, CVector& posn) {
 }
 
 // 0x507310
-CVector* CAudioEngine::AttachMissionAudioToPed(uint8 slotId, CPed* ped) {
-    return m_ScriptAE.AttachMissionAudioToPhysical(slotId, ped);
+void CAudioEngine::AttachMissionAudioToPed(uint8 slotId, CPed* ped) {
+    m_ScriptAE.AttachMissionAudioToPhysical(slotId, ped);
 }
 
 // 0x507320
-CVector* CAudioEngine::AttachMissionAudioToObject(uint8 slotId, CObject* object) {
-    return m_ScriptAE.AttachMissionAudioToPhysical(slotId, object);
+void CAudioEngine::AttachMissionAudioToObject(uint8 slotId, CObject* object) {
+    m_ScriptAE.AttachMissionAudioToPhysical(slotId, object);
 }
 
 // 0x507330
-CVector* CAudioEngine::AttachMissionAudioToPhysical(uint8 slotId, CPhysical* physical) {
-    return m_ScriptAE.AttachMissionAudioToPhysical(slotId, physical);
+void CAudioEngine::AttachMissionAudioToPhysical(uint8 slotId, CPhysical* physical) {
+    m_ScriptAE.AttachMissionAudioToPhysical(slotId, physical);
 }
 
 // 0x5073C0

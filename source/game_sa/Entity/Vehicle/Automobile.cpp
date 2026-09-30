@@ -9,6 +9,7 @@
 #include <bit> // popcnt
 
 #include "Automobile.h"
+#include "Pools/Pools.h"
 #include "ModelIndices.h"
 #include "WaterCannons.h"
 #include "Buoyancy.h"

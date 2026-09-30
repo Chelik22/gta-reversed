@@ -14,7 +14,10 @@ auto& m_pAudioEventVolumes = StaticRef<int8*>(0xBD00F8); // Use `GetDefaultVolum
 
 // NOTSA | INLINED | REFACTORED
 bool CAEAudioEntity::StaticInitialise() {
-    m_pAudioEventVolumes = new int8[EVENT_VOLUMES_BUFFER_SIZE];
+    // NOTSA: reuse the pre-allocated buffer if present (audio re-init path)
+    if (!m_pAudioEventVolumes) {
+        m_pAudioEventVolumes = new int8[EVENT_VOLUMES_BUFFER_SIZE]{};
+    }
     auto file = CFileMgr::OpenFile("AUDIO\\CONFIG\\EVENTVOL.DAT", "r");
     if (!file) {
         NOTSA_LOG_WARN("[AudioEngine] Failed to open EVENTVOL.DAT");
@@ -36,5 +39,10 @@ void CAEAudioEntity::Shutdown() {
 }
 
 float CAEAudioEntity::GetDefaultVolume(eAudioEvents event) {
+    // NOTSA(stability): audio can be absent (headless/no dsound); original would
+    // crash the menu on first volume lookup. Fail soft with silence (0 dB -> 0).
+    if (!m_pAudioEventVolumes) {
+        return 0.0f;
+    }
     return static_cast<float>(m_pAudioEventVolumes[event]);
 }

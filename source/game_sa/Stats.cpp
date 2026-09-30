@@ -331,10 +331,24 @@ void CStats::DecrementStat(eStats stat, float value) {
 
 // 0x55C410
 void CStats::SetNewRecordStat(eStats stat, float value) {
-    float currentValue = GetStatValue(stat);
+    // NOTE: `GetStatValue`/`SetStatValue` are inlined here by the original -
+    // it accesses both stat arrays directly (stats < 82 are floats, the rest are int32s)
+    // and `CheckForStatsMessage` is called exactly once.
+    const auto  statIdx    = static_cast<uint16>(stat);
+    float*      floatStats = reinterpret_cast<float*>(&StatTypesFloat);
+    int32*      intStats   = reinterpret_cast<int32*>(&StatTypesInt);
 
-    if (currentValue < value)
-        SetStatValue(stat, value);
+    const float currentValue = statIdx < FIRST_UNUSED_STAT
+        ? floatStats[statIdx]
+        : static_cast<float>(intStats[statIdx - FIRST_INT_STAT]);
+
+    if (currentValue <= value) { // New record?
+        if (statIdx < FIRST_UNUSED_STAT) {
+            floatStats[statIdx] = value;
+        } else {
+            intStats[statIdx - FIRST_INT_STAT] = static_cast<int32>(value);
+        }
+    }
 
     CheckForStatsMessage();
 }

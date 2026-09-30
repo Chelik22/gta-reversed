@@ -323,7 +323,7 @@ public:
     eWeaponSkill        m_nWeaponSkill;
     eFightingStyle      m_nFightingStyle;
     char                m_nAllowedAttackMoves;
-    uint8               field_72F; // taskId related? 0x4B5C47
+    uint8               m_nBleedTimer; // Set to 200 when the ped gets cut by a knife/katana/chainsaw; the ped bleeds while > 0 (see 0x4B5C47)
     CFire*              m_pFire;
     float               m_fireDmgMult;
     CEntity*            m_pLookTarget;
@@ -340,7 +340,7 @@ public:
     float               m_WobbleSpeed;
     char                m_nLastWeaponDamage; // See eWeaponType
     CEntity*            m_pLastEntityDamage;
-    int32               field_768;
+    int32               m_nLastEntityDamageTime; // Time in MS of when the ped was damaged last (set together with `m_pLastEntityDamage`)
 
     // TODO: Not turret, but rather attached entity, see `AttachPedToEntity` and `AttachPedToBike`
     CVector             m_vecTurretOffset;

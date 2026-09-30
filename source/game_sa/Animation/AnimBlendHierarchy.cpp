@@ -20,7 +20,7 @@ void CAnimBlendHierarchy::InjectHooks() {
     RH_ScopedInstall(Uncompress, 0x4CF5F0);
     RH_ScopedInstall(CompressKeyframes, 0x4CF6C0);
     RH_ScopedInstall(RemoveUncompressedData, 0x4CF760);
-    RH_ScopedInstall(MoveMemory, 0x4CF800);
+    RH_ScopedInstall(MoveMemory, 0x4CF800, { .reversed = false }); // FIX: self-redirect
     RH_ScopedInstall(Print, 0x4CF8A0);
 }
 

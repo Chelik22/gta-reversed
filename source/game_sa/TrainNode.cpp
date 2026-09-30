@@ -13,6 +13,22 @@ CTrainNode::CTrainNode() {
     m_bSurfLightingFound = false;
 }
 
+void CTrainNode::InjectHooks() {
+    RH_ScopedClass(CTrainNode);
+    RH_ScopedCategoryGlobal();
+
+    RH_ScopedInstall(SetX, 0x6F5380);
+    RH_ScopedInstall(SetY, 0x6F53A0);
+    RH_ScopedInstall(SetZ, 0x6F53C0);
+    RH_ScopedInstall(GetX, 0x6F53E0);
+    RH_ScopedInstall(GetY, 0x6F5400);
+    RH_ScopedInstall(GetZ, 0x6F5420);
+    RH_ScopedInstall(GetPosn, 0x6F5440);
+    RH_ScopedInstall(SetDistanceFromStart, 0x6F5490);
+    RH_ScopedInstall(GetDistanceFromStart, 0x6F54B0);
+    RH_ScopedInstall(GetLightingFromCollision, 0x6F5F80);
+}
+
 // 0x6F5380
 void CTrainNode::SetX(float X) {
     x = int16(X * 8.0f);

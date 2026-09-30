@@ -22,9 +22,9 @@ public:
     static void RegisterStencilShadows(CVector& cameraPos, bool doNotCreateNew);
 
     static void RenderStencilShadows();
-    static void RenderForVehicle(CStencilShadowObject*);
-    static void RenderForObject(CStencilShadowObject*);
-    static void Render(const CRGBA& color);
+    static bool RenderForVehicle(CStencilShadowObject*);
+    static bool RenderForObject(CStencilShadowObject*);
+    static void Render(CRGBA color); // NOTE: Original (0x710D50) takes the CRGBA by value (ABI!)
     static void RenderBuffer(const CVector& pos);
     static void SunSetPositionFromEntity(const CEntity* entity);
 

@@ -4077,6 +4077,21 @@ extern const RwMatrix *RwMatrixQueryRotate(const RwMatrix * matrix,
                                            RwReal * angle,
                                            RwV3d * center);
 
+/*
+ * Matrix library internals (identified from the gta_sa.exe binary, 2026-09-27).
+ */
+
+/* Full affine inverse core shared by RwMatrixInvert and RwMatrixQueryRotate:
+   inverse of the upper 3x3 via the adjugate plus -inv(rot) * pos. */
+extern RwMatrix *
+_rwMatrixInvertInternal(RwMatrix * matrixOut,
+                        const RwMatrix * matrixIn);
+
+/* RwMatrixQueryRotate helper: unit rotation axis from the dominant diagonal element. */
+extern const RwMatrix *
+_rwMatrixQueryRotateAxis(const RwMatrix * matrix,
+                         RwV3d * axisOut);
+
 /* Get components */
 #ifndef RWDEBUG
 
@@ -6038,6 +6053,22 @@ extern "C"
 
 /* Get the library binary version */
 extern RwUInt32 RwEngineGetVersion(void);
+
+/*
+ * Engine internals (identified from the gta_sa.exe binary, 2026-09-27).
+ */
+
+/* Engine system-config dispatcher: forwards the message to the driver handler and
+   applies the engine defaults for the sub-system / video-mode messages otherwise. */
+extern RwBool
+_rwEngineSystemConfig(void *systemTable,
+                      RwInt32 message,
+                      void *dst,
+                      void *src,
+                      RwInt32 param);
+
+/* Engine open count; validated by _rwPluginRegistryAddPlugin. */
+extern RwUInt32 _rwEngineGetOpenCount(void);
 
 /* Sequence of events to get RenderWare up and running */
 extern RwBool RwEngineInit(const RwMemoryFunctions *memFuncs,

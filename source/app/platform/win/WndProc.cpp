@@ -154,6 +154,7 @@ LRESULT CALLBACK __MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPara
     }
     case WM_DESTROY:
     case WM_CLOSE: { // 0x747EF3
+        spdlog::warn("NOTSA(quit-trace): WM_CLOSE/WM_DESTROY received");
         VERIFY(ClipCursor(nullptr));
         VERIFY(SUCCEEDED(WinInput::Shutdown()));
         PostQuitMessage(0);
