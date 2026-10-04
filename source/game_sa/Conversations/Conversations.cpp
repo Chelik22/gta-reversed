@@ -34,7 +34,6 @@ void CConversations::Clear() {
     m_SettingUpConversation = 0;
     m_AwkwardSayStatus      = eAwkwardSayStatus::INACTIVE;
 }
-
 // 0x43C590
 void CConversations::Update() {
     ZoneScoped;
@@ -63,7 +62,6 @@ void CConversations::Update() {
         break;
     }
 }
-
 // 0x43A870
 void CConversations::SetUpConversationNode(
     const char* questionKey,
@@ -95,7 +93,6 @@ void CConversations::SetUpConversationNode(
     }
     ++CConversations::m_SettingUpConversationNumNodes;
 }
-
 // 0x43A960
 void CConversations::RemoveConversationForPed(CPed* ped) {
     for (auto& conversation : m_Conversations) {
@@ -104,12 +101,10 @@ void CConversations::RemoveConversationForPed(CPed* ped) {
         }
     }
 }
-
 // 0x43B0B0
 bool CConversations::IsPlayerInPositionForConversation(CPed* ped, bool randomConversation) {
     return FindConversationForPed(ped)->IsPlayerInPositionForConversation(randomConversation);
 }
-
 // 0x43AAC0
 bool CConversations::IsConversationGoingOn() {
     for (const auto& conversation : m_Conversations) {
@@ -119,7 +114,6 @@ bool CConversations::IsConversationGoingOn() {
     }
     return false;
 }
-
 // 0x43B000
 bool CConversations::IsConversationAtNode(const char* pName, CPed* pPed) {
     auto conversation = FindConversationForPed(pPed);
@@ -131,19 +125,16 @@ bool CConversations::IsConversationAtNode(const char* pName, CPed* pPed) {
     // NOTSA - using stricmp instead of MakeUpperCase + strcmp
     return !stricmp(pName, CConversations::m_Nodes[conversation->m_CurrentNode].m_Name);
 }
-
 // 0x43A810
 void CConversations::AwkwardSay(int32 whatToSay, CPed* speaker) {
     AudioEngine.PreloadMissionAudio(0, whatToSay);
     AudioEngine.AttachMissionAudioToPed(0, speaker);
     m_AwkwardSayStatus = eAwkwardSayStatus::LOADING;
 }
-
 // 0x43AA40
 void CConversations::EnableConversation(CPed* ped, bool enabled) {
     FindConversationForPed(ped)->m_Enabled = enabled;
 }
-
 // 0x43A840
 void CConversations::StartSettingUpConversation(CPed* ped) {
     m_SettingUpConversationPed = ped;
@@ -151,12 +142,77 @@ void CConversations::StartSettingUpConversation(CPed* ped) {
     m_SettingUpConversationNumNodes = 0;
     m_SettingUpConversation         = true;
 }
-
 // 0x43ADB0
 void CConversations::DoneSettingUpConversation(bool bSuppressSubtitles) {
-    plugin::Call<0x43ADB0, bool>(bSuppressSubtitles);
-}
+    const auto numNodes = m_SettingUpConversationNumNodes;
 
+    // Resolve the node name references into node indices
+    if (numNodes > 0) {
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            temp.m_NodeYes = -1;
+            temp.m_NodeNo  = -1;
+            for (auto i = 0; i < numNodes; i++) {
+                if (!strcmp(temp.m_NameNodeYes, m_aTempNodes[i].m_Name)) {
+                    temp.m_NodeYes = (int16)i;
+                }
+                if (!strcmp(temp.m_NameNodeNo, m_aTempNodes[i].m_Name)) {
+                    temp.m_NodeNo = (int16)i;
+                }
+            }
+        }
+    }
+
+    // Find the first free conversation
+    CConversationForPed* conversation{};
+    for (auto& c : m_Conversations) {
+        if (!c.m_pPed) {
+            conversation = &c;
+            break;
+        }
+    }
+
+    if (numNodes > 0) {
+        // Reserve a slot for each node
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            size_t slot{};
+            for (; slot < MAX_NUM_CONVERSATION_NODES; slot++) {
+                auto& node = m_Nodes[slot];
+                if (node.m_Name[0] == '\0') {
+                    node.m_Name[0] = 'X'; // Reserve
+                    node.m_Name[1] = '\0';
+                    break;
+                }
+            }
+            temp.m_FinalSlot = (int32)slot;
+        }
+
+        // Copy the nodes over
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            auto& node = m_Nodes[temp.m_FinalSlot];
+            strcpy(node.m_Name, temp.m_Name);
+            node.m_NodeYes = temp.m_NodeYes < 0 ? -1 : (int16)m_aTempNodes[temp.m_NodeYes].m_FinalSlot;
+            node.m_NodeNo  = temp.m_NodeNo < 0 ? -1 : (int16)m_aTempNodes[temp.m_NodeNo].m_FinalSlot;
+            node.m_Speech  = temp.m_Speech;
+            node.m_SpeechY = temp.m_SpeechY;
+            node.m_SpeechN = temp.m_SpeechN;
+        }
+    }
+
+    // Initialize the conversation
+    assert(conversation);
+    conversation->m_FirstNode   = m_aTempNodes[0].m_FinalSlot;
+    conversation->m_CurrentNode = m_aTempNodes[0].m_FinalSlot;
+    conversation->m_pPed        = m_SettingUpConversationPed;
+    conversation->m_pPed->RegisterReference(reinterpret_cast<CEntity**>(&conversation->m_pPed));
+    conversation->m_LastChange                 = CTimer::GetTimeInMS();
+    conversation->m_LastTimeWeWereCloseEnough  = 0;
+    conversation->m_Enabled                    = true;
+    conversation->m_SuppressSubtitles          = bSuppressSubtitles;
+    conversation->m_Status                     = CConversationForPed::INACTIVE;
+
+    m_SettingUpConversationNumNodes = 0;
+    m_SettingUpConversation         = false;
+}
 CConversationForPed* CConversations::FindConversationForPed(CPed* ped) {
     for (auto& conversation : m_Conversations) {
         if (conversation.m_pPed == ped) {

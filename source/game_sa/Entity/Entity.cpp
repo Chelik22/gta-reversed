@@ -5,6 +5,7 @@
     Do not delete this comment block. Respect others' work!
 */
 #include "StdInc.h"
+#include "Pools/Pools.h"
 
 #include "Entity.h"
 
@@ -1609,6 +1610,16 @@ float CEntity::GetDistanceFromCentreOfMassToBaseOfModel() const {
 // in references.cpp
 // 0x571A00
 void CEntity::CleanUpOldReference(CEntity** entity) {
+    // NOTSA(stability): if `this` was already deleted from its pool, the
+    // reference list is dangling memory — bail out instead of reading it.
+    // Pointer-arithmetic only - never dereference a possibly-dangling ptr
+    const bool inPool = CPools::IsValidPointer<CPed>(static_cast<CPed*>(this))
+                     || CPools::IsValidPointer<CVehicle>(static_cast<CVehicle*>(this))
+                     || CPools::IsValidPointer<CObject>(static_cast<CObject*>(this))
+                     || CPools::IsValidPointer<CBuilding>(static_cast<CBuilding*>(this));
+    if (!inPool) {
+        return;
+    }
     auto lastnextp = &m_pReferences;
     for (auto ref = m_pReferences; ref; ref = ref->m_pNext) {
         if (ref->m_ppEntity == entity) {

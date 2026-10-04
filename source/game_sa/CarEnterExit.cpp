@@ -22,7 +22,9 @@ void CCarEnterExit::InjectHooks() {
     RH_ScopedInstall(ComputeTargetDoorToEnterAsPassenger, 0x64F190);
     RH_ScopedInstall(ComputeTargetDoorToExit, 0x64F110);
     RH_ScopedInstall(GetNearestCarDoor, 0x6528F0);
+    // BLOCKER: decomp ok (6.4KB) but relies on unnamed CVehicleModelInfo struct offsets (anim group +0xCC/+0xDE, door flags 0x486, rear doors 0x66C/0x674, modelinfo +0x4C seat count); needs those named first.
     RH_ScopedInstall(GetNearestCarPassengerDoor, 0x650BB0, { .reversed = false });
+    // BLOCKER: decomp ok (5.7KB) but depends on unnamed CVehicleModelInfo fields (+0x5C vehicle structure with +0x3C/0x40/0x44/0xD4 seat offsets, +0x3C == 5 check) and the vehicle virtual call at vtable+0xD4; needs the seat-position struct reversed first.
     RH_ScopedInstall(GetPositionToOpenCarDoor, 0x64E740, { .reversed = false });
     RH_ScopedInstall(IsCarDoorInUse, 0x64EC90);
     RH_ScopedInstall(IsCarDoorReady, 0x64ED90);
@@ -31,12 +33,14 @@ void CCarEnterExit::InjectHooks() {
     RH_ScopedInstall(IsClearToDriveAway, 0x6509B0);
     RH_ScopedInstall(IsPathToDoorBlockedByVehicleCollisionModel, 0x651210);
     RH_ScopedInstall(IsPedHealthy, 0x64EEE0);
+    // BLOCKER: decomp ok (3.8KB) but depends on CPad walk helpers 0x53FC90/0x53FD30 (unreversed), task-type id switch (0x2C0/0x321-0x341 range) and consts 0x858B88/0x859AB0/0x8D2ED8/0xB6F178; needs pad/task naming first.
     RH_ScopedInstall(IsPlayerToQuitCarEnter, 0x64F240, { .reversed = false });
+    // BLOCKER: decomp ok (6.4KB) but depends on CWorld::TestSphereAgainstWorld and ProcessVerticalLine (unreversed in repo) plus the CVehicleModelInfo seat struct (see GetPositionToOpenCarDoor); needs those first.
     RH_ScopedInstall(IsRoomForPedToLeaveCar, 0x6504C0, { .reversed = false });
     RH_ScopedInstall(IsVehicleHealthy, 0x64EEC0);
     RH_ScopedInstall(IsVehicleStealable, 0x6510D0);
     RH_ScopedInstall(MakeUndraggedDriverPedLeaveCar, 0x64F600);
-    RH_ScopedInstall(MakeUndraggedPassengerPedsLeaveCar, 0x64F540, { .reversed = false });
+    RH_ScopedInstall(MakeUndraggedPassengerPedsLeaveCar, 0x64F540);
     RH_ScopedInstall(QuitEnteringCar, 0x650130);
     RH_ScopedInstall(RemoveCarSitAnim, 0x64F680);
     RH_ScopedInstall(RemoveGetInAnims, 0x64F6E0);
@@ -601,7 +605,17 @@ void CCarEnterExit::MakeUndraggedDriverPedLeaveCar(const CVehicle* vehicle, cons
 
 // 0x64F540
 void CCarEnterExit::MakeUndraggedPassengerPedsLeaveCar(const CVehicle* targetVehicle, const CPed* draggedPed, const CPed* ped) {
-    plugin::Call<0x64F540, const CVehicle*, const CPed*, const CPed*>(targetVehicle, draggedPed, ped);
+    auto& veh = const_cast<CVehicle&>(*targetVehicle);
+    if (!veh.m_nMaxPassengers) {
+        return;
+    }
+    for (auto i = 0; i < (int32)(uint32)veh.m_nMaxPassengers; i++) {
+        const auto passenger = veh.m_apPassengers[i];
+        if (passenger && passenger != draggedPed && !passenger->bKnockedOffBike) { // original: !(flags & 0x800000)
+            const auto doorId = ComputeTargetDoorToExit(&veh, passenger); // 0x64F110
+            passenger->GetEventGroup().Add(CEventDraggedOutCar{ &veh, const_cast<CPed*>(ped), doorId != 0 }); // 0x4AEAC0
+        }
+    }
 }
 
 // unused

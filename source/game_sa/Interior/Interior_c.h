@@ -97,7 +97,7 @@ public:
     void SetCornerTiles(int32 a4, int32 a3, int32 a5, uint8 a6);
     int32 GetTileStatus(int32 x, int32 y);
     int32 GetNumEmptyTiles(int32 a2, int32 a3, int32 a4, int32 a5);
-    int32 GetRandomTile(int32 a2, int32* a3, int32* a4);
+    void GetRandomTile(int32 tileStatus, int32* outX, int32* outY);
     void Shop_FurnishAisles();
     CVector* GetTileCentre(float offsetX, float offsetY, CVector* pointsIn);
     void AddGotoPt(int32 a, int32 b, float a3, float a4);
@@ -106,11 +106,11 @@ public:
     void FindBoundingBox(int32, int32, int32*, int32*, int32*, int32*, int32*);
     void CalcExitPts();
     bool IsVisible();
-    void PlaceFurniture(Furniture_c* a1, int32 a2, int32 a3, float a4, int32 a5, int32 a6, int32* a7, int32* a8, uint8 a9);
-    void PlaceFurnitureOnWall(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 furnitureId, float a5, int32 a6, int32 a7, int32 a8, int32 a9, int32* a10, int32* a11,
-                              int32* a12, int32* a13, int32* a14, int32* a15);
-    void PlaceFurnitureInCorner(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 id, float a4, int32 a5, int32 a6, int32 a2, int32* a9, int32* a10, int32* a11, int32* a12,
-                                int32* a13);
+    CEntity* PlaceFurniture(Furniture_c* furniture, int32 x, int32 y, float a4, int32 a5, int32 dir, int32* outA, int32* outB, uint8 a9);
+    CEntity* PlaceFurnitureOnWall(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 furnitureId, float a5, int32 a6, int32 dir, int32 a8, int32 offset, int32* outDir, int32* outA,
+                                  int32* outX, int32* outY, int32* outTileX, int32* outTileY);
+    CEntity* PlaceFurnitureInCorner(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 id, float a4, int32 a5, int32 a6, int32 dir, int32* outDir, int32* outX, int32* outY,
+                                    int32* outA, int32* outB);
     bool FindEmptyTiles(int32 a3, int32 a4, int32* arg8, int32* a5);
     void FurnishShop(int32 a2);
 

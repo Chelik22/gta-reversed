@@ -47,19 +47,20 @@ void CWeapon::InjectHooks() {
     RH_ScopedInstall(Update, 0x73DB40);
     RH_ScopedInstall(SetUpPelletCol, 0x73C710);
     RH_ScopedInstall(FireAreaEffect, 0x73E800);
-    RH_ScopedInstall(FireInstantHitFromCar, 0x73EC40, { .reversed = false });
+    RH_ScopedInstall(FireInstantHitFromCar, 0x73EC40);
     RH_ScopedInstall(FireFromCar, 0x73FA20);
+    // BLOCKER: 41KB decomp. Structure decoded (skill lookup -> ped/vehicle/drive-by spread branches -> spread/jitter -> CheckForShootingVehicleOccupant -> DoBulletImpact -> penetration loop) but translation incomplete: unidentified helpers 0x41BD90/0x4B2070/0x4AC720/0x4AD960 (event ctors), FX stack at tail, and the bullet-penetration loop (0x8D6110-0x8D6124 consts, 0xC8A7DC buffer) need full reverse engineering first.
     RH_ScopedInstall(FireInstantHit, 0x73FB10, { .reversed = false });
     RH_ScopedInstall(FireProjectile, 0x741360);
     RH_ScopedInstall(DoBulletImpact, 0x73B550);
     RH_ScopedInstall(LaserScopeDot, 0x73A8D0);
     RH_ScopedInstall(FireM16_1stPerson, 0x741C00);
     RH_ScopedInstall(Fire, 0x742300);
-    RH_ScopedGlobalInstall(DoTankDoomAiming, 0x73D1E0, { .reversed = false });
-    RH_ScopedGlobalInstall(DoDriveByAutoAiming, 0x73D720, { .reversed = false });
-    RH_ScopedGlobalInstall(FindNearestTargetEntityWithScreenCoors, 0x73E240, { .reversed = false });
+    RH_ScopedGlobalInstall(DoTankDoomAiming, 0x73D1E0);
+    RH_ScopedGlobalInstall(DoDriveByAutoAiming, 0x73D720);
+    RH_ScopedGlobalInstall(FindNearestTargetEntityWithScreenCoors, 0x73E240);
     RH_ScopedGlobalInstall(EvaluateTargetForHeatSeekingMissile, 0x73E560);
-    RH_ScopedGlobalInstall(CheckForShootingVehicleOccupant, 0x73F480, { .reversed = false });
+    RH_ScopedGlobalInstall(CheckForShootingVehicleOccupant, 0x73F480);
     RH_ScopedGlobalInstall(PickTargetForHeatSeekingMissile, 0x73F910);
     RH_ScopedOverloadedInstall(CanBeUsedFor2Player, "Static", 0x73B240, bool(*)(eWeaponType));
     RH_ScopedOverloadedInstall(CanBeUsedFor2Player, "Method", 0x73DEF0, bool(CWeapon::*)());
@@ -1011,13 +1012,153 @@ void CWeapon::DoDoomAiming(CEntity* owner, CVector* start, CVector* end) {
 }
 
 // 0x73D1E0
-void CWeapon::DoTankDoomAiming(CEntity* vehicle, CEntity* owner, CVector* startPoint, CVector* endPoint) {
-    plugin::Call<0x73D1E0, CEntity*, CEntity*, CVector*, CVector*>(vehicle, owner, startPoint, endPoint);
+void CWeapon::DoTankDoomAiming(CEntity* shooter, CEntity* vehicle, CVector* startPoint, CVector* endPoint) {
+    int16    inRangeCount{};
+    CEntity* entities[16]{};
+
+    const auto shotDir = *endPoint - *startPoint;
+
+    CWorld::FindObjectsInRange(*startPoint, shotDir.Magnitude(), true, &inRangeCount, (int16)std::size(entities) - 1, entities, false, true, false, false, false);
+
+    float       bestScore{ 10'000.f };
+    CEntity*    bestEntity{};
+    const float dirZ = (endPoint->z - startPoint->z) / shotDir.Magnitude();
+
+    for (auto entity : std::span{ entities, (size_t)inRangeCount }) {
+        if (entity == shooter || entity == vehicle) {
+            continue;
+        }
+
+        switch (entity->GetStatus()) {
+        case STATUS_TRAIN_MOVING:
+        case STATUS_TRAIN_NOT_MOVING:
+            continue;
+        }
+
+        if (entity->GetIsTypeVehicle() && (entity->AsPhysical()->m_nPhysicalFlags & 0x20000000)) { // 0x40 & 0x20000000
+            continue;
+        }
+
+        // NOTE: Original calls CPlaceable::AllocateMatrix + CSimpleTransform::UpdateMatrix when the matrix isn't allocated
+        if (!shooter->m_matrix) {
+            shooter->AllocateMatrix();
+            shooter->m_placement.UpdateMatrix(shooter->m_matrix);
+        }
+        if (!entity->m_matrix) {
+            entity->AllocateMatrix();
+            entity->m_placement.UpdateMatrix(entity->m_matrix);
+        }
+
+        const auto& startPos = shooter->GetPosition();
+        const auto& entPos   = entity->GetPosition();
+
+        // Horizontal (XY) distance between the two
+        const float horizDist = (startPos - entPos).Magnitude2D();
+
+        // Height difference at that distance, given the shot direction
+        float zOff = horizDist * dirZ;
+        if (const float diff = startPos.z - (zOff + entPos.z); diff >= 0.0f) {
+            zOff = diff;
+        } else {
+            zOff = -diff;
+        }
+
+        if (zOff * 3.0f /* 0x858B3C */ >= horizDist) {
+            continue;
+        }
+
+        const auto colModelRadius = CModelInfo::GetModelInfo(entity->GetModelIndex())->GetColModel()->GetBoundRadius();
+        if (CCollision::DistToLine(*startPoint, *endPoint, entPos) < colModelRadius * 3.0f /* 0x858B3C */) {
+            if (const float score = std::hypot(horizDist, zOff); score < bestScore) {
+                bestScore  = score;
+                bestEntity = entity;
+            }
+        }
+    }
+
+    if (bestScore >= 9000.0f /* 0x872C30 */) {
+        return;
+    }
+
+    // Aim at the top of the entity we've found
+    if (!bestEntity->m_matrix) {
+        bestEntity->AllocateMatrix();
+        bestEntity->m_placement.UpdateMatrix(bestEntity->m_matrix);
+    }
+    const auto& bestPos = bestEntity->GetPosition();
+
+    const auto t = (*endPoint - *startPoint).Magnitude2D() / (bestPos - *startPoint).Magnitude2D();
+    endPoint->z = (bestPos.z + 0.3f /* 0x858C24 */ - startPoint->z) * t + startPoint->z;
 }
 
 // 0x73D720
-void CWeapon::DoDriveByAutoAiming(CEntity* owner, CVehicle* vehicle, CVector* startPoint, CVector* endPoint, bool canAimVehicles) {
-    plugin::Call<0x73D720, CEntity*, CVehicle*, CVector*, CVector*, bool>(owner, vehicle, startPoint, endPoint, canAimVehicles);
+void CWeapon::DoDriveByAutoAiming(CEntity* shooter, CVehicle* vehicle, CVector* startPoint, CVector* endPoint, bool canAimVehicles) {
+    if (!shooter) {
+        return;
+    }
+
+    int16    numPedsFound{}, numVehsFound{};
+    CEntity* entities[32]{};
+
+    const float range = (*endPoint - *startPoint).Magnitude();
+
+    CWorld::FindObjectsInRange(*startPoint, range, true, &numPedsFound, (int16)std::size(entities) / 2, entities, false, false, true, false, false);
+    if (canAimVehicles) {
+        CWorld::FindObjectsInRange(*startPoint, range, true, &numVehsFound, (int16)std::size(entities) / 2, entities + numPedsFound, false, true, false, false, false);
+    }
+
+    float    bestCost{ 10'000.f };
+    int32    bestIdx{};
+    for (int32 i = 0; i < numPedsFound + numVehsFound; ++i) {
+        CEntity* const entity = entities[i];
+        if (entity == shooter || !entity->GetIsTypePed()) {
+            continue;
+        }
+        const auto ped = entity->AsPed();
+        if (ped->m_nPedState == PEDSTATE_DIE || ped->m_nPedState == PEDSTATE_DEAD) {
+            continue;
+        }
+        if (ped->m_pAttachedTo == vehicle) {
+            continue;
+        }
+
+        float cost = CCollision::DistToLine(*startPoint, *endPoint, ped->GetPosition());
+
+        const auto& pedPos = ped->GetPosition();
+        if (vehicle->m_nVehicleSubType == VEHICLE_TYPE_PLANE || vehicle->m_nVehicleSubType == VEHICLE_TYPE_HELI) {
+            // Both are in the same vehicle - factor in the distance between them
+            cost /= std::max((pedPos - shooter->GetPosition()).Magnitude(), 5.0f /* 0x858C80 */);
+        } else {
+            cost += (pedPos - shooter->GetPosition()).Magnitude() * 0.15f /* 0x858FCC */;
+        }
+
+        // Must be in the direction we're aiming at
+        if (DotProduct(*endPoint - *startPoint, pedPos - *startPoint) <= 0.0f) {
+            continue;
+        }
+
+        if (cost < bestCost) {
+            bestCost = cost;
+            bestIdx  = i;
+        }
+    }
+
+    // Aim assist cone
+    float maxRange = vehicle->GetPlaneGunsAutoAimAngle();
+    if (maxRange <= 0.5f /* 0x858B8C */) {
+        maxRange = 2.5f /* 0x858FA0 */;
+    } else {
+        maxRange = tanf(maxRange * 0.017453f /* 0x8595EC */);
+    }
+
+    if (bestCost >= maxRange) {
+        return;
+    }
+
+    // Aim at the entity we've found
+    const auto& bestPos = entities[bestIdx]->GetPosition();
+    const auto  t       = (*startPoint - *endPoint).Magnitude() / (*startPoint - bestPos).Magnitude();
+    *endPoint = *startPoint + (bestPos - *startPoint) * t;
 }
 
 // 0x73DB40
@@ -1320,12 +1461,178 @@ bool CWeapon::FireAreaEffect(CEntity* firingEntity, const CVector& origin, CEnti
 
 // 0x73EC40
 bool CWeapon::FireInstantHitFromCar(CVehicle* vehicle, bool leftSide, bool rightSide) {
-    return plugin::CallMethodAndReturn<bool, 0x73EC40, CWeapon*, CVehicle*, bool, bool>(this, vehicle, leftSide, rightSide);
+    const auto wi = CWeaponInfo::GetWeaponInfo(m_Type, eWeaponSkill::STD);
+    const auto mi = CModelInfo::GetModelInfo(vehicle->GetModelIndex());
+
+    const auto& vehMat  = *vehicle->m_matrix;
+    const auto  velocity = vehicle->m_vecMoveSpeed * CTimer::GetTimeStep();
+    const float range    = wi->m_fWeaponRange;
+
+    const auto TransformByDriversHand = [&](CVector& pos) {
+        const auto hier = GetAnimHierarchyFromSkinClump(vehicle->m_pDriver->GetRpClump());
+        const auto idx  = RpHAnimIDGetIndex(hier, vehicle->m_pDriver->m_apBones[PED_NODE_LEFT_HAND /* 0x4A0 */]->BoneTag);
+        RwV3dTransformPoints(&pos, &pos, 1, &RpHAnimHierarchyGetMatrixArray(hier)[idx]);
+    };
+
+    CVector origin{}, end{};
+
+    if (!vehicle->IsBike()) {
+        origin = wi->m_vecFireOffset;
+        if (rightSide) {
+            origin *= 1.8f /* 0x859BB4 */;
+            origin.z -= 0.1f /* 0x858B1C */;
+        }
+        TransformByDriversHand(origin);
+        origin += velocity;
+
+        const auto& dir = rightSide ? vehMat.GetRight() : vehMat.GetForward();
+        end = leftSide ? origin - vehMat.GetRight() * range : origin + dir * range;
+    } else if (vehicle->m_pDriver) {
+        origin = wi->m_vecFireOffset;
+        TransformByDriversHand(origin);
+        origin += velocity;
+
+        const auto& dir = rightSide ? vehMat.GetRight() : vehMat.GetForward();
+        end = leftSide ? origin - vehMat.GetRight() * range : origin + dir * range;
+    } else { // Bike without a driver - shoot from its seat
+        const uintptr_t seat = *reinterpret_cast<uintptr_t*>(reinterpret_cast<char*>(mi) + 0x5C); // TODO: Name of `CBaseModelInfo + 0x5C` (seat/frame data pointer)
+        uintptr_t       p    = seat;
+        if (*reinterpret_cast<int32_t*>(reinterpret_cast<char*>(mi) + 0x3C) != 5) { // TODO: Name of `CBaseModelInfo + 0x3C`
+            p += 0x30;
+        }
+
+        const auto rnd = (float)(CGeneral::GetRandomNumber() & 0xFF);
+        const auto& colModel = *vehicle->GetColModel();
+
+        if (!leftSide) {
+            if (!rightSide) {
+                origin = vehMat.TransformPoint(CVector{
+                    rnd * 0.001f /* 0x858CDC */ - 0.4f /* 0x858EE8 */,
+                    colModel.m_boundBox.m_vecMax.y + *(float*)(p + 4) + 0.2f /* 0x858CC4 */,
+                    *(float*)(p + 8) + 0.55f /* 0x866CAC */,
+                });
+                end = vehMat.TransformPoint(CVector{
+                    0.0f,
+                    range,
+                    *(float*)(p + 8) + 0.5f /* 0x858B8C */,
+                });
+            } else {
+                origin = vehMat.TransformPoint(CVector{
+                    colModel.m_boundBox.m_vecMax.x + 0.2f /* 0x858C84 */,
+                    (*(float*)(p + 4) - 0.18f /* 0x872C68 */) + rnd * 0.001f /* 0x858CDC */,
+                    *(float*)(p + 8) + 0.52f /* 0x8665BC */,
+                });
+                end = vehMat.TransformPoint(CVector{
+                    range,
+                    *(float*)(p + 4),
+                    *(float*)(p + 8) + 0.5f /* 0x858B8C */,
+                });
+            }
+        } else {
+            origin = vehMat.TransformPoint(CVector{
+                -colModel.m_boundBox.m_vecMax.x - 0.2f /* 0x858C84 */,
+                (*(float*)(p + 4) - 0.05f /* 0x858C28 */) + rnd * 0.001f /* 0x858CDC */,
+                *(float*)(p + 8) + 0.63f /* 0x872C6C */,
+            });
+            end = vehMat.TransformPoint(CVector{
+                -range,
+                *(float*)(p + 4),
+                *(float*)(p + 8) + 0.6f /* 0x858CC8 */,
+            });
+        }
+    }
+
+    if (!vehicle->m_pDriver && vehicle->IsBike()) {
+        origin += velocity;
+    }
+
+    // Random spread
+    for (auto* v : { &end.x, &end.y, &end.z }) {
+        *v += (float)(CGeneral::GetRandomNumber() & 0xFF) * 0.01f /* 0x858C58 */ - 1.28f /* 0x872C64 */;
+    }
+
+    DoDriveByAutoAiming(FindPlayerPed(-1), vehicle, &origin, &end, false);
+    FireInstantHitFromCar2(origin, end, vehicle, vehicle->m_pDriver);
+    return true;
 }
 
 // 0x73F480
 bool CWeapon::CheckForShootingVehicleOccupant(CEntity** pCarEntity, CColPoint* colPoint, eWeaponType weaponType, const CVector& origin, const CVector& target) {
-    return plugin::CallAndReturn<bool, 0x73F480, CEntity**, CColPoint*, eWeaponType, const CVector&, const CVector&>(pCarEntity, colPoint, weaponType, origin, target);
+    CEntity* const entity = *pCarEntity;
+
+    if (!entity->GetIsTypeVehicle()) {
+        return false;
+    }
+
+    bool found{};
+
+    // Test the shot line against a sphere at the occupant's upper torso
+    const auto CheckOccupant = [&](CPed* occupant) {
+        if (!occupant || !occupant->bCanBeShotInVehicle) {
+            return;
+        }
+        const auto hier = GetAnimHierarchyFromSkinClump(occupant->GetRpClump());
+        const auto idx  = RpHAnimIDGetIndex(hier, occupant->m_apBones[PED_NODE_UPPER_TORSO /* 0x490 */]->BoneTag);
+
+        CVector headPos;
+        RwV3dTransformPoints(&headPos, &headPos, 1, &RpHAnimHierarchyGetMatrixArray(hier)[idx]);
+        headPos.z += 0.1f /* 0x858B1C */;
+
+        CColSphere sphere;
+        sphere.Set(0.2f /* 0x3E4CCCCD */, headPos, (eSurfaceType)0, 9, tColLighting(0xFF));
+
+        float depth{ 1.0f };
+        if (CCollision::ProcessLineSphere(CColLine{ origin, target }, sphere, *colPoint, depth)) {
+            *pCarEntity = occupant;
+            found       = true;
+        }
+    };
+
+    const auto vehicle = entity->AsVehicle();
+
+    CheckOccupant(vehicle->m_pDriver);
+    for (auto* passenger : vehicle->m_apPassengers) {
+        CheckOccupant(passenger);
+    }
+
+    // Check if we've shot through the windscreen of an automobile
+    if (vehicle->IsAutomobile()) {
+        const auto dir = target - origin;
+        if (const auto& mat = *vehicle->m_matrix; DotProduct(dir, mat.GetForward()) < 0.0f) {
+            if (const auto dotUp = DotProduct(dir, mat.GetUp()); dotUp < 0.0f || vehicle->vehicleFlags.bIsBig) { // (byte at 0x429) & 0x4
+                const auto& colModel = *vehicle->GetColModel();
+                if (colModel.m_pColData && colModel.m_pColData->m_nNumTriangles > 0) {
+                    const auto& colData = *colModel.m_pColData;
+
+                    // NOTE: Original inverts the vehicle matrix into a pooled matrix
+                    const auto invMat = Invert(*vehicle->m_matrix);
+                    const CColLine localLine{ invMat.TransformPoint(origin), invMat.TransformPoint(target) };
+
+                    for (int16 i = 0; i < colData.m_nNumTriangles; ++i) {
+                        const auto& tri = colData.m_pTriangles[i];
+                        if (!g_surfaceInfos.IsGlass(tri.GetSurfaceType())) {
+                            continue;
+                        }
+                        if (CCollision::TestLineTriangle(localLine, colData.GetTriVerts(), tri, colData.GetTriPlanes()[i])) {
+                            const auto automobile = vehicle->AsAutomobile();
+                            if (automobile->m_damageManager.ProgressPanelDamage(WINDSCREEN_PANEL)) {
+                                if (automobile->m_damageManager.GetPanelStatus(WINDSCREEN_PANEL) == DAMSTATE_DAMAGED) {
+                                    automobile->m_damageManager.ProgressPanelDamage(WINDSCREEN_PANEL);
+                                }
+                                automobile->SetPanelDamage(WINDSCREEN_PANEL, true);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!found) {
+        *pCarEntity = entity;
+    }
+    return found;
 }
 
 // 0x73F910
@@ -1492,7 +1799,7 @@ bool CWeapon::FireProjectile(CEntity* firedBy, const CVector& origin, CEntity* t
         false,
         true
     )) {
-        if (projType == WEAPON_ROCKET && targetEntity && targetPos) {
+        if (projType == WEAPON_ROCKET && (targetEntity || targetPos)) { // 0x741A13 - direction from either
             const auto projTargetPos = targetEntity
                 ? targetEntity->GetPosition()
                 : *targetPos;
@@ -1516,22 +1823,24 @@ bool CWeapon::FireProjectile(CEntity* firedBy, const CVector& origin, CEntity* t
             );
         }
 
-    } else if (notsa::contains({ WEAPON_GRENADE, WEAPON_REMOTE_SATCHEL_CHARGE }, GetType()) && firedBy->GetIsTypePed()) { // 0x74193B
-        const auto thorwableProjOrigin = firedBy->GetPosition() - firedBy->GetForward() - CVector{0.f, 0.f, 0.4f};
-        if (CWorld::TestSphereAgainstWorld(thorwableProjOrigin, 0.3f, nullptr, false, false, true, false, false, false)) { // 0x7419CE
-            CProjectileInfo::AddProjectile(
-                firedBy,
-                projType,
-                thorwableProjOrigin,
-                force,
-                nullptr,
-                targetEntity
-            );
-        } else {
+    } else { // 0x74193B - line of sight blocked
+        if (notsa::contains({ WEAPON_GRENADE, WEAPON_REMOTE_SATCHEL_CHARGE }, projType) && firedBy->GetIsTypePed()) {
+            const auto thorwableProjOrigin = firedBy->GetPosition() - firedBy->GetForward() - CVector{0.f, 0.f, 0.4f};
+            if (!CWorld::TestSphereAgainstWorld(thorwableProjOrigin, 0.3f, nullptr, false, false, true, false, false, false)) { // 0x7419CE - free space -> drop it there (with no force)
+                CProjectileInfo::AddProjectile(
+                    firedBy,
+                    projType,
+                    thorwableProjOrigin,
+                    0.f, // NOTE: Original zeroes the force on this path
+                    nullptr,
+                    targetEntity
+                );
+            } else { // Obstructed -> blow up at the muzzle position
+                CProjectileInfo::RemoveNotAdd(firedBy, projType, projOrigin);
+            }
+        } else { // Grenade-like fired by a non-ped, or any other projectile weapon -> blow up at the muzzle position
             CProjectileInfo::RemoveNotAdd(firedBy, projType, projOrigin);
         }
-    } else {
-        CProjectileInfo::RemoveNotAdd(firedBy, projType, projOrigin);
     }
     CWorld::pIgnoreEntity = nullptr;
 

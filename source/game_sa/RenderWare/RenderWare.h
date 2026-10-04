@@ -55,6 +55,8 @@ struct RwResEntrySA : RwResEntry {
 
 
 void RwCoreInjectHooks();
+void RwPlCoreInjectHooks();
+void RpMatFXInjectHooks();
 
 template<typename T>
 inline T RwStreamRead(RwStream* stream, size_t size = sizeof(T)) {

@@ -201,7 +201,7 @@ void CCollisionData::GetTrianglePoint(CVector& outVec, int32 vertId) {
 }
 
 // 0x40F640
-void CCollisionData::GetShadTrianglePoint(CVector& outVec, int32 vertId) {
+void CCollisionData::GetShadTrianglePoint(CVector& outVec, int32 vertId) const {
     outVec = m_pShadowVertices[vertId];
 }
 

@@ -30,8 +30,6 @@ CTaskComplexPartner::CTaskComplexPartner(const char* commandName, CPed* partner,
  * @addr 0x683A40
  */
 CTaskComplexPartner::~CTaskComplexPartner() {
-    CEntity::SafeCleanUpRef(m_partner);
-
     if (m_requiredAnimsStreamedIn) {
         if (strcmp(m_animBlockName, "") != 0) {
             CAnimManager::RemoveAnimBlockRef(CAnimManager::GetAnimationBlockIndex(m_animBlockName));
@@ -54,6 +52,12 @@ CTask* CTaskComplexPartner::CreateFirstSubTask(CPed* ped) {
 }
 
 CTask* CTaskComplexPartner::ControlSubTask(CPed* ped) {
+    // NOTSA(stability): the original code derefs the partner ped's task
+    // manager without any checks; with a dead partner ped it AVs
+    // (GetActiveTask+20 in a 36min automated mission run).
+    if (!m_partner || !ped) {
+        return nullptr;
+    }
     return plugin::CallMethodAndReturn<CTask*, 0x6840D0, CTaskComplexPartner*, CPed*>(this, ped);
 }
 

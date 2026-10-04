@@ -20,6 +20,8 @@ public:
 public:
     CTrainNode();
 
+    static void InjectHooks();
+
     void SetX(float X);
     void SetY(float Y);
     void SetZ(float Z);
@@ -29,6 +31,6 @@ public:
     CVector GetPosn() const;
     void SetDistanceFromStart(float dist);
     [[nodiscard]] float GetDistanceFromStart() const;
-    tColLighting GetLightingFromCollision();
+    [[nodiscard]] tColLighting GetLightingFromCollision();
 };
 VALIDATE_SIZE(CTrainNode, 0xA);

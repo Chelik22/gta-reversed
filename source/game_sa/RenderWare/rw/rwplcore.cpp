@@ -2,12 +2,18 @@
 
 #include "rwplcore.h"
 
+static void RwPlCoreReportError(RwUInt32 code, RwUInt32 arg);
+
 RwMemoryFunctions* RwOsGetMemoryInterface() {
     return ((RwMemoryFunctions*(__cdecl *)(void))0x802230)();
 }
 
-RwFreeList* _rwFreeListCreate(RwInt32 entrySize, RwInt32 entriesPerBlock, RwInt32 alignment, RwUInt32 hint, const RwChar* fileCreate, RwUInt32 lineCreate) {
-    return ((RwFreeList*(__cdecl *)(RwInt32, RwInt32, RwInt32, RwUInt32, const RwChar*, RwUInt32))0x801980)(entrySize, entriesPerBlock, alignment, hint, fileCreate, lineCreate);
+/* 0x801980: Legacy retail RwFreeListCreate (rwplcore.h); passes
+ * prealloc=1 / in-place space=NULL to the shared implementation.
+ * (Previously bound here with the 6-arg RWDEBUG signature, which the
+ * retail binary does not have.) */
+RwFreeList* RwFreeListCreate(RwInt32 entrySize, RwInt32 entriesPerBlock, RwInt32 alignment, RwUInt32 hint) {
+    return ((RwFreeList*(__cdecl*)(RwInt32, RwInt32, RwInt32, RwInt32, RwFreeList*, RwUInt32))0x801980)(entrySize, entriesPerBlock, alignment, 1, nullptr, hint);
 }
 
 RwFreeList* RwFreeListCreateAndPreallocateSpace(RwInt32 entrySize, RwInt32 entriesPerBlock, RwInt32 alignment, RwInt32 numBlocksToPreallocate, RwFreeList* inPlaceSpaceForFreeListStruct, RwUInt32 hint) {
@@ -66,28 +72,171 @@ RwStream* RwStreamSkip(RwStream* stream, RwUInt32 offset) {
     return ((RwStream*(__cdecl *)(RwStream*, RwUInt32))0x7ECD00)(stream, offset);
 }
 
+/* 0x80A240: Registers the engine's default string functions (CRT / RW internals) */
 RwBool _rwStringOpen() {
-    return ((RwBool(__cdecl *)(void))0x80A240)();
+    ZoneScoped;
+    auto& sf = RwEngineInstance->stringFuncs;
+    sf.vecSprintf = (vecSprintfFunc)0x821BB5;   /* CRT */
+    sf.vecVsprintf = (vecVsprintfFunc)0x8230B8; /* CRT */
+    sf.vecStrcpy = (vecStrcpyFunc)0x826590;     /* CRT */
+    sf.vecStrncpy = (vecStrncpyFunc)0x821F40;   /* CRT */
+    sf.vecStrcat = (vecStrcatFunc)0x8265A0;     /* CRT */
+    sf.vecStrncat = (vecStrncatFunc)0x826450;   /* CRT */
+    sf.vecStrrchr = (vecStrrchrFunc)0x80A420;   /* RW's own */
+    sf.vecStrchr = (vecStrchrFunc)0x80A400;     /* RW's own */
+    sf.vecStrstr = (vecStrstrFunc)0x822650;     /* CRT */
+    sf.vecStrcmp = (vecStrcmpFunc)0x8263C0;     /* CRT */
+    sf.vecStrncmp = (vecStrncmpFunc)0x8214D0;   /* CRT */
+    sf.vecStricmp = (vecStricmpFunc)0x80A350;   /* RW's own */
+    sf.vecStrlen = (vecStrlenFunc)0x826330;     /* CRT */
+    sf.vecStrupr = (vecStruprFunc)0x80A3A0;     /* RW's own */
+    sf.vecStrlwr = (vecStrlwrFunc)0x80A3D0;     /* RW's own */
+    sf.vecStrtok = (vecStrtokFunc)0x82244B;     /* CRT */
+    sf.vecSscanf = (vecSscanfFunc)0x8220AD;     /* CRT */
+    return TRUE;
 }
 
+/* 0x80A440: Nothing to do for the default (CRT) string functions */
 void _rwStringClose() {
-    ((void(__cdecl *)(void))0x80A440)();
 }
 
 RwBool _rwStringDestroy(RwChar* string) {
     return ((RwBool(__cdecl *)(RwChar*))0x80A450)(string);
 }
 
+/* 0x80A470: Size of the string chunk as written to a stream (padded to 4 bytes) */
 RwUInt32 _rwStringStreamGetSize(const RwChar* string) {
-    return ((RwUInt32(__cdecl *)(const RwChar*))0x80A470)(string);
+    ZoneScoped;
+    if (string == nullptr) {
+        string = "";
+    }
+    return (RWSRCGLOBAL(stringFuncs).vecStrlen(string) + 4) & ~3u;
 }
 
+/* 0x80A4A0 */
 const RwChar* _rwStringStreamWrite(const RwChar* string, RwStream* stream) {
-    return ((const RwChar*(__cdecl *)(const RwChar*, RwStream*))0x80A4A0)(string, stream);
+    ZoneScoped;
+    if (string == nullptr) {
+        string = "";
+    }
+    const RwUInt32 size = (RWSRCGLOBAL(stringFuncs).vecStrlen(string) + 4) & ~3u;
+    if (!((RwBool(__cdecl*)(RwStream*, RwInt32, RwInt32, RwUInt32, RwUInt32))0x7ED270)(stream, 2 /* rwID_STRING */, (RwInt32)size, 0x36003u /* rwLIBRARYCURRENTVERSION */, 0xFFFFu /* RWBUILDNUMBER */)) {
+        return nullptr;
+    }
+    return RwStreamWrite(stream, string, size) ? string : nullptr;
 }
 
+/* 0x80A510: Reads a string chunk from a stream. If `string` is non-null it must be
+ * large enough, otherwise a buffer is allocated. Both rwID_STRING (ANSI, verbatim)
+ * and rwID_UNICODESTRING (UTF-16, converted) chunks are accepted; unrelated chunks
+ * in between are skipped. */
 RwChar* _rwStringStreamFindAndRead(RwChar* string, RwStream* stream) {
-    return ((RwChar*(__cdecl *)(RwChar*, RwStream*))0x80A510)(string, stream);
+    ZoneScoped;
+    RwInt32 type;
+    RwUInt32 length;
+    RwUInt32 versionInfo[3];
+
+    if (!((RwBool(__cdecl*)(RwStream*, RwInt32*, RwUInt32*, RwUInt32*, RwUInt32))0x7ED0F0)(stream, &type, &length, versionInfo, 0)) {
+        return nullptr;
+    }
+
+    for (;;) {
+        if (versionInfo[0] < 0x34000u || versionInfo[0] > 0x36003u) {
+            RwPlCoreReportError(0x80000004u, 0);
+            return nullptr;
+        }
+
+        if (type == 2 /* rwID_STRING */) {
+            break; /* Handled after the loop (plain, verbatim read) */
+        }
+
+        if (type == 0x13 /* rwID_UNICODESTRING */) {
+            bool allocated = false;
+            if (string == nullptr) {
+                string = (RwChar*)RwMalloc(length, 0x30002u);
+                if (string == nullptr) {
+                    RwPlCoreReportError(0x80000013u, length);
+                    return nullptr;
+                }
+                allocated = true;
+            }
+
+            auto dst = string;
+            auto remaining = length;
+            if (remaining == 0) {
+                return string;
+            }
+            RwChar buffer[128];
+            do {
+                const RwUInt32 chunk = remaining < 0x80 ? remaining : 0x80;
+                if (RwStreamRead(stream, buffer, chunk) != chunk) {
+                    if (allocated) {
+                        RwFree(string);
+                    }
+                    return nullptr;
+                }
+                remaining -= chunk;
+                /* UTF-16LE -> ANSI: keep every second byte */
+                const RwUInt32 numChars = chunk / 2;
+                for (RwUInt32 i = 0; i < numChars; i++) {
+                    dst[i] = buffer[i * 2];
+                }
+                dst += numChars;
+            } while (remaining != 0);
+            return string;
+        }
+
+        /* Unrelated chunk: skip it and read the next header */
+        if (!RwStreamSkip(stream, length)) {
+            return nullptr;
+        }
+        if (!((RwBool(__cdecl*)(RwStream*, RwInt32*, RwUInt32*, RwUInt32*, RwUInt32))0x7ED0F0)(stream, &type, &length, versionInfo, 0)) {
+            return nullptr;
+        }
+    }
+
+    /* rwID_STRING: plain verbatim read */
+    if (string == nullptr) {
+        string = (RwChar*)RwMalloc(length, 0x30002u);
+        if (string == nullptr) {
+            RwPlCoreReportError(0x80000013u, length);
+            return nullptr;
+        }
+    }
+
+    {
+        auto dst = string;
+        auto remaining = length;
+        if (remaining == 0) {
+            return string;
+        }
+        RwChar buffer[128];
+        do {
+            const RwUInt32 chunk = remaining < 0x40 ? remaining : 0x40;
+            if (RwStreamRead(stream, buffer, chunk) != chunk) {
+                return nullptr; /* NOTE: leaks `string` if it was allocated here (original behavior) */
+            }
+            remaining -= chunk;
+            memcpy(dst, buffer, chunk);
+            dst += chunk;
+        } while (remaining != 0);
+    }
+    return string;
+}
+
+/* ---------------------------------------------------------------------------
+ * RwPlCore hooks
+ * --------------------------------------------------------------------------- */
+
+void RwPlCoreInjectHooks() {
+    RH_ScopedCategory("Renderware");
+    RH_ScopedNamespaceName("RwPlCore");
+
+    RH_ScopedGlobalInstall(_rwStringOpen, 0x80A240);
+    RH_ScopedGlobalInstall(_rwStringClose, 0x80A440);
+    RH_ScopedGlobalInstall(_rwStringStreamGetSize, 0x80A470);
+    RH_ScopedGlobalInstall(_rwStringStreamWrite, 0x80A4A0);
+    RH_ScopedGlobalInstall(_rwStringStreamFindAndRead, 0x80A510);
 }
 
 void RwPluginRegistrySetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
@@ -206,6 +355,23 @@ const RwMatrix* RwMatrixQueryRotate(const RwMatrix* matrix, RwV3d* unitAxis, RwR
     return ((const RwMatrix*(__cdecl *)(const RwMatrix*, RwV3d*, RwReal*, RwV3d*))0x7F2720)(matrix, unitAxis, angle, center);
 }
 
+/*
+ * Matrix library internals (identified from binary 2026-09-27).
+ */
+
+// 0x7F2160: Full affine inverse core: computes the inverse of the upper 3x3 via the adjugate
+// (fails with an all-zero result when the determinant is 0) and applies -inv(rot) * pos.
+// Shared by RwMatrixInvert (general case) and RwMatrixQueryRotate.
+RwMatrix* _rwMatrixInvertInternal(RwMatrix* matrixOut, const RwMatrix* matrixIn) {
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*))0x7F2160)(matrixOut, matrixIn);
+}
+
+// 0x7F2930: RwMatrixQueryRotate helper: finds the dominant diagonal element of the rotation
+// part, builds the (1 + mii, mij + mji) vector and normalizes it into the unit rotation axis.
+const RwMatrix* _rwMatrixQueryRotateAxis(const RwMatrix* matrix, RwV3d* axisOut) {
+    return ((const RwMatrix*(__cdecl *)(const RwMatrix*, RwV3d*))0x7F2930)(matrix, axisOut);
+}
+
 RwMatrix* RwMatrixUpdate(RwMatrix* matrix) {
     return ((RwMatrix*(__cdecl *)(RwMatrix*))0x7F18A0)(matrix);
 }
@@ -310,6 +476,24 @@ RwUInt32 RwEngineGetVersion() {
     return ((RwUInt32(__cdecl *)(void))0x7F2BA0)();
 }
 
+/*
+ * Engine internals (identified from binary 2026-09-27).
+ */
+
+// 0x7F2AB0: The engine system-config dispatcher every RwEngine* subsystem/video-mode getter and
+// RwEngineStart/Stop/Close/Open goes through. Forwards the message to the driver's handler
+// (system table + 4) and otherwise applies the engine defaults for the sub-system/video-mode
+// messages (e.g. numSubSystems == 1, currentSubSystem == 0, "Only rendering sub system").
+RwBool _rwEngineSystemConfig(void* systemTable, RwInt32 message, void* dst, void* src, RwInt32 param) {
+    return ((RwBool(__cdecl *)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(systemTable, message, dst, src, param);
+}
+
+// 0x7F2B90: Returns the engine open count (.data global next to the RwEngineInstance pointer);
+// checked by _rwPluginRegistryAddPlugin to validate that the engine has been opened.
+RwUInt32 _rwEngineGetOpenCount() {
+    return ((RwUInt32(__cdecl *)(void))0x7F2B90)();
+}
+
 RwBool RwEngineInit(const RwMemoryFunctions* memFuncs, RwUInt32 initFlags, RwUInt32 resArenaSize) {
     return ((RwBool(__cdecl *)(const RwMemoryFunctions*, RwUInt32, RwUInt32))0x7F3170)(memFuncs, initFlags, resArenaSize);
 }
@@ -402,8 +586,13 @@ RwError* RwErrorSet(RwError* code) {
     return ((RwError*(__cdecl *)(RwError*))0x808820)(code);
 }
 
-RwInt32 _rwerror(RwInt32 code, ...) {
-    return code;
+/* Mirrors the RWERROR() macro pattern used throughout rwplcore:
+ * the error text helper (0x8088D0, retail `_rwerror`) followed by RwErrorSet. */
+static void RwPlCoreReportError(RwUInt32 code, RwUInt32 arg) {
+    RwError err;
+    err.pluginID  = 1;
+    err.errorCode = (RwInt32)((RwUInt32(__cdecl*)(RwUInt32, ...))0x8088D0)(code, arg);
+    RwErrorSet(&err);
 }
 
 RwBool RwResourcesSetArenaSize(RwUInt32 size) {
@@ -468,4 +657,55 @@ RwStream* RwStreamReadInt16(RwStream* stream, RwInt16* ints, RwUInt32 numBytes) 
 
 RwStream* RwStreamReadChunkHeaderInfo(RwStream* stream, RwChunkHeaderInfo* chunkHeaderInfo) {
     return ((RwStream*(__cdecl *)(RwStream*, RwChunkHeaderInfo*))0x7ED590)(stream, chunkHeaderInfo);
+}
+
+/****************************************************************************
+ * Memory / freelist / resources internals (identified from binary;         *
+ * see night2 report). RwEngineInit (0x7F3170) / RwEngineTerm (0x7F3130)    *
+ * drive all of these.                                                      *
+ ****************************************************************************/
+
+/* 0x801FD0: Installs the process-wide RwMemoryFunctions (defaults:
+ * malloc/free/realloc/calloc) and creates the global RwFreeList used for
+ * allocating RwFreeList structs themselves (in-place at 0xC9A60C). */
+RwBool _rwMemoryOpen(RwMemoryFunctions* memFuncs) {
+    return ((RwBool(__cdecl*)(RwMemoryFunctions*))0x801FD0)(memFuncs);
+}
+
+/* 0x8020F0: Tears down every live RwFreeList and resets the memory
+ * subsystem (counterpart of _rwMemoryOpen). */
+void _rwMemoryClose() {
+    ((void(__cdecl*)(void))0x8020F0)();
+}
+
+/* 0x8019B0: Shared implementation of RwFreeListCreate /
+ * RwFreeListCreateAndPreallocateSpace (both retail wrappers target it). */
+RwFreeList* _rwFreeListCreateImpl(RwInt32 entrySize, RwInt32 entriesPerBlock, RwInt32 alignment, RwInt32 numBlocksToPreallocate, RwFreeList* inPlaceSpaceForFreeListStruct, RwUInt32 hint) {
+    return ((RwFreeList*(__cdecl*)(RwInt32, RwInt32, RwInt32, RwInt32, RwFreeList*, RwUInt32))0x8019B0)(entrySize, entriesPerBlock, alignment, numBlocksToPreallocate, inPlaceSpaceForFreeListStruct, hint);
+}
+
+/* 0x801970: Global switch consulted by _rwFreeListCreateImpl - when false,
+ * numBlocksToPreallocate is ignored. Set from RwEngineInit. */
+void _rwFreeListSetGlobalPreallocate(RwBool enabled) {
+    ((void(__cdecl*)(RwBool))0x801970)(enabled);
+}
+
+/* 0x8082E0: Opens the resource manager: creates the RwResEntry free list
+ * (0x3C-byte entries) and zeroes the arena bookkeeping. */
+RwBool _rwResourcesOpen() {
+    return ((RwBool(__cdecl*)(void))0x8082E0)();
+}
+
+/* 0x808320: Closes the resource manager: destroys every live RwResEntry
+ * (via RwFreeListForAllUsed + the per-owner entry lists), then the free
+ * list itself. */
+RwBool _rwResourcesClose() {
+    return ((RwBool(__cdecl*)(void))0x808320)();
+}
+
+/* 0x8088D0: Retail _rwerror (rwplcore.h: varargs, returns the code);
+ * identity passthrough - the actual error recording is RwErrorSet
+ * (0x808820). 5-byte `mov eax, [esp+4]; ret`. */
+RwInt32 _rwerror(RwInt32 code, ...) {
+    return ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(code);
 }

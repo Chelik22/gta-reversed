@@ -42,7 +42,7 @@ void CEntryExitManager::Init() {
     ms_entryExitStackPosn = 0;
     ms_bBurglaryHousesEnabled = false;
 
-    mp_poolEntryExits = new CEntryExitsPool(400u, "Entry exits");
+    mp_poolEntryExits = new CEntryExitsPool(512u, "Entry exits");
     mp_poolEntryExits->SetDealWithNoMemory(true);
 }
 

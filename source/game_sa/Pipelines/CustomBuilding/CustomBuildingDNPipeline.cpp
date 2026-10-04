@@ -295,7 +295,8 @@ void CCustomBuildingDNPipeline::InjectHooks() {
     RH_ScopedInstall(pluginExtraVertColourStreamReadCB, 0x5D6DE0);
     RH_ScopedInstall(pluginExtraVertColourStreamWriteCB, 0x5D6D80);
     RH_ScopedInstall(pluginExtraVertColourStreamGetSizeCB, 0x5D6DC0);
-    RH_ScopedOverloadedInstall(PreRenderUpdate, "Atomic", 0x5D7200, void(*)(RpAtomic*, bool));
+    // TRIAGE: mountain/big-building crash — NVCPipelineProcess AV (0x6bc35a7f) with our body; original until re-ported
+    RH_ScopedOverloadedInstall(PreRenderUpdate, "Atomic", 0x5D7200, void(*)(RpAtomic*, bool), { .reversed = false });
     RH_ScopedOverloadedInstall(PreRenderUpdate, "Clump", 0x5D72C0, void(*)(RpClump*, bool));
     RH_ScopedGlobalInstall(NVCPipelineProcess, 0x5D6850);
     RH_ScopedInstall(CreatePipe, 0x5D7100);

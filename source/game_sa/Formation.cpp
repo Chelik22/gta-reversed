@@ -3,14 +3,24 @@
 
 // 0x699F50
 void CFormation::ReturnTargetPedForPed(CPed* ped, CPed** pOutTargetPed) {
-    return plugin::Call<0x699F50, CPed*, CPed**>(ped, pOutTargetPed);
+    for (auto i = 0; i < (int32)m_Peds.m_count; i++) {
+        if (m_Peds.m_peds[i] == ped && m_aPedLinkToDestinations[i] >= 0) {
+            *pOutTargetPed = m_DestinationPeds.m_peds[m_aPedLinkToDestinations[i]];
+            break;
+        }
+    }
 }
-
 // 0x699FA0
 bool CFormation::ReturnDestinationForPed(CPed* ped, CVector* out) {
-    return plugin::CallAndReturn<bool, 0x699FA0>(ped, out);
+    for (uint32 i = 0; i < 24; i++) {
+        if (m_Peds.m_peds[i] != ped || m_aPedLinkToDestinations[i] < 0) {
+            continue;
+        }
+        *out = m_Destinations.m_Points[m_aPedLinkToDestinations[i]];
+        return true;
+    }
+    return false;
 }
-
 // 0x699FF0
 void CFormation::FindCoverPointsBehindBox(
     CPointList*    outPoints,
@@ -63,7 +73,6 @@ void CFormation::FindCoverPointsBehindBox(
         outPoints->AddPoint(pt + (pt - target).Normalized() * 0.75f);
     }
 }
-
 // 0x69A620
 void CFormation::GenerateGatherDestinations(CPedList& pedList, CPed* ped) {
     plugin::Call<0x69A620, CPedList&, CPed*>(pedList, ped);

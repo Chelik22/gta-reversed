@@ -141,7 +141,9 @@ void CGrassRenderer::FlushTriPlantBuffer() {
 
 // 0x5DACE0
 RpAtomic** CGrassRenderer::GetPlantModelsTab(uint32 type) {
-    return gTriPlantBuf.GetPlantModelsTab(type);
+    // NOTE: The original checks the bounds inline (4 entries) - `CPPTriPlantBuffer::GetPlantModelsTab` is inlined
+    auto& tab = reinterpret_cast<RpAtomic**(&)[4]>(gTriPlantBuf.m_pPlantModelsTab);
+    return type < 4 ? tab[type] : nullptr;
 }
 
 // 0x5DACC0

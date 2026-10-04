@@ -39,7 +39,6 @@ void CRope::ReleasePickedUpObject() {
     m_pAttachedEntity->SetUsesCollision(true);
     m_nFlags1 = 60; // 6th, 7th bits set
 }
-
 // 0x556070
 void CRope::CreateHookObjectForRope() {
     if (m_pAttachedEntity)
@@ -60,10 +59,8 @@ void CRope::CreateHookObjectForRope() {
             return MI_MINI_MAGNET;
         case eRopeType::WRECKING_BALL:
             return MI_WRECKING_BALL;
-        case eRopeType::SWAT:
-            return MODEL_INVALID; // Just so the assert below wont be hit.
         default:
-            NOTSA_UNREACHABLE(); //assert(0);
+            return ModelIndex{ MODEL_INVALID }; // Original: unknown type -> do nothing (0x556070 default label just returns)
         }
     }();
     if (modelIndex == ModelIndex{ MODEL_INVALID }) { // Must do it like this because `ModelIndex` is u16, `MODEL_ID` is i32, and u16 -1 casted to int32 is 0xffff...
@@ -84,12 +81,70 @@ void CRope::CreateHookObjectForRope() {
     m_pRopeAttachObject = nullptr;
     m_nFlags1 = 0;
 }
-
 // 0x5561B0
-int8 CRope::UpdateWeightInRope(float a2, float a3, float a4, int32 a5, float* a6) {
-    return plugin::CallMethodAndReturn<int8, 0x5561B0, CRope*, float, float, float, int32, float*>(this, a2, a3, a4, a5, a6);
-}
+int8 CRope::UpdateWeightInRope(float newX, float newY, float newZ, int32, float* outPos) {
+    const auto    heldSegIdx = m_nSegments;
+    const CVector heldPos    = m_aSegments[heldSegIdx];
 
+    // Move the free end of the rope
+    m_aSegments[NUM_ROPE_SEGMENTS - 1] = CVector{ newX, newY, newZ };
+
+    const CVector delta  = CVector{ newX, newY, newZ } - heldPos;
+    const float   maxLen = (float)(NUM_ROPE_SEGMENTS - 1 - heldSegIdx) * m_fTotalLength; // this + 0x30C
+
+    if (maxLen <= delta.Magnitude()) {
+        // Rope is stretched: clamp the new point onto the sphere around the held segment
+        const float scale = maxLen / delta.Magnitude();
+        const auto  outVec = delta * scale + heldPos; // Original writes a full CVector at `outPos`
+        outPos[0] = outVec.x;
+        outPos[1] = outVec.y;
+        outPos[2] = outVec.z;
+
+        // And fill the rope linearly between the held segment and the new point
+        auto dir = delta;
+        dir.Normalise();
+        for (auto i = heldSegIdx + 1u; i < NUM_ROPE_SEGMENTS; i++) {
+            m_aSegments[i] = heldPos + dir * (m_fTotalLength * (float)(i - heldSegIdx));
+        }
+        return 1;
+    }
+
+    // Relax the rope (6 iterations of backward/forward constraint passes)
+    for (auto rep = 0; rep < 6; rep++) {
+        // Backward pass: from the free end down; record the correction as a velocity
+        for (int32 i = NUM_ROPE_SEGMENTS - 1; i > heldSegIdx + 1; i--) {
+            const float dist = (m_aSegments[i] - m_aSegments[i - 1]).Magnitude();
+            if (dist <= m_fTotalLength) {
+                break; // Constraint satisfied
+            }
+            const auto scale    = m_fTotalLength / dist;
+            const auto oldPos  = m_aSegments[i - 1];
+            m_aSegments[i - 1] = m_aSegments[i] + (oldPos - m_aSegments[i]) * scale;
+            m_aSpeed[i - 1]    = (m_aSegments[i - 1] - oldPos) * (1.0f / CTimer::GetTimeStep()); // 0x858624 / 0xB7CB5C
+        }
+
+        // Forward pass: pairs (heldSeg, heldSeg+1) .. (29, 30) - segment 31 is never touched
+        for (int32 j = heldSegIdx; j < NUM_ROPE_SEGMENTS - 2; j++) {
+            const float dist = (m_aSegments[j + 1] - m_aSegments[j]).Magnitude();
+            if (dist >= m_fTotalLength && dist != m_fTotalLength) {
+                m_aSegments[j + 1] = m_aSegments[j] + (m_aSegments[j + 1] - m_aSegments[j]) * (m_fTotalLength / dist);
+            }
+        }
+    }
+
+    // Final backward scan: relax the first stretched segments from the free end down
+    for (int32 i = NUM_ROPE_SEGMENTS - 1; i > heldSegIdx + 1; i--) {
+        const float dist = (m_aSegments[i] - m_aSegments[i - 1]).Magnitude();
+        if (dist <= m_fTotalLength) {
+            break;
+        }
+        m_aSegments[i - 1] = m_aSegments[i] + (m_aSegments[i - 1] - m_aSegments[i]) * (m_fTotalLength / dist);
+        if (i - 1 <= heldSegIdx + 1) {
+            return 0;
+        }
+    }
+    return 0;
+}
 // 0x556780
 void CRope::Remove() {
     m_nType = eRopeType::NONE;
@@ -102,7 +157,6 @@ void CRope::Remove() {
         m_pAttachedEntity = nullptr;
     }
 }
-
 // 0x556800
 void CRope::Render() {
     // Note: Probably needs adjustments if `NUM_ROPE_SEGMENTS` is changed
@@ -159,7 +213,6 @@ void CRope::Render() {
         }
     }
 }
-
 // 0x5569C0
 void CRope::PickUpObject(CEntity* obj) {
     if (m_pRopeAttachObject == obj)
@@ -191,7 +244,6 @@ void CRope::PickUpObject(CEntity* obj) {
         }
     }
 }
-
 // 0x557530
 void CRope::Update() {
     plugin::CallMethod<0x557530, CRope*>(this);

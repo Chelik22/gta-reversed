@@ -409,7 +409,6 @@ void CEventHandler::HandleEvents() {
         m_History.ClearAllEvents();
     }
 }
-
 void CEventHandler::RecordActiveEvent(const CEvent& event) {
     assert(false);
 }
@@ -435,7 +434,6 @@ void CEventHandler::RegisterKill(const CPed* ped, const CEntity* inflictedBy, eW
         CDarkel::RegisterKillNotByPlayer(ped);
     }
 }
-
 // 0x4BC600
 void CEventHandler::SetEventResponseTask(const CEvent& event) {
     const auto i  = m_Ped->GetIntelligence();
@@ -478,7 +476,6 @@ void CEventHandler::SetEventResponseTask(const CEvent& event) {
         }
     }
 }
-
 // @addr unk
 // NOTE/BUG: Weird, no `delete`s?
 void CEventHandler::ResetResponse() {
@@ -508,12 +505,10 @@ void CEventHandler::Flush() {
 
     m_History.Flush();
 }
-
 // 0x4C3820
 void CEventHandler::FlushImmediately() {
     m_History.Flush();
 }
-
 // 0x4B8CC0
 eEventType CEventHandler::GetCurrentEventType() const {
     if (const auto e = m_History.GetCurrentEvent()) {
@@ -521,7 +516,6 @@ eEventType CEventHandler::GetCurrentEventType() const {
     }
     return EVENT_NONE;
 }
-
 // 0x4BC370
 bool CEventHandler::IsTemporaryEvent(const CEvent& event) {
     auto eventType = event.GetEventType();
@@ -548,7 +542,6 @@ bool CEventHandler::IsTemporaryEvent(const CEvent& event) {
         return false;
     }
 }
-
 // 0x4BC3E0
 bool CEventHandler::IsKillTaskAppropriate(CPed* ped1, CPed* ped2, const CEvent& event) {
     if (ped1->IsCreatedByMission()) {
@@ -559,7 +552,6 @@ bool CEventHandler::IsKillTaskAppropriate(CPed* ped1, CPed* ped2, const CEvent& 
     }
     return false;
 }
-
 // 0x4BBF50
 void CEventHandler::ComputeAreaCodesResponse(CEventAreaCodes* e, CTask* tactive, CTask* tsimplest) {
     if (!e->m_ped) {
@@ -567,7 +559,6 @@ void CEventHandler::ComputeAreaCodesResponse(CEventAreaCodes* e, CTask* tactive,
     }
     m_EventResponseTask = new CTaskSimpleWaitUntilAreaCodesMatch{e->m_ped};
 }
-
 // 0x4B9BE0
 void CEventHandler::ComputeAttractorResponse(CEventAttractor* e, CTask* tactive, CTask* tsimplest) {
     if (e->GetEventType() == EVENT_ATTRACTOR && !e->m_entity) {
@@ -581,7 +572,6 @@ void CEventHandler::ComputeAttractorResponse(CEventAttractor* e, CTask* tactive,
         }
     }
 }
-
 // 0x0
 // EVENT_POTENTIAL_WALK_INTO_BUILDING
 // ANDROID IDB 0x3025F8 (1.0)
@@ -758,7 +748,6 @@ void CEventHandler::ComputeBuildingCollisionResponse(CEventBuildingCollision* e,
         return nullptr;
     }();
 }
-
 // 0x4BBC30
 void CEventHandler::ComputeCarUpsideDownResponse(CEventCarUpsideDown* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -774,7 +763,6 @@ void CEventHandler::ComputeCarUpsideDownResponse(CEventCarUpsideDown* e, CTask* 
         };
     }();
 }
-
 // 0x4B98E0
 void CEventHandler::ComputeChatPartnerResponse(CEventChatPartner* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -793,7 +781,6 @@ void CEventHandler::ComputeChatPartnerResponse(CEventChatPartner* e, CTask* tact
         };
     }();
 }
-
 // 0x4BB740
 void CEventHandler::ComputeCopCarBeingStolenResponse(CEventCopCarBeingStolen* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -806,7 +793,6 @@ void CEventHandler::ComputeCopCarBeingStolenResponse(CEventCopCarBeingStolen* e,
         return new CTaskComplexLeaveCar{ e->m_vehicle, 0, 0, true, false };
     }();
 }
-
 // 0x4BB130
 void CEventHandler::ComputeCreatePartnerTaskResponse(CEventCreatePartnerTask* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -841,7 +827,6 @@ void CEventHandler::ComputeCreatePartnerTaskResponse(CEventCreatePartnerTask* e,
         }
     }();
 }
-
 // 0x4C0170
 void CEventHandler::ComputeDamageResponse(CEventDamage* e, CTask* tactive, CTask* tsimplest, CTask* abortedTaskEventResponse) {
     UNUSED(abortedTaskEventResponse);
@@ -1131,7 +1116,6 @@ void CEventHandler::ComputeDamageResponse(CEventDamage* e, CTask* tactive, CTask
         return nullptr;
     }();
 }
-
 // 0x4BC230
 void CEventHandler::ComputeDangerResponse(CEventDanger* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1155,7 +1139,6 @@ void CEventHandler::ComputeDangerResponse(CEventDanger* e, CTask* tactive, CTask
         return nullptr;
     }();
 }
-
 // 0x4B9470
 void CEventHandler::ComputeDeadPedResponse(CEventDeadPed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1213,17 +1196,14 @@ void CEventHandler::ComputeDeadPedResponse(CEventDeadPed* e, CTask* tactive, CTa
         }
     }();
 }
-
 // 0x4B9400
 void CEventHandler::ComputeDeathResponse(CEventDeath* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = new CTaskSimpleDead{e->GetDeathTime(), e->HasDrowned()};
 }
-
 // 0x4BC1D0
 void CEventHandler::ComputeDontJoinGroupResponse(CEventDontJoinPlayerGroup* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = new CTaskComplexGangJoinRespond{false};
 }
-
 // 0x4BCC30
 void CEventHandler::ComputeDraggedOutCarResponse(CEventDraggedOutCar* e, CTask* tactive, CTask* tsimplest) {
     // Pirulax: You gotta love when 500+ sloc is compressed to 100 :D
@@ -1316,7 +1296,6 @@ void CEventHandler::ComputeDraggedOutCarResponse(CEventDraggedOutCar* e, CTask* 
         }
     }();
 }
-
 // 0x4BBFB0
 void CEventHandler::ComputeFireNearbyResponse(CEventFireNearby* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1327,7 +1306,6 @@ void CEventHandler::ComputeFireNearbyResponse(CEventFireNearby* e, CTask* tactiv
         return nullptr;
     }();
 }
-
 // 0x4C3430
 void CEventHandler::ComputeGotKnockedOverByCarResponse(CEventGotKnockedOverByCar* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1359,7 +1337,6 @@ void CEventHandler::ComputeGotKnockedOverByCarResponse(CEventGotKnockedOverByCar
         return nullptr;
     }();
 }
-
 // 0x4C2840
 void CEventHandler::ComputeGunAimedAtResponse(CEventGunAimedAt* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1436,7 +1413,6 @@ void CEventHandler::ComputeGunAimedAtResponse(CEventGunAimedAt* e, CTask* tactiv
         NOTSA_UNREACHABLE();
     }();
 }
-
 // 0x4BAC10
 void CEventHandler::ComputeHighAngerAtPlayerResponse(CEventHighAngerAtPlayer* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1454,18 +1430,33 @@ void CEventHandler::ComputeHighAngerAtPlayerResponse(CEventHighAngerAtPlayer* e,
         }
     }();
 }
-
 // 0x4BAF80
 void CEventHandler::ComputeInWaterResponse(CEventInWater* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = new CTaskComplexInWater{};
 }
-
 // 0x4BAFE0
 void CEventHandler::ComputeInteriorUseInfoResponse(CEventInteriorUseInfo* e, CTaskInteriorUseInfo* tUseInfo, CTask* tsimplest) {
     m_EventResponseTask = tUseInfo->Clone();
 }
-
 // 0x4B9FF0
+// BLOCKER (not reversed yet): Handles `EVENT_KNOCK_OFF_BIKE`-family events (event types 8, 9, 0x23, 0x4F).
+// For type 8 (direct knock-off) it builds a `CEventDamage` (0x4AD830) + `CPedDamageResponseCalculator`
+// (0x4AD3F0/0x4B5AC0/0x4AD420/0x4AD960) on the victim; for types 9/0x23/0x4F it constructs a new
+// `CEventKnockOffBike` (ctor 0x4AFCF0): vehicle move speed * 0.75f, knock-off direction taken from the
+// ped's matrix right/up/forward vectors or negated (`0x40FE90` scale-copy with -1.0), collision impact
+// velocity 50.0f, `m_time` = rand()/field_24 of the event, then `CEventHandler::AddEvent`-ish (0x4B4AA0
+// = CEventKnockOffBike::operator= + 0x4AFE70 pool return). Afterwards, if the (new) event's victim
+// (m_victim/m_pSourceEntity fields +0x460..0x46C of the vehicle) is this ped: `CInterestingEvents::Add`
+// (0x602590, 0x10), `SetPedSafePosition` (0x4B4AC0), `SetPedOutCar` (0x4AFF60), `CalcForcesAndAnims`
+// (0x4B0020), clears ped flags (@0x46C bits 0x1/0x2/0x200, @0x40 bits 0x100/0x2000000) and builds the
+// response task: `CTaskComplexDie` (0x630040) when knocked hard / health <= 0 (death anim picked from
+// event's knock-off type: 0x6A / 0x19 / 0x1B), `CTaskComplexInAirAndLand` (0x678C80) or
+// `CTaskComplexFallAndGetUp` (0x6786C0) otherwise (plus, for group members, a `CTaskComplexSequence`
+// (0x632BD0/0x632D10) combining `CEventLeaderExitedCarAsDriver`-driven `CTaskComplexEnterCarAsPassenger`
+// (0x640340)). Finally `CEventDraggedOutCar` (0x4AD250/0x4AD330) is added for carjacking cases
+// (and quad bikes: vehicle type 9 => flag @0x614 bit 0x10).
+// Not translated because of its size (SEH/new-heavy, ~400 lines) and a handful of still-unnamed
+// helpers (0x4AD960, 0x4AFE70, 0x40FE90) and raw ped/vehicle flag offsets.
 void CEventHandler::ComputeKnockOffBikeResponse(CEvent* e, CTask* tactive, CTask* tsimplest) {
     plugin::CallMethod<0x4B9FF0, CEventHandler*, CEvent*, CTask*, CTask*>(this, e, tactive, tsimplest);
 }
@@ -1487,7 +1478,6 @@ void CEventHandler::ComputeLowAngerAtPlayerResponse(CEventLowAngerAtPlayer* e, C
         }
     }();
 }
-
 // 0x4BA990
 void CEventHandler::ComputeLowHealthResponse(CEventHealthLow* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1501,7 +1491,6 @@ void CEventHandler::ComputeLowHealthResponse(CEventHealthLow* e, CTask* tactive,
         }
     }();
 }
-
 // 0x4BBB90
 void CEventHandler::ComputeObjectCollisionPassiveResponse(CEventPotentialWalkIntoObject* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1519,7 +1508,6 @@ void CEventHandler::ComputeObjectCollisionPassiveResponse(CEventPotentialWalkInt
         };
     }();
 }
-
 // 0x4B92B0
 void CEventHandler::ComputeObjectCollisionResponse(CEventObjectCollision* e, CTask* tactive, CTask* tsimplest) { // Same code as `ComputeObjectCollisionPassiveResponse`
     m_EventResponseTask = [&]() -> CTask* {
@@ -1537,12 +1525,10 @@ void CEventHandler::ComputeObjectCollisionResponse(CEventObjectCollision* e, CTa
         };
     }();
 }
-
 // 0x4BC150
 void CEventHandler::ComputeOnEscalatorResponse(CEvent* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = new CTaskSimpleStandStill{0, true};
 }
-
 // 0x4BAD50
 void CEventHandler::ComputeOnFireResponse(CEventOnFire* e, CTask* tactive, CTask* tsimplest) {
     if (m_Ped->IsPlayer()) {
@@ -1553,18 +1539,30 @@ void CEventHandler::ComputeOnFireResponse(CEventOnFire* e, CTask* tactive, CTask
         m_EventResponseTask = new CTaskComplexOnFire{};
     }
 }
-
 // 0x4BB0C0
 void CEventHandler::ComputePassObjectResponse(CEventPassObject* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = new CTaskComplexPassObject{e->m_giver, e->m_dontPassObject};
 }
-
 // 0x4BDB80
+// BLOCKER (not reversed yet): Ped-vs-ped collision response. Early-out if the colliding ped
+// (event +0x14) is null. Computes the dot products of both peds' forward vectors (matrix +0x10/0x14/0x18)
+// with their position delta to know who walks towards whom, reads the ped move states (event +0x30/+0x32),
+// then - depending on the move-state pair (0/1/4/6/7 = stand/idle/walk combos) and CPedStats aggression
+// (m_pStats @0x59C, field +0x2C vs threshold float @0x85AAE0) - builds the response task: a
+// `CTaskComplexKillPedOnFoot`-ish (0x48E360) via operator new (0x61A5A0), a `CTaskComplexSequence`
+// (0x632BD0/0x632D10) with `CTaskComplexFollowPointRoute` (0x671510, route computed by
+// `CPedGeometryAnalyser::ComputeRouteRoundEntityBoundingBox` 0x5F6110 around the other ped), and makes
+// the peds say the "CompPedCollPedResp" chat line (0x618970). Not translated because of its size and the
+// move-state/aggression table details still to be verified.
 void CEventHandler::ComputePedCollisionWithPedResponse(CEvent* e, CTask* tactive, CTask* tsimplest) {
     plugin::CallMethod<0x4BDB80, CEventHandler*, CEvent*, CTask*, CTask*>(this, e, tactive, tsimplest);
 }
 
 // 0x4BE7D0
+// BLOCKER (not reversed yet): Player variant of `ComputePedCollisionWithPedResponse` (same
+// forward-vector dot-product setup and move-state handling; the player is always treated as the
+// "aggressor" side, so the ped usually ducks/gets shoved aside or starts a `CTaskComplexKillPedOnFoot`
+// chase when aggravated). Same blockers as above.
 void CEventHandler::ComputePedCollisionWithPlayerResponse(CEvent* e, CTask* tactive, CTask* tsimplest) {
     plugin::CallMethod<0x4BE7D0, CEventHandler*, CEvent*, CTask*, CTask*>(this, e, tactive, tsimplest);
 }
@@ -1622,7 +1620,6 @@ void CEventHandler::ComputePedEnteredVehicleResponse(CEventPedEnteredMyVehicle* 
         }
     }();
 }
-
 // 0x4B9DD0
 void CEventHandler::ComputePedFriendResponse(CEventAcquaintancePed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1649,7 +1646,6 @@ void CEventHandler::ComputePedFriendResponse(CEventAcquaintancePed* e, CTask* ta
         }
     }();
 }
-
 // 0x4B9D40
 void CEventHandler::ComputePedSoundQuietResponse(CEventSoundQuiet* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1666,7 +1662,6 @@ void CEventHandler::ComputePedSoundQuietResponse(CEventSoundQuiet* e, CTask* tac
         }
     }();
 }
-
 // 0x4B9C90
 void CEventHandler::ComputePedThreatBadlyLitResponse(CEventAcquaintancePedHateBadlyLit* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1683,7 +1678,6 @@ void CEventHandler::ComputePedThreatBadlyLitResponse(CEventAcquaintancePedHateBa
         }
     }();
 }
-
 // 0x4C19A0
 void CEventHandler::ComputePedThreatResponse(CEventAcquaintancePedHate* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1823,7 +1817,6 @@ void CEventHandler::ComputePedThreatResponse(CEventAcquaintancePedHate* e, CTask
         }
     }();
 }
-
 // 0x4C1910
 void CEventHandler::ComputePedToChaseResponse(CEventPedToChase* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1842,7 +1835,6 @@ void CEventHandler::ComputePedToChaseResponse(CEventPedToChase* e, CTask* tactiv
         };
     }();
 }
-
 // 0x4B9B50
 void CEventHandler::ComputePedToFleeResponse(CEventPedToFlee* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1853,7 +1845,6 @@ void CEventHandler::ComputePedToFleeResponse(CEventPedToFlee* e, CTask* tactive,
         return new CTaskComplexSmartFleeEntity{e->m_ped, true, 100.f, -1};
     }();
 }
-
 // 0x4BF9B0
 void CEventHandler::ComputePersonalityResponseToDamage(CEventDamage* e, CPed* src) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -1929,7 +1920,6 @@ void CEventHandler::ComputePersonalityResponseToDamage(CEventDamage* e, CPed* sr
         }
     }();
 }
-
 // 0x4B8CE0
 void CEventHandler::ComputePlayerCollisionWithPedResponse(CEventPlayerCollisionWithPed* e, CTask* tactive, CTask* tsimplest) {
     std::tie(m_EventResponseTask, m_SayTask) = [&]() -> std::pair<CTask*, CTask*> {
@@ -2014,12 +2004,10 @@ void CEventHandler::ComputePlayerCollisionWithPedResponse(CEventPlayerCollisionW
         return {nullptr, nullptr};
     }();
 }
-
 // 0x4BB280
 void CEventHandler::ComputePlayerWantedLevelResponse(CEvent* e, CTask* tactive, CTask* tsimplest) {
     NOTSA_UNREACHABLE(); // This event doesn't seem to exist
 }
-
 // 0x4C2610
 void CEventHandler::ComputePotentialPedCollideResponse(CEventPotentialWalkIntoPed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2078,7 +2066,6 @@ void CEventHandler::ComputePotentialPedCollideResponse(CEventPotentialWalkIntoPe
         }
     }();  
 }
-
 // 0x4BBCD0
 void CEventHandler::ComputePotentialWalkIntoFireResponse(CEventPotentialWalkIntoFire* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2104,7 +2091,6 @@ void CEventHandler::ComputePotentialWalkIntoFireResponse(CEventPotentialWalkInto
         }
     }();
 }
-
 // 0x4BAA30
 void CEventHandler::ComputeReallyLowHealthResponse(CEventHealthReallyLow* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2118,7 +2104,6 @@ void CEventHandler::ComputeReallyLowHealthResponse(CEventHealthReallyLow* e, CTa
         }
     }();    
 }
-
 // 0x4B97B0
 void CEventHandler::ComputeReviveResponse(CEventRevived* e, CTask* tactive, CTask* tsimplest) {
     std::tie(m_EventResponseTask, m_SayTask) = [&]() -> std::pair<CTask*, CTask*> {
@@ -2146,7 +2131,6 @@ void CEventHandler::ComputeReviveResponse(CEventRevived* e, CTask* tactive, CTas
         };
     }();
 }
-
 // 0x4BA7C0
 void CEventHandler::ComputeScriptCommandResponse(CEventScriptCommand* e, CTask* tactive, CTask* tsimplest) {
     const auto tm = &m_Ped->GetTaskManager();
@@ -2169,7 +2153,6 @@ void CEventHandler::ComputeScriptCommandResponse(CEventScriptCommand* e, CTask* 
         }
     }
 }
-
 // 0x4BC050
 void CEventHandler::ComputeSeenCopResponse(CEventSeenCop* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2188,7 +2171,6 @@ void CEventHandler::ComputeSeenCopResponse(CEventSeenCop* e, CTask* tactive, CTa
         }
     }();
 }
-
 // 0x4C35F0
 void CEventHandler::ComputeSeenPanickedPedResponse(CEventSeenPanickedPed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2216,7 +2198,6 @@ void CEventHandler::ComputeSeenPanickedPedResponse(CEventSeenPanickedPed* e, CTa
         }
     }();
 }
-
 // 0x4B99F0
 void CEventHandler::ComputeSexyPedResponse(CEventSexyPed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2233,7 +2214,6 @@ void CEventHandler::ComputeSexyPedResponse(CEventSexyPed* e, CTask* tactive, CTa
         }
     }();
 }
-
 // 0x4B9AA0
 void CEventHandler::ComputeSexyVehicleResponse(CEventSexyVehicle* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2245,7 +2225,6 @@ void CEventHandler::ComputeSexyVehicleResponse(CEventSexyVehicle* e, CTask* tact
         return new CTaskSimpleStandStill(5000, false, false, 8.0f);
     }();
 }
-
 // 0x4BC710
 void CEventHandler::ComputeShotFiredResponse(CEventGunShot* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2310,7 +2289,6 @@ void CEventHandler::ComputeShotFiredResponse(CEventGunShot* e, CTask* tactive, C
         }
     }();
 }
-
 // 0x4BBE30
 void CEventHandler::ComputeShotFiredWhizzedByResponse(CEventGunShotWhizzedBy* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2347,14 +2325,12 @@ void CEventHandler::ComputeShotFiredWhizzedByResponse(CEventGunShotWhizzedBy* e,
         }
     }();
 }
-
 // 0x4BB050
 void CEventHandler::ComputeSignalAtPedResponse(CEventSignalAtPed* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
         return new CTaskComplexSignalAtPed{ e->m_SignalAt, e->m_InitialPause, e->m_bPlayAnimAtEnd };
     }();
 }
-
 // 0x4BB800
 void CEventHandler::ComputeSpecialResponse(CEventSpecial* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2398,7 +2374,6 @@ void CEventHandler::ComputeSpecialResponse(CEventSpecial* e, CTask* tactive, CTa
         }
     }();
 }
-
 // 0x4BD6A0
 void CEventHandler::ComputeVehicleCollisionResponse(CEventVehicleCollision* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2503,7 +2478,6 @@ void CEventHandler::ComputeVehicleCollisionResponse(CEventVehicleCollision* e, C
         return nullptr;
     }();
 }
-
 // 0x4C2FC0
 void CEventHandler::ComputeVehicleDamageResponse(CEventVehicleDamage* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2605,7 +2579,6 @@ void CEventHandler::ComputeVehicleDamageResponse(CEventVehicleDamage* e, CTask* 
         return nullptr;
     }();
 }
-
 // 0x4BA8B0
 void CEventHandler::ComputeVehicleDiedResponse(CEventVehicleDied* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2621,7 +2594,6 @@ void CEventHandler::ComputeVehicleDiedResponse(CEventVehicleDied* e, CTask* tact
         return new CTaskComplexDie{ WEAPON_EXPLOSION, ANIM_GROUP_DEFAULT, ANIM_ID_KO_SHOT_FRONT_0 };
     }();
 }
-
 // 0x?
 void CEventHandler::ComputeVehicleHitAndRunResponse(CEventVehicleHitAndRun* e, CTask* tactive, CTask* tsimplest) {
     NOTSA_UNREACHABLE();
@@ -2668,7 +2640,6 @@ void CEventHandler::ComputeVehicleOnFireResponse(CEventVehicleOnFire* e, CTask* 
         }
     }();
 }
-
 // 0x4C0BD0
 void CEventHandler::ComputeVehiclePotentialCollisionResponse(CEventPotentialGetRunOver* e, CTask* tactive, CTask* tsimplest) {
     std::tie(m_EventResponseTask, m_PartialAnimTask) = [&]() -> std::pair<CTask*, CTask*> {
@@ -2804,7 +2775,6 @@ void CEventHandler::ComputeVehiclePotentialCollisionResponse(CEventPotentialGetR
         return {};
     }();
 }
-
 // 0x4B96D0
 void CEventHandler::ComputeVehiclePotentialPassiveCollisionResponse(CEventPotentialWalkIntoVehicle* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2825,7 +2795,6 @@ void CEventHandler::ComputeVehiclePotentialPassiveCollisionResponse(CEventPotent
         };
     }();
 }
-
 // 0x4B9F80
 void CEventHandler::ComputeVehicleToStealResponse(CEventVehicleToSteal* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2835,7 +2804,6 @@ void CEventHandler::ComputeVehicleToStealResponse(CEventVehicleToSteal* e, CTask
         return new CTaskComplexStealCar{ e->m_vehicle };
     }();
 }
-
 // 0x4BAE30
 void CEventHandler::ComputeWaterCannonResponse(CEventHitByWaterCannon* e, CTask* tactive, CTask* tsimplest) {
     m_EventResponseTask = [&]() -> CTask* {
@@ -2848,7 +2816,6 @@ void CEventHandler::ComputeWaterCannonResponse(CEventHitByWaterCannon* e, CTask*
         return new CTaskComplexFallAndGetUp{ CPedGeometryAnalyser::ComputePedHitSide(*m_Ped, e->m_moveSpeed), 0 };
     }();
 }
-
 // 0x4C3870
 void CEventHandler::ComputeEventResponseTask(CEvent* e, CTask* pAbortedTaskEventResponse) {
     m_PhysicalResponseTask = nullptr;
@@ -3058,7 +3025,6 @@ void CEventHandler::ComputeEventResponseTask(CEvent* e, CTask* pAbortedTaskEvent
         return;
     }
 }
-
 // 0x4C4220
 CTask* CEventHandler::ComputeEventResponseTask(const CPed& ped, const CEvent& e) {
     CTask* task = nullptr;

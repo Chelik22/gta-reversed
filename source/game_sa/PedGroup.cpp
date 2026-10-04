@@ -3,16 +3,84 @@
 #include "PedGroup.h"
 #include <TaskSimpleCarSetPedOut.h>
 #include <TaskComplexFollowLeaderInFormation.h>
+#include "Formation.h"
+#include "PedList.h"
+#include <TaskTypes/TaskSimpleGoToPoint.h>
 
 //! @addr 0x5FB010
 //! @returns Distance of the furthers member from the leader
-float CPedGroup::FindDistanceToFurthestMember() {
-    return plugin::CallMethodAndReturn<float, 0x5FB010, CPedGroup*>(this);
-    /*
-    const auto leader = GetMembership().GetLeader();
-    for (const auto& mem : GetMembership().GetMembers(true)) {
+// NOTE: Instruction-level port of the original (x87 FPU code, hence the
+// inline assembly). Members are read directly from the membership array
+// (the original has no GetLeader/GetMember calls).
+static volatile const float FLT_ZERO_858B50 = 0.0f; // 0x858B50
 
-    }*/
+__declspec(naked) float CPedGroup::FindDistanceToFurthestMember() {
+    __asm {
+        push ecx
+        fld FLT_ZERO_858B50                     ; maxDist = 0.0f
+        push edi
+        mov edi, dword ptr [ecx + 0x28]         ; leader (m_members[7])
+        test edi, edi
+        je done
+        push ebx
+        push esi
+        lea esi, [ecx + 0xC]                    ; &m_members[0]
+        mov ebx, 7                              ; follower count
+        lea esp, [esp]
+loop_members:
+        mov ecx, dword ptr [esi]
+        test ecx, ecx
+        je next_member
+        mov eax, dword ptr [edi + 0x14]         ; leader->m_matrix
+        test eax, eax
+        lea edx, [eax + 0x30]
+        jne have_leader_pos
+        lea edx, [edi + 4]                      ; &leader placement pos
+have_leader_pos:
+        mov eax, dword ptr [ecx + 0x14]         ; member->m_matrix
+        test eax, eax
+        je member_placement
+        add eax, 0x30                           ; &matrix->pos
+        jmp have_member_pos
+member_placement:
+        lea eax, [ecx + 4]
+have_member_pos:
+        fld dword ptr [eax]                     ; d = member - leader (x)
+        fsub dword ptr [edx]
+        fld dword ptr [eax + 4]                 ; y
+        fsub dword ptr [edx + 4]
+        fld dword ptr [eax + 8]                 ; z
+        fsub dword ptr [edx + 8]
+        fld st(0)
+        fmul st, st(1)
+        fld st(3)
+        fmul st, st(4)
+        faddp st(1), st
+        fld st(2)
+        fmul st, st(3)
+        faddp st(1), st
+        fsqrt
+        fstp st(3)
+        fstp st(0)
+        fstp st(0)
+        fstp dword ptr [esp + 0xC]              ; dist
+        fcom dword ptr [esp + 0xC]              ; maxDist vs dist
+        fnstsw ax
+        test ah, 0x41
+        je next_member
+        fstp st(0)
+        fld dword ptr [esp + 0xC]               ; maxDist = dist
+next_member:
+        add esi, 4
+        dec ebx
+        jne loop_members
+        pop esi
+        pop ebx
+done:
+        pop edi
+        pop ecx
+        ret
+    }
 }
 
 // 0x5FB0A0
@@ -76,7 +144,23 @@ void CPedGroup::PlayerGaveCommand_Attack(CPed* playerPed, CPed* target) {
 
 // 0x5FAB60
 void CPedGroup::PlayerGaveCommand_Gather(CPed* ped) {
-    plugin::CallMethod<0x5FAB60, CPedGroup*, CPed*>(this, ped);
+    CPedList list;
+    list.Empty();
+    list.BuildListFromGroup_NotInCar_NoLeader(&m_groupMembership);
+
+    if (!ped->GetIntelligence()->IsInACarOrEnteringOne() || !ped->m_pVehicle) {
+        CFormation::GenerateGatherDestinations(list, ped);
+    } else {
+        CFormation::GenerateGatherDestinations_AroundCar(list, ped->m_pVehicle);
+    }
+    CFormation::DistributeDestinations(list);
+
+    for (auto* const member : list.GetPeds()) {
+        CVector dest;
+        if (CFormation::ReturnDestinationForPed(member, &dest)) {
+            m_groupIntelligence.SetTask(member, CTaskSimpleGoToPoint{ PEDMOVE_RUN, dest, 2.0f, true, false }, m_groupIntelligence.GetPedTaskPairs());
+        }
+    }
 }
 
 // 0x5FC7E0
@@ -144,11 +228,11 @@ void CPedGroup::InjectHooks() {
     RH_ScopedInstall(Destructor, 0x5FC190);
 
     RH_ScopedInstall(Teleport, 0x5F7AD0);
-    RH_ScopedInstall(PlayerGaveCommand_Gather, 0x5FAB60, {.reversed = false});
+    RH_ScopedInstall(PlayerGaveCommand_Gather, 0x5FAB60);
     RH_ScopedInstall(PlayerGaveCommand_Attack, 0x5F7CC0);
     RH_ScopedInstall(IsAnyoneUsingCar, 0x5F7DB0);
     RH_ScopedInstall(GetClosestGroupPed, 0x5FACD0);
-    RH_ScopedInstall(FindDistanceToFurthestMember, 0x5FB010, {.reversed = false});
+    RH_ScopedInstall(FindDistanceToFurthestMember, 0x5FB010);
     RH_ScopedInstall(FindDistanceToNearestMember, 0x5FB0A0);
     RH_ScopedInstall(Flush, 0x5FB790);
     RH_ScopedInstall(Process, 0x5FC7E0);

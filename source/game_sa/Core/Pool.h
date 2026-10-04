@@ -126,7 +126,9 @@ public:
         for (auto i = 0; i < m_Capacity; i++) {
             m_SlotState[i].IsEmpty = true;
         }
+#ifdef NOTSA_POOL_DEBUG_FILL // Same reasoning as in Delete() - no poison unless debugging
         DoFill(DEADLAND_FILL);
+#endif
     }
 
     auto GetSize() {
@@ -255,7 +257,18 @@ public:
         const auto idx = GetIndex(obj);
         m_SlotState[idx].IsEmpty = true;
         m_LastFreeSlot          = std::min(m_LastFreeSlot, idx);
+        // NOTSA(stability): The 0xDD landfill below (MSVC debug-heap style poison) must stay
+        // OFF by default. Original exe code has latent use-after-frees over the pools, e.g.
+        // CCarCtrl::RemoveDistantCars (0x42CD10) re-reads [veh+0x42A] (flags) and [veh+0x14]
+        // (m_matrix) right after CCarCtrl::PossiblyRemoveVehicle (0x424F80) may have deleted
+        // the vehicle in the very same loop iteration. With the poison the stale flag check
+        // always passes (0xDD & 0x10 != 0) and the stale matrix pointer reads as 0xDDDDDDDD,
+        // which crashes in the original code (AV at 0x42CDAC, faulting address 0xDDDDDE11).
+        // Vanilla leaves the dtor-final stale bytes in freed slots (m_matrix ends up as the
+        // readable dummy 0xB74240), which makes the same read benign.
+#ifdef NOTSA_POOL_DEBUG_FILL
         DoFill(DEADLAND_FILL, (StorageType*)(obj));
+#endif
     }
 
     /*!
@@ -386,6 +399,11 @@ protected:
         // No free slots
         return -1;
     }
+
+public:
+    // NOTSA(stability): read-only access for out-of-line sanity checks (see Pools.h::IsValidPointer)
+    StorageType*       GetStorage()  { return m_Storage; }
+    size_t             GetCapacity() { return m_Capacity; }
 
 private:
     StorageType* m_Storage{};           //!< Storage

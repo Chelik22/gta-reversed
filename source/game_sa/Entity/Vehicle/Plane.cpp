@@ -3,6 +3,7 @@
 #include "Plane.h"
 #include "CarCtrl.h"
 #include "FireManager.h"
+#include "Pools/Pools.h"
 
 auto& HARRIER_NOZZLE_ROTATERATE = StaticRef<float>(0x8D33DC);       // 25.0f
 auto& PLANE_DAMAGE_WAVE_COUNTER_VAR = StaticRef<float>(0x8D33E0);   // 0.75f
@@ -15,7 +16,7 @@ void CPlane::InjectHooks() {
     RH_ScopedVirtualClass(CPlane, 0x871948, 71);
     RH_ScopedCategory("Vehicle");
 
-    RH_ScopedInstall(Constructor, 0x6C8E20);
+    RH_ScopedInstall(Constructor, 0x6C8E20, { .reversed = false });
     RH_ScopedInstall(InitPlaneGenerationAndRemoval, 0x6CAD90);
     RH_ScopedVMTInstall(SetUpWheelColModel, 0x6C9140);
     RH_ScopedVMTInstall(BurstTyre, 0x6C9150);
@@ -27,16 +28,21 @@ void CPlane::InjectHooks() {
     RH_ScopedInstall(SetGearUp, 0x6CAC20);
     RH_ScopedInstall(SetGearDown, 0x6CAC70);
     RH_ScopedVMTInstall(OpenDoor, 0x6CACB0);
-    RH_ScopedVMTInstall(ProcessControl, 0x6C9260, { .reversed = false });
+    RH_ScopedVMTInstall(ProcessControl, 0x6C9260);
     RH_ScopedVMTInstall(ProcessControlInputs, 0x6CADD0, { .reversed = false });
     RH_ScopedVMTInstall(ProcessFlyingCarStuff, 0x6CB7C0, { .reversed = false });
     RH_ScopedVMTInstall(VehicleDamage, 0x6CC4B0, { .reversed = false });
     RH_ScopedInstall(CountPlanesAndHelis, 0x6CCA50);
     RH_ScopedInstall(AreWeInNoPlaneZone, 0x6CCAA0);
     RH_ScopedInstall(AreWeInNoBigPlaneZone, 0x6CCBB0);
-    RH_ScopedInstall(SwitchAmbientPlanes, 0x6CCC50, { .reversed = false });
-    RH_ScopedVMTInstall(BlowUpCar, 0x6CCCF0, { .reversed = false });
-    RH_ScopedInstall(FindPlaneCreationCoors, 0x6CD090, { .reversed = false });
+    RH_ScopedInstall(SwitchAmbientPlanes, 0x6CCC50);
+    RH_ScopedVMTInstall(BlowUpCar, 0x6CCCF0);
+    // NB: `FindPlaneCreationCoors` is now reversed; it keeps two unreversed leaf helpers as
+    // plugin::Call (0x40FD10 = CColSphere-like ctor (radius, center, 0, 0, 0xFF) and 0x41A820 =
+    // sector-scan "is sector occupied" check - cdecl(int xSector, int ySector, CVector*, CVector*,
+    // CVector*, CVector*), convention verified against its caller; the float->int conversions around
+    // it are just MSVC `_ftol2` (0x821B40)). `DoPlaneGenerationAndRemoval` stays disabled (see note there).
+    RH_ScopedInstall(FindPlaneCreationCoors, 0x6CD090);
     RH_ScopedInstall(DoPlaneGenerationAndRemoval, 0x6CD2F0, { .reversed = false });
 }
 
@@ -339,15 +345,105 @@ bool CPlane::AreWeInNoBigPlaneZone() {
 
 // 0x6CCC50
 void CPlane::SwitchAmbientPlanes(bool enable) {
-    plugin::Call<0x6CCC50, bool>(enable);
+    if (GenPlane_Active == false) {
+        GenPlane_Active = enable;
+        return;
+    }
+
+    // Planes are being switched off - remove all ambient helis/planes
+    if (!enable) {
+        for (auto& veh : GetVehiclePool()->GetAllValid()) {
+            const auto subType = veh.m_nVehicleSubType;
+            // CVehicle +0x4A4: plane AI status, 1 == ambient (AI) plane/heli
+            const auto planeAIStatus = *reinterpret_cast<const uint8*>(reinterpret_cast<uintptr_t>(&veh) + 0x4A4);
+            if ((subType == VEHICLE_TYPE_HELI || subType == VEHICLE_TYPE_PLANE) && planeAIStatus == 1) {
+                CWorld::Remove(&veh);
+                delete &veh;
+            }
+        }
+    }
+
+    GenPlane_Active = enable;
 }
 
 // 0x6CD090
 void CPlane::FindPlaneCreationCoors(CVector* outCoors, CVector* outTargetCoors, float* outPlaneOrientation, float* outFlightHeight, bool isBigPlane) {
-    plugin::Call<0x6CD090, CVector*, CVector*, float*, float*, bool>(outCoors, outTargetCoors, outPlaneOrientation, outFlightHeight, isBigPlane);
+    static auto& WIND_OFFSET_X = StaticRef<float>(0xB6F9AC); // TheCamera + 0x984 (see CWeather)
+    static auto& WIND_OFFSET_Y = StaticRef<float>(0xB6F9B0); // TheCamera + 0x988
+    static auto& WIND_OFFSET_Z = StaticRef<float>(0xB6F9B4);
+    static auto& s_PlaneCreationCheckCounter = StaticRef<int32>(0xB7CD78);
+
+    // 0x40FD10 - unreversed: builds a CColSphere{ radius, center, a, b, c } (probably in a static used by the checks below)
+    const auto BuildRadiusSphere = [](float radius, CVector* center) {
+        plugin::Call<0x40FD10, float, CVector*, uint8, uint8, uint8>(radius, center, 0, 0, 0xFF);
+    };
+    // 0x41A820 - unreversed: cdecl(int xSector, int ySector, CVector* a, CVector* b, CVector* c, CVector* d);
+    // scans the sector entity table @0xB7D0B8 (120x120, stride 8) and returns true if the sector is "occupied".
+    const auto IsSectorOccupied = [](int xSector, int ySector, CVector* a, CVector* b, CVector* c, CVector* d) -> bool {
+        return plugin::CallAndReturn<bool, 0x41A820, int, int, CVector*, CVector*, CVector*, CVector*>(xSector, ySector, a, b, c, d);
+    };
+
+    const float creationDist = isBigPlane ? 340.0f : 140.0f;
+    const float baseHeight   = isBigPlane ? 200.0f : 25.0f;
+
+    for (int i = 0; i < 500; i += 10) {
+        const float angle = (float)(rand() % 360) * DEG_TO_RAD; // float @ 0x8595EC
+
+        const CVector playerCoors = FindPlayerCoors();
+        *outCoors = playerCoors;
+
+        *outFlightHeight = (float)(rand() & 0xF) + (float)i + baseHeight;
+
+        outCoors->x += std::cos(angle) * creationDist;
+        outCoors->y += std::sin(angle) * creationDist;
+        outCoors->z += *outFlightHeight;
+
+        CVector target = FindPlayerCoors();
+
+        const float windDist = (float)(rand() & 0x1F) + 20.0f;
+        target.x += WIND_OFFSET_X * windDist;
+        target.y += WIND_OFFSET_Y * windDist;
+        target.z += WIND_OFFSET_Z * windDist;
+        target.z += *outFlightHeight;
+        *outTargetCoors = target;
+
+        *outPlaneOrientation = CGeneral::GetATanOfXY(target.x - outCoors->x, target.y - outCoors->y);
+
+        CVector pointAhead{
+            (target.x - outCoors->x) + target.x,
+            (target.y - outCoors->y) + target.y,
+            (target.z - outCoors->z) + target.z
+        };
+
+        if (s_PlaneCreationCheckCounter == -1) {
+            plugin::Call<0x563470>(); // unreversed helper
+            s_PlaneCreationCheckCounter = 1;
+        } else {
+            s_PlaneCreationCheckCounter++;
+        }
+
+        BuildRadiusSphere(15.0f, outCoors);
+
+        if (CWorld::GetIsLineOfSightClear(*outCoors, pointAhead, true, false, false, false, false, false, false)) {
+            if (!IsSectorOccupied((int)target.x, (int)target.y, &pointAhead, &pointAhead, &pointAhead, &pointAhead)) {
+                break;
+            }
+        }
+    }
+
+    *outFlightHeight  += 20.0f;
+    outTargetCoors->z += 20.0f;
 }
 
 // 0x6CD2F0
+// BLOCKER (not reversed yet): Runs every frame at game timer `(frame & 0x1F) == 0x1E` while ambient
+// planes are enabled (0x8D33BC): decides via `CPlane::AreWeInNoPlaneZone`-style checks (0x6CCA50) and the
+// streaming model-request state (0x8E4CD0 availability table + 0x4087E0 RequestModel) whether to create a
+// new ambient plane at the `FindPlaneCreationCoors` position (creating it via CPopulation/CStreaming),
+// tracks the existing ambient planes (table 0xC1CAD8/0xC1CADC state + model id), sets their flight height
+// / autopilot, and removes planes that flew out of range. Not translated because the creation/removal
+// helpers (0x6CCA50, 0x4087E0 and the plane-spawn path) and the ambient-plane state globals
+// (0xC1CAD8/0xC1CADC, 0x8D33BC) are not yet mapped to repo headers.
 void CPlane::DoPlaneGenerationAndRemoval() {
     plugin::Call<0x6CD2F0>();
 }

@@ -22,7 +22,7 @@ void CPickups::InjectHooks() {
     RH_ScopedInstall(Init, 0x454A70);
     RH_ScopedInstall(ReInit, 0x456E60);
     RH_ScopedInstall(AddToCollectedPickupsArray, 0x455240);
-    RH_ScopedOverloadedInstall(CreatePickupCoorsCloseToCoors, "", 0x458A80, void(*)(float, float, float, float&, float&, float&), {.reversed = false});
+    RH_ScopedOverloadedInstall(CreatePickupCoorsCloseToCoors, "", 0x458A80, void(*)(float, float, float, float&, float&, float&));
     RH_ScopedInstall(CreateSomeMoney, 0x458970);
     RH_ScopedInstall(DetonateMinesHitByGunShot, 0x4590C0);
     RH_ScopedInstall(DoCollectableEffects, 0x455E20);
@@ -97,7 +97,52 @@ void CPickups::AddToCollectedPickupsArray(int32 pickupIndex) {
  * @param [out] outX, outY, outZ Created pickup's position
  */
 void CPickups::CreatePickupCoorsCloseToCoors(float inX, float inY, float inZ, float& outX, float& outY, float& outZ) {
-    plugin::Call<0x458A80, float, float, float, float&, float&, float&>(inX, inY, inZ, outX, outY, outZ);
+    for (auto attempt = 0;; attempt++) {
+        const auto angle = (float)(CGeneral::GetRandomNumber() & 0xFF) * 0.024543693f; // 2pi/256 (0x859BBC)
+
+        const auto tryX = sinf(angle) * 1.5f + inX; // 1.5f - 0x858CE8
+        const auto tryY = cosf(angle) * 1.5f + inY;
+
+        bool outOfBounds{};
+        const auto tryZ = CWorld::FindGroundZFor3DCoord({ tryX, tryY, inZ }, &outOfBounds) + 0.5f; // 0.5f - 0x858B8C
+
+        if (outOfBounds) {
+            const auto zLimit = inZ + 0.3f; // 0.3f - 0x858C24
+
+            // Check the line between the position and the input position (make sure the pickup doesn't end up inside a wall)
+            const CVector delta{ tryX - inX, tryY - inY, tryZ - zLimit };
+            const auto   len      = delta.Magnitude();
+            const auto   scale    = (len + 0.4f) / len; // 0.4f - 0x858EE8
+            const CVector startPos = delta * scale + CVector{ inX, inY, zLimit };
+
+            const auto playerPos = FindPlayerCoors();
+
+            // Must be at least 2 units away from the player
+            const bool farFromPlayer = sq(tryX - playerPos.x) + sq(tryY - playerPos.y) > sq(2.0f); // 2.0f - 0x858CA0
+
+            const bool doChecks = farFromPlayer
+                ? (attempt > 0x10 || !CPickups::TestForPickupsInBubble(CVector{ tryX, tryY, tryZ }, 1.3f))
+                : attempt > 0x10;
+
+            if (doChecks) {
+                if (CWorld::GetIsLineOfSightClear(startPos, { inX, inY, zLimit }, true, attempt < 0x10, false, attempt < 0x10, false, false, false)
+                    && (attempt > 0x10 || !CWorld::TestSphereAgainstWorld({ tryX, tryY, tryZ }, 1.2f, nullptr, true, false, false, false, false, false))
+                ) {
+                    outX = tryX;
+                    outY = tryY;
+                    outZ = tryZ;
+                    return;
+                }
+            }
+        }
+
+        if (attempt >= 0x1F) { // Too many attempts - just use the input position
+            outX = inX;
+            outY = inY;
+            outZ = inZ + 0.4f; // 0.4f - 0x858EE8
+            return;
+        }
+    }
 }
 
 /*!
@@ -603,9 +648,22 @@ void CPickups::RenderPickUpText() {
 // 0x456450
 bool CPickups::TestForPickupsInBubble(const CVector posn, float radius) {
     // NOTE: (Possible bug) - They dont check if the pickup is active (eg: type != NONE)
-    return rng::any_of(aPickUps, [sp = CSphere{ posn, radius }](const CPickup& p) {
-        return sp.IsPointWithin(p.GetPosn()); // They obviously didn't use `CSphere` here, but it's nicer.
-    });
+    // The original does an explicit loop over the raw array (620 entries of 32 bytes)
+    // and compares the Euclidean distance (strictly less than `radius`!)
+    const auto& pickups = reinterpret_cast<const CPickup(&)[MAX_NUM_PICKUPS]>(aPickUps);
+
+    for (int i = 0; i < MAX_NUM_PICKUPS; i++) {
+        const CVector p = pickups[i].GetPosn();
+
+        const float dx = p.x - posn.x;
+        const float dy = p.y - posn.y;
+        const float dz = p.z - posn.z;
+
+        if (std::sqrt(dx * dx + dy * dy + dz * dz) < radius) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // search for pickup in area (radius = 5.5 units) with this weapon model and pickup type and add ammo to this pickup; returns TRUE if merged

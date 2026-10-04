@@ -9,6 +9,7 @@
 #include <bit> // popcnt
 
 #include "Automobile.h"
+#include "Pools/Pools.h"
 #include "ModelIndices.h"
 #include "WaterCannons.h"
 #include "Buoyancy.h"
@@ -2841,6 +2842,11 @@ void CAutomobile::VehicleDamage(float damageIntensity, eVehicleCollisionComponen
                 break;
             default: {
                 m_fHealth = std::max(0.f, m_fHealth - CTimer::GetTimeStep() * 4.f);
+                static uint32 s_lastLog = 0; // TEMP TELEMETRY (upside-down fire hunt)
+                if (const auto now = CTimer::GetTimeInMS(); now - s_lastLog > 1000) {
+                    s_lastLog = now;
+                    NOTSA_LOG_DEBUG("[TELE] UpsideDownDmg: health={} status={}", m_fHealth, (int)GetStatus());
+                }
                 break;
             }
             }
@@ -4855,6 +4861,12 @@ void CAutomobile::dmgDrawCarCollidingParticles(const CVector& position, float fo
 
 // 0x6A7090
 void CAutomobile::ProcessCarOnFireAndExplode(bool bExplodeImmediately) {
+    static uint32 s_lastLog = 0; // TEMP TELEMETRY (upside-down fire hunt)
+    if (const auto now = CTimer::GetTimeInMS(); now - s_lastLog > 1000) {
+        s_lastLog = now;
+        NOTSA_LOG_DEBUG("[TELE] OnFire entry: health={} burnTimer={} fireParticle={} status={}",
+            m_fHealth, m_fBurnTimer, m_pFireParticle != nullptr, (int)GetStatus());
+    }
     // TODO: Re-order the code to get rid of lambdas here (and of the really deep nesting)
 
     const auto DecreaseHealthAndProcess = [this, estatus = m_damageManager.GetEngineStatus()] {

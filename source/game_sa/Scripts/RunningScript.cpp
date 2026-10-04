@@ -22,6 +22,9 @@ static notsa::log_ptr logger;
 #include "CommandParser/LUTGenerator.hpp"
 #include "reversiblehooks/ReversibleHook/ScriptCommand.h"
 
+#include "Tasks/TaskTypes/TaskSimpleFinishBrain.h"
+#include "Tasks/ScriptedBrainTaskStore.h"
+
 #include "Commands/Commands.hpp"
 #ifdef NOTSA_WITH_CLEO_SCRIPT_COMMANDS // TODO: Add premake/cmake option for this define
 #include "Commands/CLEO/Commands.hpp"
@@ -75,7 +78,7 @@ void CRunningScript::InjectHooks() {
     RH_ScopedInstall(SetCharCoordinates, 0x464DC0);
     RH_ScopedInstall(AddScriptToList, 0x464C00, { .stackArguments = 1 });
     RH_ScopedInstall(RemoveScriptFromList, 0x464BD0, { .stackArguments = 1 });
-    RH_ScopedInstall(ShutdownThisScript, 0x465AA0, { .reversed = false });
+    RH_ScopedInstall(ShutdownThisScript, 0x465AA0);
     RH_ScopedInstall(IsPedDead, 0x464D70);
     RH_ScopedInstall(ThisIsAValidRandomPed, 0x489490);
     RH_ScopedInstall(ScriptTaskPickUpObject, 0x46AF50, { .reversed = false });
@@ -205,31 +208,39 @@ void CRunningScript::RemoveScriptFromList(CRunningScript** queueList) {
  * @addr 0x465AA0
  */
 void CRunningScript::ShutdownThisScript() {
-    return plugin::CallMethod<0x465AA0>(this);
-    /*
-    if (m_bIsExternal) {
-        const auto idx = CTheScripts::StreamedScripts.GetStreamedScriptWithThisStartAddress(m_pBaseIP);
-        CTheScripts::StreamedScripts.m_aScripts[idx].Status--;
+    m_IsActive = false;
+
+    if (m_IsExternal) {
+        const auto idx = CTheScripts::StreamedScripts.GetStreamedScriptWithThisStartAddress(m_BaseIP);
+        CTheScripts::StreamedScripts.m_aScripts[idx].m_NumberOfUsers--;
     }
 
-    switch (m_nExternalType) {
+    const auto entityRef = m_ThisMustBeTheOnlyMissionRunning
+        ? CTheScripts::LocalVariablesForCurrentMission.front().iParam
+        : m_LocalVars[0].iParam;
+
+    switch (m_ExternalType) {
     case 0:
     case 2:
     case 3:
     case 5: {
-        const auto pedRef = m_bIsMission
-            ? CTheScripts::LocalVariablesForCurrentMission.front().iParam
-            : m_aLocalVars[0].iParam;
-        if (const auto ped = GetPedPool()->GetAtRef(pedRef)) {
+        if (const auto ped = GetPedPool()->GetAtRef(entityRef)) {
             ped->bHasAScriptBrain = false;
-            if (m_nExternalType == 5) {
+            if (m_ExternalType == 5) {
                 CScriptedBrainTaskStore::SetTask(ped, new CTaskSimpleFinishBrain{});
             }
         }
         break;
     }
+    case 1:
+    case 4: {
+        if (const auto object = GetObjectPool()->GetAtRef(entityRef)) {
+            // Mark object as no longer being used by a brain script
+            object->m_nObjectFlags = (object->m_nObjectFlags & ~0x200000u) | 0x100000u;
+        }
+        break;
     }
-    */
+    }
 }
 
 // 0x465C20

@@ -489,7 +489,6 @@ CPlayerInfo& CPlayerInfo::operator=(const CPlayerInfo& rhs) {
     m_bAfterRemoteVehicleExplosion     = rhs.m_bAfterRemoteVehicleExplosion;
     m_bCreateRemoteVehicleExplosion    = rhs.m_bCreateRemoteVehicleExplosion;
     m_bFadeAfterRemoteVehicleExplosion = rhs.m_bFadeAfterRemoteVehicleExplosion;
-    m_nTimeOfRemoteVehicleExplosion    = rhs.m_nTimeOfRemoteVehicleExplosion;
     m_nLastTimeEnergyLost              = rhs.m_nLastTimeEnergyLost;
     m_nLastTimeArmourLost              = rhs.m_nLastTimeArmourLost;
     m_nLastTimeBigGunFired             = rhs.m_nLastTimeBigGunFired;

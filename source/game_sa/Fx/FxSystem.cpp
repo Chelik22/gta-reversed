@@ -22,8 +22,8 @@ void FxSystem_c::InjectHooks() {
     RH_ScopedInstall(PlayAndKill, 0x4AA3D0);
     RH_ScopedInstall(Kill, 0x4AA3F0);
     RH_ScopedInstall(AttachToBone, 0x4AA400);
-    RH_ScopedOverloadedInstall(AddParticle, "v3d", 0x4AA440, void(FxSystem_c::*)(const CVector&,const CVector&,float,const FxPrtMult_c&,float,float,float,bool), {.reversed = false});
-    RH_ScopedOverloadedInstall(AddParticle, "mat", 0x4AA540, void(FxSystem_c::*)(const RwMatrix&,const CVector&,float,const FxPrtMult_c&,float,float,float,bool), {.reversed = false});
+    RH_ScopedOverloadedInstall(AddParticle, "v3d", 0x4AA440, void(FxSystem_c::*)(const CVector&,const CVector&,float,const FxPrtMult_c&,float,float,float,bool));
+    RH_ScopedOverloadedInstall(AddParticle, "mat", 0x4AA540, void(FxSystem_c::*)(const RwMatrix&,const CVector&,float,const FxPrtMult_c&,float,float,float,bool));
     RH_ScopedInstall(EnablePrim, 0x4AA610);
     RH_ScopedInstall(SetMatrix, 0x4AA630);
     RH_ScopedInstall(SetOffsetPos, 0x4AA660);
@@ -32,7 +32,7 @@ void FxSystem_c::InjectHooks() {
     RH_ScopedInstall(GetCompositeMatrix, 0x4AA8C0);
     RH_ScopedInstall(GetPlayStatus, 0x4AA900);
     RH_ScopedInstall(ForAllParticles, 0x4AA930);
-    RH_ScopedInstall(UpdateBoundingBoxCB, 0x4AA9A0, {.reversed=false});
+    RH_ScopedInstall(UpdateBoundingBoxCB, 0x4AA9A0);
     RH_ScopedInstall(GetBoundingSphereWld, 0x4AAAD0);
     RH_ScopedInstall(GetBoundingSphereLcl, 0x4AAB50);
     RH_ScopedInstall(SetBoundingSphere, 0x4AAB80);
@@ -46,7 +46,7 @@ void FxSystem_c::InjectHooks() {
     RH_ScopedInstall(SetMustCreatePrts, 0x4AAC70);
     RH_ScopedInstall(DoFxAudio, 0x4AAC90);
     RH_ScopedInstall(IsVisible, 0x4AAF30);
-    RH_ScopedInstall(Update, 0x4AAF70, {.reversed=false});
+    RH_ScopedInstall(Update, 0x4AAF70);
 }
 FxSystem_c* FxSystem_c::Constructor() { this->FxSystem_c::FxSystem_c(); return this; }
 FxSystem_c* FxSystem_c::Destructor() { this->FxSystem_c::~FxSystem_c(); return this; }
@@ -304,7 +304,17 @@ uint32 FxSystem_c::ForAllParticles(void(*callback)(Particle_c*, int32, FxBox_c**
 
 // 0x4AA9A0
 void FxSystem_c::UpdateBoundingBoxCB(Particle_c* particle, int32 a2, FxBox_c** data) {
-    ((void(__cdecl *)(Particle_c*, int32, FxBox_c**))0x4AA9A0)(particle, a2, data);
+    if (a2 == 0) {
+        const auto& pos = particle->m_Pos;
+        FxBox_c*    box = *data;
+
+        box->minX = std::min(box->minX, pos.x);
+        box->maxX = std::max(box->maxX, pos.x);
+        box->minY = std::min(box->minY, pos.y);
+        box->maxY = std::max(box->maxY, pos.y);
+        box->minZ = std::min(box->minZ, pos.z);
+        box->maxZ = std::max(box->maxZ, pos.z);
+    }
 }
 
 // 0x4AAA40
@@ -415,7 +425,116 @@ bool FxSystem_c::IsVisible() const {
 
 // 0x4AAF70
 bool FxSystem_c::Update(RwCamera* camera, float timeDelta) {
-    return ((bool(__thiscall *)(FxSystem_c*, RwCamera*, float))0x4AAF70)(this, camera, timeDelta);
+    if (m_nKillStatus == FX_3) {
+        return true;
+    }
+    if (m_nKillStatus == FX_KILLED) {
+        m_nKillStatus = FX_3;
+        return false;
+    }
+
+    // Build the world matrix (local * parent)
+    const auto mat = g_fxMan.FxRwMatrixCreate();
+    if (!m_ParentMatrix) {
+        *mat = m_LocalMatrix;
+    } else {
+        RwMatrixMultiply(mat, &m_LocalMatrix, m_ParentMatrix);
+    }
+
+    const auto oldCamDist = m_fCameraDistance;
+
+    // Camera position: the parent frame of the camera object
+    const auto  camFrame = RwCameraGetFrame(camera);
+    const auto& camPos   = camFrame->modelling.pos;
+
+    const CVector worldPos = mat->pos;
+
+    m_fCameraDistance = (CVector{camPos} - worldPos).Magnitude();
+    g_fxMan.FxRwMatrixDestroy(mat);
+
+    const float cullDist = (float)m_SystemBP->m_nCullDist;
+    bool        culled{};
+
+    if (m_SystemBP->m_nPlayMode == 0 || (m_fCameraDistance < cullDist && IsVisible())) {
+        culled = false;
+
+        if (m_nPlayStatus == eFxSystemPlayStatus::FX_PLAYING) {
+            timeDelta = (float)m_nTimeMult * 0.001f * timeDelta;
+
+            m_fCurrentTime = m_UseConstTime
+                ? (float)m_nConstTime
+                : timeDelta + m_fCurrentTime;
+
+            const auto playMode = m_SystemBP->m_nPlayMode;
+
+            if (playMode == 2 && m_SystemBP->m_fLoopIntervalMin <= 1.0f) {
+                // Looping system with a random loop interval
+                if (m_SystemBP->m_fLength < m_fCurrentTime) {
+                    m_stopParticleCreation = true;
+                    const auto loopTotal = m_SystemBP->m_fLength + m_LoopInterval;
+                    if (m_fCurrentTime < loopTotal) {
+                        m_fCurrentTime -= loopTotal;
+                        const auto randFrac = (rand() % 10000) * (1.0f / 10000.0f);
+                        m_LoopInterval = (m_SystemBP->m_fLoopLength - m_SystemBP->m_fLoopIntervalMin) * randFrac + m_SystemBP->m_fLoopIntervalMin;
+                    }
+                    m_stopParticleCreation = false;
+                }
+            } else {
+                if (m_SystemBP->m_fLength < m_fCurrentTime) {
+                    switch (playMode) {
+                    case 0:
+                        if (m_nPlayStatus == eFxSystemPlayStatus::FX_STOPPED) {
+                            Stop();
+                            m_nPlayStatus = eFxSystemPlayStatus::T2;
+                        } else {
+                            Stop();
+                        }
+                        break;
+                    case 1:
+                        m_fCurrentTime = m_SystemBP->m_fLength;
+                        break;
+                    case 2:
+                        m_fCurrentTime = m_fCurrentTime - m_SystemBP->m_fLength;
+                        break;
+                    case 3:
+                        Stop();
+                        break;
+                    }
+                }
+            }
+
+            if (m_prevCulled) {
+                timeDelta = timeDelta + 8.0f * 0.001f; // catch up after being culled
+            }
+
+            for (auto& prim : GetPrims()) {
+                prim->Update(m_fCurrentTime, timeDelta);
+            }
+
+            m_prevCulled = culled;
+
+            if (m_nPlayStatus == eFxSystemPlayStatus::FX_PLAYING) {
+                DoFxAudio(worldPos);
+            }
+            return false;
+        }
+    } else {
+        culled = true;
+    }
+
+    // Re-play a paused "play mode 3" system once the camera is back in range
+    if (m_nPlayStatus == eFxSystemPlayStatus::FX_STOPPED
+        && m_fCameraDistance < cullDist && cullDist <= oldCamDist
+        && m_SystemBP->m_nPlayMode == 3) {
+        Play();
+    }
+
+    m_prevCulled = culled;
+
+    if (m_nPlayStatus == eFxSystemPlayStatus::FX_PLAYING) {
+        DoFxAudio(worldPos);
+    }
+    return false;
 }
 
 // NOTSA

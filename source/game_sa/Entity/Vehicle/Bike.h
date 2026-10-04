@@ -138,7 +138,7 @@ public:
     void dmgDrawCarCollidingParticles(const CVector& position, float power, eWeaponType weaponType);
     static bool DamageKnockOffRider(CVehicle* vehicle, float damageIntensity, uint16 pieceType, CEntity* damager, const CVector& collisionPos, const CVector& collisionImpactVelocity);
     CPed* KnockOffRider(eWeaponType arg0, uint8 arg1, CPed* ped, bool arg3);
-    void SetRemoveAnimFlags(CPed* ped);
+    void SetRemoveAnimFlags();
     void ReduceHornCounter();
     void ProcessBuoyancy();
     void inline ProcessPedInVehicleBuoyancy(CPed* ped, bool bIsDriver);

@@ -12,9 +12,9 @@ void CTaskComplexFallToDeath::InjectHooks() {
 
     RH_ScopedInstall(Constructor, 0x679040);
     RH_ScopedVMTInstall(MakeAbortable, 0x6790C0);
-    RH_ScopedVMTInstall(ControlSubTask, 0x679510);
+    RH_ScopedVMTInstall(ControlSubTask, 0x679510, { .reversed = false }); // FIX: body is a self-redirect (was: infinite recursion)
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x679120);
-    RH_ScopedVMTInstall(CreateNextSubTask, 0x679270);
+    RH_ScopedVMTInstall(CreateNextSubTask, 0x679270, { .reversed = false }); // FIX: self-redirect
     RH_ScopedInstall(CalcFall, 0x6796C0);
 }
 

@@ -6,7 +6,7 @@ void CScriptsForBrains::InjectHooks() {
     RH_ScopedClass(CScriptsForBrains);
     RH_ScopedCategory("Tasks/TaskTypes");
 
-    RH_ScopedInstall(Init, 0x46A8C0, {.reversed = false});
+    RH_ScopedInstall(Init, 0x46A8C0);
     //RH_ScopedInstall(SwitchAllObjectBrainsWithThisID, 0x46A900, {.reversed = false});
     //RH_ScopedInstall(AddNewScriptBrain, 0x46A930, {.reversed = false});
     //RH_ScopedInstall(AddNewStreamedScriptBrainForCodeUse, 0x46A9C0, {.reversed = false});
@@ -16,7 +16,7 @@ void CScriptsForBrains::InjectHooks() {
     RH_ScopedInstall(StartAttractorScriptBrainWithThisName, 0x46B390);
     RH_ScopedInstall(StartOrRequestNewStreamedScriptBrain, 0x46CD80, {.reversed = false});
     //RH_ScopedInstall(StartOrRequestNewStreamedScriptBrainWithThisName, 0x46CED0, {.reversed = false});
-    RH_ScopedInstall(IsObjectWithinBrainActivationRange, 0x46B3D0, {.reversed=false});
+    RH_ScopedInstall(IsObjectWithinBrainActivationRange, 0x46B3D0);
 }
 
 
@@ -55,7 +55,37 @@ bool CScriptsForBrains::HasAttractorScriptBrainWithThisNameLoaded(const char* na
 }
 
 bool CScriptsForBrains::IsObjectWithinBrainActivationRange(CObject* entity, const CVector& point) {
-    NOTSA_UNREACHABLE();
+    // NOTE: raw pointer (std::array::data/operator[] would be out-of-line calls)
+    const auto& brain = reinterpret_cast<const tScriptForBrains*>(&m_aScriptForBrains)[entity->m_nStreamedScriptBrainToLoad];
+
+    if (brain.m_TypeOfBrain == 1) { // Radius based activation
+        // NOTE: 3D distance, like the original; manual GetPosition + fsqrt (no helper calls)
+        const CVector& pos = entity->m_matrix
+            ? *reinterpret_cast<const CVector*>(reinterpret_cast<const uint8*>(entity->m_matrix) + 0x30)
+            : entity->m_placement.m_vPosn;
+        const float dxv = point.x - pos.x;
+        const float dy = point.y - pos.y;
+        const float dz = point.z - pos.z;
+        float distSq = 0.0f, dist = 0.0f;
+        __asm {
+            fld dword ptr dz
+            fmul dz
+            fld dword ptr dy
+            fmul dy
+            faddp st(1), st
+            fld dword ptr dxv
+            fmul dxv
+            faddp st(1), st
+            fstp dword ptr distSq
+        }
+        __asm {
+            fld dword ptr distSq
+            fsqrt
+            fstp dword ptr dist
+        }
+        return dist < brain.m_ObjectBrainActivationRadius;
+    }
+    return false;
 }
 
 int16 CScriptsForBrains::GetIndexOfScriptBrainWithThisName(const char* name, int8 type) {

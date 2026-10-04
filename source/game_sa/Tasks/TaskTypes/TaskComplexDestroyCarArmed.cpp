@@ -59,8 +59,11 @@ void CTaskComplexDestroyCarArmed::CalculateSearchPositionAndRanges(CPed* ped) {
 
 // 0x628DA0
 CTask* CTaskComplexDestroyCarArmed::CreateSubTask(eTaskType taskType, CPed* ped) {
-    NOTSA_UNREACHABLE("Redirected code can't be reached");
-    return nullptr;
+    // NOTSA(stability): the 3 sub-tasks aren't reversed yet, and the original
+    // UNREACHABLE here crashed the game (int3) the moment cops tried to shoot
+    // at the player's car (e.g. during Big Smoke). Until they're reversed,
+    // return a safe pause task so the game keeps running.
+    return new CTaskSimplePause{ 100 };
     /* Redirected */
 
     /*

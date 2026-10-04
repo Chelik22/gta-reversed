@@ -41,10 +41,18 @@ bool CAnimBlendNode::FindKeyFrame(float time) {
     if (m_Seq->m_FramesNum == 1) {
         m_KFRemainingTime = 0.0f;
     } else {
+        m_KFCurr = 1;
+
         // Find kf that spans over the specified `time`
-        for (auto kf = m_Seq->GetUKeyFrame(++m_KFCurr); time > kf->DeltaTime; m_KFPrev = m_KFCurr++) {
+        // FIX: the original re-reads the CURRENT key frame's DeltaTime every iteration;
+        // binding `kf` once (old code) compared against frame 1 forever. Combined with a
+        // zero-DeltaTime frame this spun infinitely (= the movement hard-freeze).
+        while (time > m_Seq->GetUKeyFrame(m_KFCurr)->DeltaTime) {
             time -= m_Seq->GetUKeyFrame(m_KFCurr)->DeltaTime;
 
+            // FIX: wrap check before advancing, like the original (0x4D0240): when the
+            // end is reached in a looped sequence the scan restarts at (KFPrev = 0,
+            // KFCurr = 1) - not (KFPrev = last, KFCurr = 0) as the old order produced.
             if (m_KFCurr + 1 >= m_Seq->m_FramesNum) {
                 // reached end of animation
                 if (!m_BlendAssoc->IsLooped()) {
@@ -53,6 +61,14 @@ bool CAnimBlendNode::FindKeyFrame(float time) {
                     return false;
                 }
                 m_KFCurr = 0;
+            }
+
+            m_KFPrev = m_KFCurr++;
+
+            // NOTSA(stability): an empty/corrupt frame (DeltaTime == 0) would never
+            // advance `time` -> infinite loop. Bail out instead of hanging the game.
+            if (m_Seq->GetUKeyFrame(m_KFCurr)->DeltaTime <= 0.0f) {
+                break;
             }
         }
 

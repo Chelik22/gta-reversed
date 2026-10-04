@@ -40,8 +40,20 @@ CCheckpoint* CCheckpoints::FindById(uint32 id) {
 
 // 0x722970
 void CCheckpoints::SetHeading(uint32 id, float headingDeg) {
-    if (auto* cp = FindById(id)) {
-        cp->SetHeading(headingDeg);
+    // NOTE: The search is done inline (the original scans the raw array, 32 entries of 0x38 bytes)
+    auto& checkpoints = reinterpret_cast<CCheckpoint(&)[32]>(m_aCheckPtArray);
+
+    for (auto& checkpoint : checkpoints) {
+        if (checkpoint.m_ID == id) {
+            const auto headingRad = DegreesToRadians(headingDeg);
+
+            checkpoint.m_Fwd.x = std::cos(headingRad);
+            checkpoint.m_Fwd.y = std::sin(headingRad);
+
+            checkpoint.m_Fwd.Normalise(); // In-place normalize (original tail-calls `CVector::Normalise`)
+
+            break;
+        }
     }
 }
 

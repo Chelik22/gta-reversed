@@ -34,10 +34,12 @@ bool CUpsideDownCarCheck::IsCarUpsideDown(const CVehicle* vehicle) {
         }
     };
 
-    if (!vehicle->CanPedStepOutCar(false)) {
-        const auto& up = vehicle->GetUp();
-        return up.z < 0.3f && GetNumContactWheels() < 4  // Not totally up-side down
-            || up.z < 0.f;                               // Literally up-side down
+    const auto& up = vehicle->GetUp();
+    if (up.z < 0.3f && GetNumContactWheels() < 4         // Not totally up-side down
+        || up.z < 0.f) {                                  // Literally up-side down
+        // Original: `test al, al; je return-false; mov al, 1` — CanPedStepOutCar(false)
+        // is the RESULT (car is calmly lying on its roof), not a gate.
+        return vehicle->CanPedStepOutCar(false);
     }
 
     return false;

@@ -17,6 +17,9 @@
 #define RPMATFX_MATFX_H
 
 static inline auto& MatFXMaterialDataOffset = StaticRef<RwInt32>(0xC9AB74);
+static inline auto& MatFXFreeList = StaticRef<RwFreeList*>(0xC9AB80);
+static inline auto& MatFXAtomicDataOffset = StaticRef<RwInt32>(0xC9AB84);
+static inline auto& MatFXWorldSectorDataOffset = StaticRef<RwInt32>(0xC9AB88);
 
 /**
  * \defgroup rpmatfx RpMatFX

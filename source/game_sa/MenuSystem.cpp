@@ -1,6 +1,7 @@
 #include "StdInc.h"
 
 #include "MenuSystem.h"
+#include "Models/VehicleModelInfo.h"
 
 auto& MenuNumber = StaticRef<std::array<CMenuSystem::Menu*, 2>>(0xBA82D8);
 
@@ -26,7 +27,7 @@ void CMenuSystem::InjectHooks() {
     RH_ScopedInstall(CreateNewMenu, 0x582300);
     RH_ScopedInstall(ActivateItems, 0x581990);
     RH_ScopedInstall(ActivateOneItem, 0x581B30);
-    RH_ScopedInstall(FillGridWithCarColours, 0x5820E0, { .reversed = false });
+    RH_ScopedInstall(FillGridWithCarColours, 0x5820E0);
     RH_ScopedInstall(InsertMenu, 0x581E00);
     RH_ScopedInstall(SwitchOffMenu, 0x580750);
 }
@@ -603,7 +604,45 @@ void CMenuSystem::ActivateOneItem(MenuId id, uint8 row, bool enable) {
 
 // 0x5820E0
 void CMenuSystem::FillGridWithCarColours(MenuId id) {
-    plugin::Call<0x5820E0, MenuId>(id);
+    std::array<CRGBA, MENU_CAR_COLOR_COUNT> palette;
+    palette.fill(CRGBA{ 0u, 0u, 0u, 255u });
+
+    auto* const menu = MenuNumber[id];
+
+    uint8 numUsed{};
+    uint8 candidateId{};
+    for (uint8 i = 1; i < MENU_CAR_COLOR_COUNT; ) {
+        const auto roundStartId = candidateId;
+
+        auto colour = CVehicleModelInfo::ms_vehicleColourTable[candidateId];
+        colour.a = 255u;
+
+        // Check if the colour is similar (within 15 per RGB channel) to any of the already picked ones
+        bool similar{};
+        if (i > 1) {
+            for (auto j = 0; j < i - 1; j++) {
+                const auto& c = palette[j];
+                if (c.r - 15 < colour.r && c.g - 15 < colour.g && c.b - 15 < colour.b
+                    && colour.r < c.r + 15 && colour.g < c.g + 15 && colour.b < c.b + 15
+                ) {
+                    similar = true;
+                }
+            }
+        }
+
+        if (!similar || candidateId + 1 >= 0x80) { // Accept the colour
+            palette[numUsed]                 = colour;
+            menu->m_anUsedCarColors[numUsed] = candidateId;
+            numUsed++;
+            i++;
+            candidateId = 0;
+        } else { // Try the next colour
+            candidateId++;
+            if (candidateId >= 0x80) {
+                candidateId = roundStartId;
+            }
+        }
+    }
 }
 
 // Insert menu column

@@ -53,7 +53,6 @@ void CClothesBuilder::LoadCdDirectory() {
     playerImg.Init(550, &playerImgEntries);
     playerImg.ReadDirFile("MODELS\\PLAYER.IMG");
 }
-
 // 0x5A41C0
 void CClothesBuilder::RequestGeometry(int32 modelId, uint32 modelNameKey) {
     CModelInfo::GetModelInfo(modelId)->bHasComplexHierarchy = true; // TODO/NOTE: Not sure
@@ -63,7 +62,6 @@ void CClothesBuilder::RequestGeometry(int32 modelId, uint32 modelNameKey) {
     VERIFY(playerImg.FindItem(CKeyGen::AppendStringToKey(modelNameKey, ".DFF"), pos, size));
     CStreaming::RequestFile(modelId, pos, size, CClothes::ms_clothesImageId, STREAMING_PRIORITY_REQUEST | STREAMING_GAME_REQUIRED);
 }
-
 // 0x5A4220
 int32 CClothesBuilder::RequestTexture(uint32 txdNameKey) {
     if (txdNameKey == 0) {
@@ -81,7 +79,6 @@ int32 CClothesBuilder::RequestTexture(uint32 txdNameKey) {
 
     return defaultTxd;
 }
-
 // 0x5A44C0
 void CClothesBuilder::PreprocessClothesDesc(CPedClothesDesc& desc, bool a2) {
     plugin::Call<0x5A44C0, CPedClothesDesc&, bool>(desc, a2);
@@ -93,7 +90,6 @@ void CClothesBuilder::ReleaseGeometry(int32 numToRelease) {
     for (auto i = numToRelease; i; CStreaming::SetModelIsDeletable(MODEL_CLOTHES01_ID384 + i))
         --i;
 }
-
 // 0x5A4810
 RpAtomic* GetAtomicWithName(RpClump* clump, const char* name) {
     struct Context {
@@ -109,7 +105,6 @@ RpAtomic* GetAtomicWithName(RpClump* clump, const char* name) {
     }, &c);
     return c.atomic;
 }
-
 // 0x5A4840
 void CClothesBuilder::AddWeightToBoneVertex(float (&weights)[8], uint8(&boneVertexIdxs)[8], float weightToAdd, RwUInt32 targetVertexIdx) { // Unknown OG name
     if (weightToAdd == 0.f) {
@@ -129,7 +124,6 @@ void CClothesBuilder::AddWeightToBoneVertex(float (&weights)[8], uint8(&boneVert
     }
     NOTSA_UNREACHABLE(); // OG code had UB in this case
 }
-
 // 0x5A48B0
 void CClothesBuilder::StoreBoneArray(RpClump* clump, int32 idx) {
     const auto a = GetAtomicWithName(clump, "normal");
@@ -143,7 +137,6 @@ void CClothesBuilder::StoreBoneArray(RpClump* clump, int32 idx) {
         gBoneIndices[idx][i] = static_cast<int16>(h->pNodeInfo[i].nodeID);
     }
 }
-
 /*
 * @notsa
 * 
@@ -217,27 +210,30 @@ RpGeometry* BlendGeometry(RpClump* clump, std::pair<const char*, float> (&&frame
         };
 
         // Calculate bone weights
+        // NOTE: Skin data layout (RenderWare): `boneWeights` has 1 `RwMatrixWeights` (4 floats) per vertex,
+        //       while `boneIdxs` has 4 `RwUInt8`s per vertex (ie. it's indexed by 4 * vertex + weightIdx).
+        //       The old code indexed both by `i + wi`, reading the wrong vertices and, worse,
+        //       writing up to 3 `RwMatrixWeights` past the end of the output arrays (heap corruption).
         float weights[8]{};
         uint8 boneVertexIdxs[8]{};
         for (auto& fd : fds) {
             for (auto wi = 0; wi < 4; wi++) {
-                const auto vtxIdx = i + wi;
                 CClothesBuilder::AddWeightToBoneVertex(
                     weights,
                     boneVertexIdxs,
-                    RwMatrixWeightsGetWeight(fd.boneWeights[vtxIdx], wi),
-                    fd.boneIdxs[vtxIdx]
+                    RwMatrixWeightsGetWeight(fd.boneWeights[i], wi), // Weight `wi` of vertex `i`
+                    fd.boneIdxs[4 * i + wi]                          // Bone index `wi` of vertex `i`
                 );
             }
         }
         for (auto b = 0; b < 4; b++) {
-            const_cast<RwUInt8*>(out.boneIdxs)[i + b] = boneVertexIdxs[b];
+            const_cast<RwUInt8*>(out.boneIdxs)[4 * i + b] = boneVertexIdxs[b];
         }
         const auto t = weights[4] != 0.f
             ? 1.f / std::accumulate(weights, weights + 4, 0.f)
             : 1.f;
         for (auto wi = 0; wi < 4; wi++) {
-            RwMatrixWeightsGetWeight(out.boneWeights[i + wi], wi) = weights[wi] * t;
+            RwMatrixWeightsGetWeight(out.boneWeights[i], wi) = weights[wi] * t;
         }
     }
 
@@ -251,12 +247,10 @@ RpGeometry* BlendGeometry(RpClump* clump, std::pair<const char*, float> (&&frame
 RpGeometry* CClothesBuilder::BlendGeometry(RpClump* clump, const char* frameName0, const char* frameName1, const char* frameName2, float r0, float r1, float r2) {
     return ::BlendGeometry(clump, { {frameName0, r0}, {frameName1, r1}, {frameName2, r2} });
 }
-
 // 0x5A4F10
 RpGeometry* CClothesBuilder::BlendGeometry(RpClump* clump, const char* frameName0, const char* frameName1, float r0, float r1) {
     return ::BlendGeometry(clump, { {frameName0, r0}, {frameName1, r1} });
 }
-
 // 0x5A5340
 RpGeometry* CClothesBuilder::CopyGeometry(RpClump* clump, const char* a2, const char* a3) {
     return plugin::CallAndReturn<RpGeometry*, 0x5A5340, RpClump*, const char*, const char*>(clump, a2, a3);
@@ -266,7 +260,7 @@ RpGeometry* CClothesBuilder::CopyGeometry(RpClump* clump, const char* a2, const 
 void CClothesBuilder::ConstructGeometryArray(RpGeometry** out, uint32* modelNameKeys, float normal, float fatness, float strength) {
     for (auto i = 0; i < 10; i++) {
         if (modelNameKeys[i] == 0) {
-            *out = nullptr;
+            out[i] = nullptr; // NOTE: Original writes to `geometryArray[i]`, NOT to the same slot 10 times
             continue;
         }
         const auto modelIdx = (eModelID)((int)MODEL_CLOTHES01_ID384 + i);
@@ -281,20 +275,19 @@ void CClothesBuilder::ConstructGeometryArray(RpGeometry** out, uint32* modelName
             CStreaming::LoadRequestedModels();
         }
 
-        *out = BlendGeometry(mi->GetRpClump(), "normal", "fat", "ripped", normal, fatness, strength);
+        out[i] = BlendGeometry(mi->GetRpClump(), "normal", "fat", "ripped", normal, fatness, strength);
         StoreBoneArray(mi->GetRpClump(), i);
         CStreaming::RemoveModel(modelIdx);
     }
 }
-
 // inlined, see 0x5A6CE1
 // 0x5A56C0
 void CClothesBuilder::DestroySkinArrays(RwMatrixWeights* weights, RwUInt32* bones) {
-    // TODO: Should this be `delete[]` or `delete`?
-    delete weights;
-    delete bones;
+    // NOTE: Both arrays are `new[]`-allocated (by ConstructGeometryAndSkinArrays),
+    // so they must be freed with `delete[]` (plain `delete` desyncs the array cookie -> heap corruption).
+    delete[] weights;
+    delete[] bones;
 }
-
 // 0x5A56E0
 void CClothesBuilder::BuildBoneIndexConversionTable(uint8* pTable, RpHAnimHierarchy* hier, int32 index) {
     for (const auto [tableIdx, boneId] : rngv::enumerate(gBoneIndices[index])) {
@@ -305,7 +298,6 @@ void CClothesBuilder::BuildBoneIndexConversionTable(uint8* pTable, RpHAnimHierar
         pTable[tableIdx] = idx == 0xFF ? 0 : idx;
     }
 }
-
 void AssertTextureLayouts(std::initializer_list<RwTexture*> textures) {
     assert(textures.size() >= 2);
     for (auto i = 0u; i < textures.size() - 1; i++) {
@@ -348,7 +340,6 @@ RwTexture* CClothesBuilder::CopyTexture(RwTexture* srcTex) {
 
     return dstTex;
 }
-
 // 0x5A57B0
 void CClothesBuilder::PlaceTextureOnTopOfTexture(RwTexture* dstTex, RwTexture* srcTex) {
     ZoneScoped;
@@ -371,7 +362,6 @@ void CClothesBuilder::PlaceTextureOnTopOfTexture(RwTexture* dstTex, RwTexture* s
     RwRasterUnlock(dstRaster);
     RwRasterUnlock(srcRaster);
 }
-
 // 0x5A5820
 void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src, float r1, float r2, int32 numColors) {
     ZoneScoped;
@@ -397,7 +387,6 @@ void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src, float r1, fl
 
     CTimer::Resume();
 }
-
 // 0x5A59C0
 void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src1, RwTexture* src2, float r1, float r2, float r3, int32) {
     ZoneScoped;
@@ -426,7 +415,6 @@ void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src1, RwTexture* 
 
     CTimer::Resume();
 }
-
 // 0x5A5BC0
 void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src1, RwTexture* src2, float r1, float r2, float r3, int32 numColors, RwTexture* tattoos) {
     ZoneScoped;
@@ -459,7 +447,6 @@ void CClothesBuilder::BlendTextures(RwTexture* dst, RwTexture* src1, RwTexture* 
 
     CTimer::Resume();
 }
-
 // 0x5A5F70
 RwTexture* GetTextureFromTxdAndLoadNextTxd(RwTexture* dstTex, int32 txdId_withTexture, int32 CRC_nextTxd, int32* nextTxdId) {
     if (txdId_withTexture == -1) {
@@ -486,7 +473,6 @@ RwTexture* GetTextureFromTxdAndLoadNextTxd(RwTexture* dstTex, int32 txdId_withTe
     CStreaming::RemoveModel(TXDToModelId(txdId_withTexture));
     return res;
 }
-
 // 0x5A6040
 void CClothesBuilder::ConstructTextures(RwTexDictionary* dict, uint32* hashes, float factorA, float factorB, float factorC) {
     plugin::Call<0x5A6040, RwTexDictionary*, uint32*, float, float, float>(dict, hashes, factorA, factorB, factorC);

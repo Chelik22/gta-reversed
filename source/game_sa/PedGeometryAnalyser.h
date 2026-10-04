@@ -52,7 +52,7 @@ public:
     static CVector* ComputeEntityBoundingBoxSegmentPlanesUncachedAll(float zPos, CEntity& entity, CVector* a3, float* a4);
     static void ComputeEntityBoundingSphere(const CPed& ped, CEntity& entity, CColSphere&);
 
-    static int32 ComputeMoveDirToAvoidEntity(const CPed& ped, CEntity& entity, CVector& posn);
+    static void ComputeMoveDirToAvoidEntity(const CPed& ped, CEntity& entity, CVector& posn);
 
     static CVector ComputeEntityDir(const CEntity& entity, eDirection dir);
     static CVector* ComputeEntityDirs(const CEntity& entity, CVector* posn);

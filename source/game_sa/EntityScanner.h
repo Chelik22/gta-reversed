@@ -44,12 +44,23 @@ public:
     }
 
 protected:
+    // NOTSA: Kept virtual (like in the original) so our class layout keeps matching
+    // the original one (vptr at 0x0, m_timer at 0x4, ...) -- don't remove it.
     virtual void ScanForEntitiesInRange(const eRepeatSectorList sectorList, const CPed& ped);
     CEntity* GetClosestEntity() const {
         return m_pClosestEntityInRange;
     }
 
     void Clear();
+
+private: // NOTSA:
+    // Actual implementation of `ScanForEntitiesInRange`.
+    // NOTE: The hook must be installed on THIS (non-virtual) function, NOT on the virtual one!
+    // Hooking the virtual directly would install a jump to the compiler generated vcall thunk
+    // (`mov eax, [ecx]; jmp [eax]`), and since all live scanners carry the original vtables
+    // (0x86CD40/0x86CD84/0x86CD88/0x86CD8C -- their ctors aren't hooked), whose slot 0 points
+    // back at 0x5FFA20, any call would spin forever between the hook jump and the thunk (freeze v16).
+    void ScanForEntitiesInRangeImpl(const eRepeatSectorList sectorList, const CPed& ped);
 
 private: // NOTSA:
     friend void InjectHooksMain();

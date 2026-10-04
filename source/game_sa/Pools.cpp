@@ -2,6 +2,7 @@
 
 #include <Pools/Pools.h>
 #include "CarCtrl.h"
+#include "ObjectSaveStructure.h"
 
 #include <Pools/IplDefPool.h>
 #include <Pools/PedPool.h>
@@ -60,9 +61,9 @@ void CPools::InjectHooks() {
     RH_ScopedInstall(LoadVehiclePool, 0x5D2A20);
     RH_ScopedInstall(MakeSureSlotInObjectPoolIsEmpty, 0x550080);
     RH_ScopedInstall(Save, 0x5D0880);
-    RH_ScopedInstall(SaveObjectPool, 0x5D4940, { .reversed = false });
-    RH_ScopedInstall(SavePedPool, 0x5D4B40, { .reversed = false });
-    RH_ScopedInstall(SaveVehiclePool, 0x5D4800, { .reversed = false });
+    RH_ScopedInstall(SaveObjectPool, 0x5D4940);
+    RH_ScopedInstall(SavePedPool, 0x5D4B40);
+    RH_ScopedInstall(SaveVehiclePool, 0x5D4800);
 }
 
 // 0x550F10
@@ -305,18 +306,107 @@ bool CPools::Save() {
 
 // 0x5D4940
 bool CPools::SaveObjectPool() {
-    return plugin::CallAndReturn<bool, 0x5D4940>();
+    auto* const objPool = GetObjectPool();
+
+    // Pass 1: count mission objects
+    uint32 count = 0;
+    for (auto& obj : objPool->GetAllValid()) {
+        if (obj.m_nObjectType == OBJECT_MISSION)
+            count++;
+    }
+
+    CGenericGameStorage::SaveDataToWorkBuffer(count);
+
+    // Pass 2: save them
+    for (auto& obj : objPool->GetAllValid()) {
+        if (obj.m_nObjectType != OBJECT_MISSION)
+            continue;
+
+        const int32 ref     = CPools::GetObjectRef(&obj);
+        const int16 modelId = obj.m_nModelIndex;
+        const int32 size    = sizeof(CObjectSaveStructure);
+
+        CGenericGameStorage::SaveDataToWorkBuffer(ref);
+        CGenericGameStorage::SaveDataToWorkBuffer(modelId);
+        CGenericGameStorage::SaveDataToWorkBuffer(size);
+
+        CObjectSaveStructure saveStruct{};
+        saveStruct.Construct(&obj);
+        CGenericGameStorage::SaveDataToWorkBuffer(saveStruct);
+    }
+
+    return true;
 }
 
 // 0x5D4B40
 bool CPools::SavePedPool() {
-    return plugin::CallAndReturn<bool, 0x5D4B40>();
+    auto* const pedPool = GetPedPool();
+
+    // Pass 1: count savable peds (not a player, not in a vehicle)
+    uint32 count = 0;
+    for (auto& ped : pedPool->GetAllValid()) {
+        if (ped.m_nPedType != PED_TYPE_PLAYER1 && !ped.bInVehicle)
+            count++;
+    }
+
+    CGenericGameStorage::SaveDataToWorkBuffer(count);
+
+    // Pass 2: save them
+    for (auto& ped : pedPool->GetAllValid()) {
+        if (ped.m_nPedType == PED_TYPE_PLAYER1 || ped.bInVehicle)
+            continue;
+
+        const int32 ref     = CPools::GetPedRef(&ped);
+        const int16 modelId = ped.m_nModelIndex;
+        const int32 pedType = ped.m_nPedType;
+
+        CGenericGameStorage::SaveDataToWorkBuffer(ref);
+        CGenericGameStorage::SaveDataToWorkBuffer(modelId);
+        CGenericGameStorage::SaveDataToWorkBuffer(pedType);
+
+        ped.Save(); // Writes the ped save structure
+    }
+
+    return true;
 }
 
 // 0x5D4800
 // Used in CPools::Save (Android 1.0)
 bool CPools::SaveVehiclePool() {
-    return plugin::CallAndReturn<bool, 0x5D4800>();
+    auto* const vehPool = GetVehiclePool();
+
+    // Pass 1: count savable vehicles (quads without a driver or any passenger)
+    uint32 count = 0;
+    for (auto& veh : vehPool->GetAllValid()) {
+        if (veh.m_nVehicleType != VEHICLE_TYPE_QUAD)
+            continue;
+
+        const bool hasOccupants = veh.m_pDriver || notsa::contains(veh.m_apPassengers, nullptr);
+        if (!hasOccupants)
+            count++;
+    }
+
+    CGenericGameStorage::SaveDataToWorkBuffer(count);
+
+    // Pass 2: save them
+    for (auto& veh : vehPool->GetAllValid()) {
+        if (veh.m_nVehicleType != VEHICLE_TYPE_QUAD)
+            continue;
+
+        const bool hasOccupants = veh.m_pDriver || notsa::contains(veh.m_apPassengers, nullptr);
+        if (hasOccupants)
+            continue;
+
+        const int32 ref     = CPools::GetVehicleRef(&veh);
+        const int16 modelId = veh.m_nModelIndex;
+
+        CGenericGameStorage::SaveDataToWorkBuffer(ref);
+        CGenericGameStorage::SaveDataToWorkBuffer(modelId);
+
+        veh.Save(); // Writes the vehicle save structure
+    }
+
+    return true;
 }
 
 // 0x404550

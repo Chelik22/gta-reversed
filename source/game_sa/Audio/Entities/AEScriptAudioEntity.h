@@ -52,7 +52,7 @@ public:
     void Reset();
 
     void AddAudioEvent(int32);
-    CVector* AttachMissionAudioToPhysical(uint8 sampleId, CPhysical* physical);
+    void AttachMissionAudioToPhysical(uint8 sampleId, CPhysical* physical);
 
     void ClearMissionAudio(uint8 id);
 

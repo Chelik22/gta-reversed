@@ -17,7 +17,9 @@ void CShadows::InjectHooks() {
     RH_ScopedInstall(Init, 0x706CD0);
     RH_ScopedInstall(Shutdown, 0x706ED0);
     RH_ScopedInstall(TidyUpShadows, 0x707770);
+    // BLOCKER: decomp ok (4.9KB); verify permanent-shadow list bounds (0xC3E0xx) and RwTexture args before enabling.
     RH_ScopedInstall(AddPermanentShadow, 0x706F60, { .reversed = false });
+    // BLOCKER: decomp ok (5.4KB); depends on 0x539F00 (unresolved helper) and lifetime bookkeeping; needs helper naming.
     RH_ScopedInstall(UpdatePermanentShadows, 0x70C950, { .reversed = false });
     RH_ScopedOverloadedInstall(StoreShadowToBeRendered, "Texture", 0x707390, void(*)(uint8, RwTexture*, const CVector&, float, float, float, float, int16, uint8, uint8, uint8, float, bool, float, CRealTimeShadow*, bool));
     RH_ScopedOverloadedInstall(StoreShadowToBeRendered, "Type", 0x707930, void(*)(uint8, const CVector&, float, float, float, float, int16, uint8, uint8, uint8));
@@ -32,18 +34,26 @@ void CShadows::InjectHooks() {
     RH_ScopedInstall(UpdateStaticShadows, 0x707F40);
     RH_ScopedInstall(RenderExtraPlayerShadows, 0x707FA0);
     RH_ScopedInstall(RenderStaticShadows, 0x708300);
+    // BLOCKER: 38KB decomp; control flow decoded but the clip-buffer globals 0xC4B6B8-0xC4B8C8 (static shadow clip buffers: 36-byte entries at 0xC4B6B8/0xC4B730/0xC4B7A8/0xC4B820/0xC4B898 + counters 0xC40410/0xC40414) need StaticRef definitions + field naming, plus RwCamera clear/render wrappers 0x7EF450/0x7EF520/0x7EF550.
     RH_ScopedInstall(CastShadowEntityXY, 0x7086B0, { .reversed = false });
+    // BLOCKER: decomp ok (4.8KB) but depends on helpers 0x7059E0/0x7F1FD0-0x7F2450 (RwObject/frame transforms) and consts 0x858BFC/0x858C98/0x858F40/0x872720; needs RW wrapper naming.
     RH_ScopedInstall(CastShadowEntityXYZ, 0x70A040, { .reversed = false });
     RH_ScopedInstall(CastPlayerShadowSectorList<CPtrListSingleLink<CPhysical*>>, 0x70A470);
+    // BLOCKER: small, but depends on 0x872724 const (0.97) semantics inside the sector-list walk; verify before enabling.
     RH_ScopedInstall(CastShadowSectorList<CPtrListSingleLink<CPhysical*>>, 0x70A630, { .reversed = false });
+    // BLOCKER: decomp ok (2KB) but calls CRealTimeShadowManager internals that are themselves disabled; chain-enable first.
     RH_ScopedInstall(CastRealTimeShadowSectorList<CPtrListSingleLink<CPhysical*>>, 0x70A7E0, { .reversed = false });
     RH_ScopedInstall(RenderStoredShadows, 0x70A960);
+    // BLOCKER: decomp ok (3KB) but uses CRT floor (0x8219F0) and 0x563470; verify shadow-slot bookkeeping (0xC40430 array) before enabling.
     RH_ScopedInstall(GeneratePolysForStaticShadow, 0x70B730, { .reversed = false });
+    // BLOCKER: decomp ok (4.4KB); needs CGeneral::GetRandomNumber naming check (0x821B40 full-32bit variant) and 0xC40430 static-shadow array StaticRefs.
     RH_ScopedInstall(StoreStaticShadow, 0x70BA00, { .reversed = false });
+    // BLOCKER: decomp ok (7.9KB) but depends on 0x59C730 (cross product) and consts 0x859008/0x872728/0x872730/0xB6F118/0xB7C4E8; verify vehicle shadow-type selection.
     RH_ScopedInstall(StoreShadowForVehicle, 0x70BDA0, { .reversed = false });
     RH_ScopedInstall(StoreCarLightShadow, 0x70C500);
     RH_ScopedInstall(StoreShadowForPole, 0x70C750);
     RH_ScopedInstall(RenderIndicatorShadow, 0x70CCB0);
+    // BLOCKER: decomp ok (3.7KB); needs RwCamera render-state wrappers + 0x859934 (0.06) const verified against rwsdk.
     RH_ScopedGlobalInstall(ShadowRenderTriangleCB, 0x709CF0, { .reversed = false });
 }
 

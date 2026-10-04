@@ -258,27 +258,33 @@ void CSprite2d::SetVertices(const CRect& posn, const CRGBA& color1, const CRGBA&
 
 void CSprite2d::SetVertices(int32 numVerts, const CVector2D* posn, const CVector2D* texCoors, const CRGBA& color)
 {
-    for (int32 i = 0; i < numVerts; ++i) {
-        RwIm2DVertexSetScreenX(&maVertices[i], posn[i].x);
-        RwIm2DVertexSetScreenY(&maVertices[i], posn[i].y);
-        RwIm2DVertexSetScreenZ(&maVertices[i], NearScreenZ + 0.0001f);
-        RwIm2DVertexSetRecipCameraZ(&maVertices[i], RecipNearClip);
-        RwIm2DVertexSetU(&maVertices[i], texCoors[i].x, RecipNearClip);
-        RwIm2DVertexSetV(&maVertices[i], texCoors[i].y, RecipNearClip);
-        RwIm2DVertexSetIntRGBA(&maVertices[i], color.r, color.g, color.b, color.a);
+    // NOTE: Original walks the vertex buffer with a pointer (stride 0x1C) and hoists the z value
+    const float z = NearScreenZ + 0.0001f;
+
+    auto* vert = reinterpret_cast<RwIm2DVertex*>(&maVertices);
+    for (int32 i = 0; i < numVerts; ++i, ++vert) {
+        RwIm2DVertexSetScreenX(vert, posn[i].x);
+        RwIm2DVertexSetScreenY(vert, posn[i].y);
+        RwIm2DVertexSetScreenZ(vert, z);
+        RwIm2DVertexSetRecipCameraZ(vert, RecipNearClip);
+        RwIm2DVertexSetU(vert, texCoors[i].x, RecipNearClip);
+        RwIm2DVertexSetV(vert, texCoors[i].y, RecipNearClip);
+        RwIm2DVertexSetIntRGBA(vert, color.r, color.g, color.b, color.a);
     }
 }
 
 void CSprite2d::SetVertices(int32 numVerts, const CVector2D* posn, const CRGBA& color)
 {
-    for (int32 i = 0; i < numVerts; ++i) {
-        RwIm2DVertexSetScreenX(&maVertices[i], posn[i].x);
-        RwIm2DVertexSetScreenY(&maVertices[i], posn[i].y);
-        RwIm2DVertexSetScreenZ(&maVertices[i], NearScreenZ);
-        RwIm2DVertexSetRecipCameraZ(&maVertices[i], RecipNearClip);
-        RwIm2DVertexSetU(&maVertices[i], 1.f, RecipNearClip);
-        RwIm2DVertexSetV(&maVertices[i], 1.f, RecipNearClip);
-        RwIm2DVertexSetIntRGBA(&maVertices[i], color.r, color.g, color.b, color.a);
+    // NOTE: Original walks the vertex buffer with a pointer (stride 0x1C)
+    auto* vert = reinterpret_cast<RwIm2DVertex*>(&maVertices);
+    for (int32 i = 0; i < numVerts; ++i, ++vert) {
+        RwIm2DVertexSetScreenX(vert, posn[i].x);
+        RwIm2DVertexSetScreenY(vert, posn[i].y);
+        RwIm2DVertexSetScreenZ(vert, NearScreenZ);
+        RwIm2DVertexSetRecipCameraZ(vert, RecipNearClip);
+        RwIm2DVertexSetU(vert, 1.f, RecipNearClip);
+        RwIm2DVertexSetV(vert, 1.f, RecipNearClip);
+        RwIm2DVertexSetIntRGBA(vert, color.r, color.g, color.b, color.a);
     }
 }
 

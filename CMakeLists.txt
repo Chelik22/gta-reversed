@@ -39,7 +39,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 include(Documentation)
 
 set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "" FORCE)
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo" CACHE STRING "" FORCE)
 set_property(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     PROPERTY VS_STARTUP_PROJECT ${RE_PROJECT_LIB_NAME}
@@ -61,3 +61,6 @@ function(create_source_group target)
 endfunction()
 create_source_group(${RE_PROJECT_LIB_NAME})
 
+
+# NOTSA(test): disable incremental linking for proper PDB symbols
+set_property(TARGET gta_reversed PROPERTY LINK_FLAGS "/INCREMENTAL:NO")

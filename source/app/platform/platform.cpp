@@ -291,8 +291,10 @@ bool RsRwInitialize(void* param) { // Win32: Param is HWND
 RsEventStatus RsEventHandler(RsEvent event, void* param) {
     RsEventStatus result = AppEventHandler(event, param);
 
-    if (event == rsQUITAPP)
+    if (event == rsQUITAPP) {
+        spdlog::warn("NOTSA(quit-trace): rsQUITAPP fired (menu quit?)");
         RsGlobal.quit = true;
+    }
 
     if (result != rsEVENTNOTPROCESSED)
         return result;

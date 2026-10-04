@@ -431,17 +431,22 @@ float CCollision::DistToLine(const CVector& lineStart, const CVector& lineEnd, c
 float CCollision::DistToMathematicalLine(CVector const* lineStart, CVector const* lineEnd, CVector const* point) {
     ZoneScoped;
 
-    const auto l = *lineEnd - *lineStart;
-    const auto p = *point - *lineStart;
+    // NOTE: Done on the component level - the original (0x412970) has no calls at all.
+    // The division is by the *line direction's* squared magnitude (not the point's one!)
+    const float dx = lineEnd->x - lineStart->x;
+    const float dy = lineEnd->y - lineStart->y;
+    const float dz = lineEnd->z - lineStart->z;
 
-    // See `DistToLineSqr` for a nice illustration.
-    // Simple Pythagorean here, we gotta find side `a`
+    const float px = point->x - lineStart->x;
+    const float py = point->y - lineStart->y;
+    const float pz = point->z - lineStart->z;
 
-    const auto pMagSq = p.SquaredMagnitude();
-    const auto cSq = pMagSq;
-    const auto bSq = pMagSq > 0.f ? (float)std::pow(DotProduct(p, l), 2) / pMagSq : 0.0f; // Dot product is scaled by `pMagSq` - guard against 0/0
+    const float dot = px * dx + py * dy + pz * dz;
+    const float dSq = dx * dx + dy * dy + dz * dz;
+    const float pSq = px * px + py * py + pz * pz;
 
-    const auto aSq = cSq - bSq;
+    const float aSq = pSq - dot * dot / dSq;
+
     return aSq > 0.0f ? std::sqrt(aSq) : 0.0f; // Little optimization to not call `sqrt` if the dist is 0 (it wont ever be negative)
 }
 
@@ -2552,14 +2557,18 @@ bool CCollision::IsStoredPolyStillValidVerticalLine(const CVector& lineOrigin, f
 CColBox CCollision::GetBoundingBoxFromTwoSpheres(const CColSphere& spA, const CColSphere& spB) {
     ZoneScoped;
 
-    CVector min, max;
-    for (size_t i = 0; i < 3; i++) {
-        std::tie(min[i], max[i]) = std::minmax(spA.m_vecCenter[i], spB.m_vecCenter[i]);
+    // NOTE: Quirky, but this is exactly what the original does (0x415230):
+    //   max = min + max(center) (i.e.: the max edge is based on the *minimum*, not on the radius!)
+    CColBox box;
 
-        min[i] -= spA.m_fRadius;
-        max[i] += spA.m_fRadius; // NOTE: They assume both spheres have the same spRadius, but that might not be the case. Really should be using max(spA.spRadius, spB.spRadius) instead!
+    for (size_t i = 0; i < 3; i++) {
+        const auto& a = spA.m_vecCenter[i];
+        const auto& b = spB.m_vecCenter[i];
+
+        box.m_vecMin[i] = (a < b ? a : b) - spA.m_fRadius;
+        box.m_vecMax[i] = box.m_vecMin[i] + (a < b ? b : a);
     }
-    return CColBox{ CBox{min, max} };
+    return box;
 }
 
 // 0x4152C0
