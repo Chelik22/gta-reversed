@@ -162,7 +162,8 @@ public:
     void ClipBeta();
 
     void Process();
-    void ProcessArrestCamOne();
+    bool ProcessArrestCamOne();
+    bool ProcessArrestCamFirstPerson(CPed* cop, bool firstFrame);
     void ProcessPedsDeadBaby();
     void Process_1rstPersonPedOnPC(const CVector&, float, float, float);
     void Process_1stPerson(const CVector&, float, float, float);
