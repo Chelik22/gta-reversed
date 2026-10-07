@@ -150,6 +150,7 @@ public:
     bool GetLookFromLampPostPos(CEntity* target, CPed* cop, const CVector& targetPos, CVector& outPos);
     void GetVectorsReadyForRW();
     void Get_TwoPlayer_AimVector(CVector&);
+    void GetTwoPlayerCameraPosition(float beta, CVector& source, CVector& front, CVector& target);
     bool IsTimeToExitThisDWCineyCamMode(int32 camId, const CVector& src, const CVector& dst, float t, bool lineOfSightCheck);
     void KeepTrackOfTheSpeed(const CVector&, const CVector&, const CVector&, const float&, const float&, const float&);
     bool LookBehind();
@@ -171,9 +172,9 @@ public:
     void Process_Cam_TwoPlayer_InCarAndShooting();
     void Process_Cam_TwoPlayer_Separate_Cars();
     void Process_Cam_TwoPlayer_Separate_Cars_TopDown();
-    void Process_DW_BirdyCam(bool);
-    void Process_DW_CamManCam(bool);
-    void Process_DW_HeliChaseCam(bool);
+    bool Process_DW_BirdyCam(bool);
+    bool Process_DW_CamManCam(bool);
+    bool Process_DW_HeliChaseCam(bool);
     bool Process_DW_PlaneCam1(bool);
     bool Process_DW_PlaneCam2(bool);
     bool Process_DW_PlaneCam3(bool);
