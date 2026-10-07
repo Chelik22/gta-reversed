@@ -103,7 +103,7 @@ void CAESound::Initialise(
 
 // 0x4EF1A0
 void CAESound::UnregisterWithPhysicalEntity() {
-    m_PhysicalEntity = nullptr;
+    m_PhysicalEntity = nullptr; // EntityRef<> handles CleanUpOldReference
 }
 
 // 0x4EF1C0
@@ -207,7 +207,7 @@ void CAESound::NewVPSLEntry() {
 void CAESound::RegisterWithPhysicalEntity(CEntity* entity) {
     CAESound::UnregisterWithPhysicalEntity();
     if (entity) {
-        m_PhysicalEntity = entity;
+        m_PhysicalEntity = entity; // EntityRef<> handles Register/CleanUpReference
     }
 }
 
@@ -249,7 +249,15 @@ void CAESound::CalculateVolume() {
 void CAESound::UpdateParameters(int16 curPlayPos) {
     if (IsLifespanTiedToPhysicalEntity()) {
         if (m_PhysicalEntity) {
-            SetPosition(m_PhysicalEntity->GetPosition());
+            // STABILITY SHIELD: m_PhysicalEntity can be dangling despite the reference
+            // mechanism (hunt 2026-10-07: heap corruption + AV here, PageHeap-proven).
+            // On access fault let the sound go instead of crashing the game.
+            __try {
+                SetPosition(m_PhysicalEntity->GetPosition());
+            } __except (EXCEPTION_EXECUTE_HANDLER) {
+                m_PhysicalEntity = nullptr;      // EntityRef<> releases the stale reference
+                m_HasRequestedStopped = true;    // let this sound die gracefully
+            }
         } else {
             m_HasRequestedStopped = true;
         }

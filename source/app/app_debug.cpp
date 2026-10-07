@@ -1,6 +1,7 @@
 #include "StdInc.h"
 
 #include "app_debug.h"
+#include "platform/win/WinPlatform.h"
 #include <windows.h>
 #include <DbgHelp.h>
 #include <spdlog/async.h>
@@ -184,7 +185,34 @@ notsa::Logging::Logging() {
     spdlog::set_default_logger(Create("default"));
     spdlog::flush_every(100ms);
 
-    SetUnhandledExceptionFilter(WindowsExceptionHandler);
+    // SetUnhandledExceptionFilter(WindowsExceptionHandler); // replaced by minidump last-resort below
+
+    // Last-resort minidump on fatal unhandled exceptions (PR#1448 dumper): dumps/*.dmp
+    SetUnhandledExceptionFilter([](PEXCEPTION_POINTERS e) -> LONG {
+        notsa::Win32::ExceptionHandler(e);
+        return EXCEPTION_EXECUTE_HANDLER;
+    });
+    // FIRST-PRIORITY vectored handler: SUHF was bypassed by the silent memcpy-AV crash.
+    // VEH fires before everything else; dump once on the first hard AV, then pass through.
+    AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS e) -> LONG {
+        if (e->ExceptionRecord->ExceptionCode == 0xC0000005 || e->ExceptionRecord->ExceptionCode == 0xC0000374) {
+            static uint32 s_dumpCount = 0;
+            SPDLOG_ERROR("!!! VEH caught AV #{} at 0x{:08X} - dumping", ++s_dumpCount, (uintptr_t)e->ExceptionRecord->ExceptionAddress);
+            if (s_dumpCount <= 5) {
+                notsa::Win32::ExceptionHandler(e);
+            }
+        }
+        return EXCEPTION_CONTINUE_SEARCH;
+    });
+    // The "silent minute-crash" is NOT an exception (no VEH, no dump): catch terminate/abort too.
+    std::set_terminate([]() {
+        SPDLOG_ERROR("!!! std::terminate CALLED - capturing context");
+        CONTEXT ctx{};
+        RtlCaptureContext(&ctx);
+        EXCEPTION_POINTERS ep{ nullptr, &ctx };
+        notsa::Win32::ExceptionHandler(&ep);
+        std::abort();
+    });
 }
 
 notsa::Logging::~Logging() {

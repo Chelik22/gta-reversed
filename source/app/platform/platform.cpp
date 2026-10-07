@@ -1,4 +1,5 @@
 #include "StdInc.h"
+#include "platform/win/WinPlatform.h"
 
 #include "platform.h"
 #include "VideoMode.h"
@@ -291,8 +292,10 @@ bool RsRwInitialize(void* param) { // Win32: Param is HWND
 RsEventStatus RsEventHandler(RsEvent event, void* param) {
     RsEventStatus result = AppEventHandler(event, param);
 
-    if (event == rsQUITAPP)
+    if (event == rsQUITAPP) {
         RsGlobal.quit = true;
+        SPDLOG_WARN("!!! RsGlobal.quit SET via rsQUITAPP (menu exit path?) - silent exit hunt");
+    }
 
     if (result != rsEVENTNOTPROCESSED)
         return result;

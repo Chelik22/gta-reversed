@@ -49,3 +49,5 @@ BOOL GTATranslateShiftKey(RsKeyCodes*);
 BOOL GTATranslateKey(RsKeyCodes* ck, LPARAM lParam, UINT vk);
 
 #define IDI_MAIN_ICON                   1042
+
+namespace notsa { namespace Win32 { DWORD ExceptionHandler(PEXCEPTION_POINTERS); } }

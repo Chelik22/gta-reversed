@@ -25,14 +25,14 @@ CAnimBlendClumpData::CAnimBlendClumpData() {
 CAnimBlendClumpData::~CAnimBlendClumpData() {
     m_AnimList.Remove();
     if (m_FrameDatas) {
-        CMemoryMgr::FreeAlign(&m_FrameDatas);
+        CMemoryMgr::FreeAlign(m_FrameDatas); // FIX: original takes the ALIGNED BLOCK (reads stored orig ptr at [-4]); passing &field made it free the anim-list prev pointer -> heap corruption
     }
 }
 
 // 0x4CF140
 void CAnimBlendClumpData::SetNumberOfBones(uint32 numBones) {
     if (m_FrameDatas) {
-        CMemoryMgr::FreeAlign(&m_FrameDatas);
+        CMemoryMgr::FreeAlign(m_FrameDatas); // FIX: original takes the ALIGNED BLOCK (reads stored orig ptr at [-4]); passing &field made it free the anim-list prev pointer -> heap corruption
     }
     m_NumFrameData = numBones;
     m_FrameDatas = static_cast<AnimBlendFrameData*>(CMemoryMgr::MallocAlign(sizeof(AnimBlendFrameData) * numBones, 64));

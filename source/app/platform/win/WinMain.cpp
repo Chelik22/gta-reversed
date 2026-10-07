@@ -78,7 +78,7 @@ void MessageLoop() {
     MSG msg;
     while (PeekMessageA(&msg, nullptr, 0, 0, PM_REMOVE | PM_NOYIELD)) {
         if (msg.message == WM_QUIT) {
-            RsGlobal.quit = true;
+            RsGlobal.quit = true; SPDLOG_WARN("!!! RsGlobal.quit SET at {}:{} - silent exit hunt", __FILE__, __LINE__);
         } else {
             TranslateMessage(&msg);
             DispatchMessageA(&msg);
@@ -246,7 +246,7 @@ bool ProcessGameLogic(INT nCmdShow) {
             CLoadingScreen::DoPCTitleFadeIn();
         }
         if (!CGame::InitialiseEssentialsAfterRW()) {
-            RsGlobal.quit = true;
+            RsGlobal.quit = true; SPDLOG_WARN("!!! RsGlobal.quit SET at {}:{} - silent exit hunt", __FILE__, __LINE__);
         }
         CGame::InitialiseCoreDataAfterRW();
         ChangeGameStateTo(GAME_STATE_FRONTEND_LOADED);

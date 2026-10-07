@@ -6,6 +6,15 @@ endif()
 
 
 project(GTASA C CXX)
+
+# TEMP-FIX (silent minute-crash): Tracy client queue grows unbounded when no profiler
+# is attached; AllocMore->memcpy AVs after ~1min of gameplay. Disable the client entirely.
+add_compile_definitions(TRACY_DISABLE)
+# The conan tracy package injects TRACY_ENABLE (its only real switch in cci.20220130,
+# TRACY_DISABLE doesn't exist there) AFTER our define - kill it with the compiler's /U.
+if(MSVC)
+    add_compile_options(/UTRACY_ENABLE)
+endif()
 set(RE_PROJECT GTASA)
 set(RE_PROJECT_LIB_NAME gta_reversed)
 set(RE_PROJECT_APP_NAME gta_reversed_app)

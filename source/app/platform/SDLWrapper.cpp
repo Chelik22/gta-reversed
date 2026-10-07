@@ -1,4 +1,5 @@
 #include "StdInc.h"
+#include "platform/win/WinPlatform.h"
 
 #ifdef NOTSA_USE_SDL3
 #include <SDL3/SDL.h>
@@ -38,7 +39,7 @@ void ProcessEvents() {
 
         switch (e.type) {
         case SDL_EVENT_QUIT: {
-            RsGlobal.quit = true;
+            RsGlobal.quit = true; SPDLOG_WARN("!!! RsGlobal.quit SET at {}:{} - silent exit hunt", __FILE__, __LINE__);
             continue;
         }
         case SDL_EVENT_WINDOW_RESIZED: {

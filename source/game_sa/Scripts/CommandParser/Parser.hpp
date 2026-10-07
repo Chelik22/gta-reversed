@@ -67,7 +67,8 @@ inline OpcodeResult CollectArgsAndCall(CRunningScript* S, eScriptCommands comman
 //! If this ever gets called, that means that the command is used after all, and shouldn't be hooked as unimplemented.
 inline auto NotImplemented(CRunningScript& S, eScriptCommands cmd) {
     NOTSA_LOG_DEBUG("[{}][IP: {:#x} + {:#x}]: Unimplemented command has been called! [ID: {:04X}; Name: {}]", S.m_szName, LOG_PTR(S.m_BaseIP), LOG_PTR(S.m_IP - S.m_BaseIP), (unsigned)(cmd), GetScriptCommandName(cmd));
-    NOTSA_DEBUGBREAK(); // Something went horribly wrong here, and the game will crash after this [if the function is supposed to take/return any arguments], so better stop here.
+    // Sep'26 lesson: DEBUGBREAK = TerminateProcess with NO logs when no debugger is attached;
+    // one unimplemented main.scm command would kill the game instantly. Log + vanilla behavior instead.
     return OR_INTERRUPT; // Vanilla SA behavior
 }
 
