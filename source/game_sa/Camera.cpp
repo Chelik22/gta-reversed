@@ -11,6 +11,7 @@
 #include "Collision.h"
 #include "WaterLevel.h"
 #include "Hud.h"
+#include "HandShaker.h"
 
 auto& TheCamera = StaticRef<CCamera>(0xB6F028);
 auto& gbModelViewer = StaticRef<bool>(0xBA6728);
@@ -125,8 +126,9 @@ void CCamera::InjectHooks() {
     RH_ScopedInstall(DrawBordersForWideScreen, 0x514860);
     RH_ScopedInstall(Find3rdPersonCamTargetVector, 0x514970);
     RH_ScopedInstall(CalculateGroundHeight, 0x514B80);
-    RH_ScopedInstall(CalculateFrustumPlanes, 0x514D60, { .Reversed = false });
-    RH_ScopedInstall(CalculateDerivedValues, 0x5150E0, { .Reversed = false });
+    RH_ScopedInstall(CalculateFrustumPlanes, 0x514D60);
+    RH_ScopedInstall(CalculateDerivedValues, 0x5150E0);
+    RH_ScopedOverloadedInstall(IsSphereVisible, "Matrix", 0x420C40, bool(CCamera::*)(const CVector&, float, RwMatrix*));
     RH_ScopedInstall(ImproveNearClip, 0x516B20);
     RH_ScopedInstall(SetCameraUpForMirror, 0x51A560);
     RH_ScopedInstall(RestoreCameraAfterMirror, 0x51A5A0);
@@ -136,7 +138,7 @@ void CCamera::InjectHooks() {
     RH_ScopedInstall(CamControl, 0x527FA0, { .Reversed = false });
     RH_ScopedInstall(Process, 0x52B730, { .Reversed = false });
     RH_ScopedInstall(DeleteCutSceneCamDataMemory, 0x5B24A0);
-    RH_ScopedInstall(LoadPathSplines, 0x5B24D0, { .Reversed = false });
+    RH_ScopedInstall(LoadPathSplines, 0x5B24D0);
     RH_ScopedInstall(Init, 0x5BC520);
 
     RH_ScopedOverloadedInstall(ProcessVectorTrackLinear, "with-ratio", 0x50D350, void(CCamera::*)(float));
@@ -144,8 +146,8 @@ void CCamera::InjectHooks() {
     RH_ScopedOverloadedInstall(ProcessVectorMoveLinear, "with-ratio", 0x50D430, void(CCamera::*)(float));
     RH_ScopedOverloadedInstall(ProcessVectorMoveLinear, "wo-ratio", 0x5164A0, void(CCamera::*)());
     RH_ScopedOverloadedInstall(ProcessFOVLerp, "with-ratio", 0x50D510, void(CCamera::*)(float));
-    RH_ScopedOverloadedInstall(ProcessFOVLerp, "wo-ratio", 0x516500, void(CCamera::*)());
-    //RH_ScopedOverloadedInstall(ProcessJiggle, "0", 0x516560, { .Reversed = false });
+    RH_ScopedOverloadedInstall(ProcessFOVLerp, "wo-ratio", 0x50D500, void(CCamera::*)());
+    RH_ScopedOverloadedInstall(ProcessShake, "Intensity", 0x516560, void(CCamera::*)(float));
 
     RH_ScopedGlobalInstall(CamShakeNoPos, 0x50A970);
 }
@@ -1164,7 +1166,30 @@ void CCamera::TakeControlNoEntity(const CVector& fixedModeVector, eSwitchType sw
 
 // 0x50C910
 void CCamera::TakeControlAttachToEntity(CEntity* target, CEntity* attached, CVector* attachedCamOffset, CVector* attachedCamLookAt, float tilt, eSwitchType switchType, int32 whoIsInControlOfTheCamera) {
-    plugin::CallMethod<0x50C910, CCamera*, CEntity*, CEntity*, CVector*, CVector*, float, eSwitchType, int32>(this, target, attached, attachedCamOffset, attachedCamLookAt, tilt, switchType, whoIsInControlOfTheCamera);
+    if (whoIsInControlOfTheCamera == 2 && m_nWhoIsInControlOfTheCamera == 1) {
+        return;
+    }
+    m_nWhoIsInControlOfTheCamera = whoIsInControlOfTheCamera;
+    if (!attached) {
+        attached = FindPlayerVehicle();
+        if (!attached) {
+            attached = FindPlayerPed();
+        }
+    }
+    if (target) {
+        CEntity::ChangeEntityReference(m_pTargetEntity, target);
+        m_bLookingAtVector = false;
+    } else {
+        m_bLookingAtVector = true;
+        m_vecAttachedCamLookAt = *attachedCamLookAt != *attachedCamOffset ? *attachedCamLookAt : CVector{};
+    }
+    m_vecAttachedCamOffset = *attachedCamOffset == CVector{} ? CVector{0.0f, 0.0f, 2.0f} : *attachedCamOffset;
+    m_fAttachedCamAngle = tilt;
+    CEntity::ChangeEntityReference(m_pAttachedEntity, attached);
+    m_nModeToGoTo = MODE_ATTACHCAM;
+    m_nTypeOfSwitch = switchType;
+    m_bLookingAtPlayer = false;
+    m_bStartInterScript = true;
 }
 
 // 0x50CAE0
@@ -1301,7 +1326,24 @@ bool CCamera::IsExtraEntityToIgnore(CEntity* entity) {
 
 // 0x420C40
 bool CCamera::IsSphereVisible(const CVector& origin, float radius, RwMatrix* transformMatrix) {
-    return plugin::CallMethodAndReturn<bool, 0x420C40, CCamera*, const CVector&, float, RwMatrix*>(this, origin, radius, transformMatrix);
+    CVector point = origin;
+    RwV3dTransformPoints(&point, &point, 1, transformMatrix);
+    if (point.y + radius < CDraw::ms_fNearClipZ || point.y - radius > CDraw::ms_fFarClipZ) {
+        return false;
+    }
+    for (size_t i = 0; i < 2; i++) {
+        const auto& normal = m_avecFrustumNormals[i];
+        if (point.x * normal.x + point.y * normal.y > radius) {
+            return false;
+        }
+    }
+    for (size_t i = 2; i < 4; i++) {
+        const auto& normal = m_avecFrustumNormals[i];
+        if (point.z * normal.z + point.y * normal.y > radius) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // 0x420D40 - NOTE: Function has no hook
@@ -1619,8 +1661,44 @@ void CCamera::ProcessShake() {
 
 // shakeIntensity not used
 // 0x516560
-CVector* CCamera::ProcessShake(float intensity) {
-    return plugin::CallMethodAndReturn<CVector*, 0x516560, CCamera*, float>(this, intensity);
+void CCamera::ProcessShake(float intensity) {
+    static auto& initialized = StaticRef<bool>(0xB70048);
+    auto& cam = m_aCams[m_nActiveCam];
+    if (!initialized) {
+        for (size_t i = 1; i < gHandShaker.size(); i++) {
+            auto& shaker = gHandShaker[i];
+            shaker.m_lim = {0.02f, 0.02f, i == 2 ? 0.04f : 0.01f};
+            shaker.m_motion = {0.0002f, 0.0002f, 0.0001f};
+            shaker.m_slow = {1.3f, 1.3f, 1.4f};
+            shaker.m_scaleReactionMin = 0.3f;
+            shaker.m_scaleReactionMax = 1.0f;
+        }
+        gHandShaker[1].m_twitchFreq = 15;
+        gHandShaker[1].m_twitchVel = 0.001f;
+        gHandShaker[2].m_twitchFreq = 20;
+        gHandShaker[2].m_twitchVel = 0.001f;
+        gHandShaker[3].m_twitchFreq = 10;
+        gHandShaker[3].m_twitchVel = 0.0005f;
+        gHandShaker[4].m_twitchFreq = 20;
+        gHandShaker[4].m_twitchVel = 0.002f;
+        gHandShaker[5].m_twitchFreq = 2;
+        gHandShaker[5].m_twitchVel = 0.003f;
+        initialized = true;
+    }
+
+    auto& shaker = gHandShaker[m_nShakeType];
+    shaker.Process(m_fShakeIntensity);
+    const float roll = shaker.m_ang.z * m_fShakeIntensity;
+    cam.m_vecFront = shaker.m_resultMat.InverseTransformVector(cam.m_vecFront);
+    cam.m_vecFront.Normalise();
+    cam.m_vecUp = {std::sin(roll), 0.0f, std::cos(roll)};
+    auto right = CrossProduct(cam.m_vecFront, cam.m_vecUp).Normalized();
+    cam.m_vecUp = CrossProduct(right, cam.m_vecFront);
+    if (cam.m_vecFront.x == 0.0f && cam.m_vecFront.y == 0.0f) {
+        cam.m_vecFront.x = cam.m_vecFront.y = 0.0001f;
+    }
+    right = CrossProduct(cam.m_vecFront, cam.m_vecUp).Normalized();
+    cam.m_vecUp = CrossProduct(right, cam.m_vecFront);
 }
 
 // inlined - 0x52B845
@@ -1745,12 +1823,48 @@ float CCamera::CalculateGroundHeight(eGroundHeightType type) {
 
 // 0x514D60
 void CCamera::CalculateFrustumPlanes(bool bForMirror) {
-    plugin::CallMethod<0x514D60, CCamera*, bool>(this, bForMirror);
+    // The executable uses this approximate half-degree conversion constant.
+    const float angle = CDraw::ms_fFOV * 0.00872638915f;
+    const float cosine = std::cos(angle);
+    const float sine = std::sin(angle);
+    const float aspect = (float)RsGlobal.maximumHeight / (float)RsGlobal.maximumWidth;
+    m_avecFrustumNormals[0] = {cosine, -sine, 0.0f};
+    m_avecFrustumNormals[1] = {-cosine, -sine, 0.0f};
+    m_avecFrustumNormals[2] = {0.0f, -(aspect * sine), -(aspect * cosine)};
+    m_avecFrustumNormals[3] = {0.0f, -(aspect * sine), aspect * cosine};
+
+    auto& normals = bForMirror ? m_avecFrustumWorldNormals_Mirror : m_avecFrustumWorldNormals;
+    auto& offsets = bForMirror ? m_fFrustumPlaneOffsets_Mirror : m_fFrustumPlaneOffsets;
+    TransformVectors(normals.data(), (int32)normals.size(), m_mCameraMatrix, m_avecFrustumNormals.data());
+    const auto& position = GetPosition();
+    for (size_t i = 0; i < normals.size(); i++) {
+        const auto& normal = normals[i];
+        offsets[i] = normal.y * position.y + normal.z * position.z + normal.x * position.x;
+    }
 }
 
 // 0x5150E0
 void CCamera::CalculateDerivedValues(bool bForMirror, bool bOriented) {
-    return plugin::CallMethod<0x5150E0, CCamera*, bool, bool>(this, bForMirror, bOriented);
+    m_mMatInverse = Invert(m_mCameraMatrix);
+    CalculateFrustumPlanes(bForMirror);
+
+    auto& forward = m_mCameraMatrix.GetForward();
+    if (forward.x == 0.0f && forward.y == 0.0f) {
+        forward.x = 0.0001f;
+    } else if (bOriented) {
+        m_fOrientation = std::atan2(forward.x, forward.y);
+    }
+
+    m_fCamFrontXNorm = forward.x;
+    m_fCamFrontYNorm = forward.y;
+    const float length = std::sqrt(sq(forward.x) + sq(forward.y));
+    if (length == 0.0f) {
+        m_fCamFrontXNorm = 1.0f;
+    } else {
+        const float inverseLength = 1.0f / length;
+        m_fCamFrontXNorm *= inverseLength;
+        m_fCamFrontYNorm *= inverseLength;
+    }
 }
 
 // 0x516B20
@@ -2004,7 +2118,35 @@ void CCamera::DeleteCutSceneCamDataMemory() {
 
 // 0x5B24D0
 void CCamera::LoadPathSplines(FILE* file) {
-    plugin::CallMethod<0x5B24D0, CCamera*>(this);
+    DeleteCutSceneCamDataMemory();
+    int32 pathIndex = -1;
+    int32 linesRemaining = 0;
+    bool expectCount = true;
+    float* output = nullptr;
+    for (auto* line = CFileLoader::LoadLine(file); line; line = CFileLoader::LoadLine(file)) {
+        if (*line == '#' || *line == '\0') {
+            continue;
+        }
+        if (linesRemaining != 0) {
+            --linesRemaining;
+            for (auto* token = std::strtok(line, ", \t"); token; token = std::strtok(nullptr, ", \t")) {
+                *output++ = (float)std::atof(token);
+            }
+        } else if (expectCount) {
+            if (++pathIndex >= (int32)m_aPathArray.size()) {
+                return;
+            }
+            sscanf(line, "%d", &linesRemaining);
+            const auto floatsPerLine = pathIndex < 2 ? 4 : 10;
+            auto*& data = m_aPathArray[pathIndex].m_pArrPathData;
+            data = static_cast<float*>(::operator new((linesRemaining * floatsPerLine + 1) * sizeof(float)));
+            data[0] = (float)linesRemaining;
+            output = data + 1;
+            expectCount = false;
+        } else if (*line == ';') {
+            expectCount = true;
+        }
+    }
 }
 
 // 0x50AB50
