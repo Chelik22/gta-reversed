@@ -128,8 +128,6 @@ void CAEPoliceScannerAudioEntity::FinishedPlayingScannerDialogue() {
 
 // 0x4E6F60
 void CAEPoliceScannerAudioEntity::PlayLoadedDialogue() {
-    return plugin::CallMethod<0x4E6F60, CAEPoliceScannerAudioEntity*>(this);
-
     int16 i;
     for (i = 0; i < NUM_POLICE_SCANNER_SLOTS; ++i) {
         if (s_SlotState[i] == FIVE) {
@@ -327,7 +325,7 @@ void CAEPoliceScannerAudioEntity::InjectHooks() {
     RH_ScopedInstall(DisableScanner, 0x4E71B0);
     RH_ScopedInstall(StopScanner, 0x4E6DC0);
     RH_ScopedInstall(FinishedPlayingScannerDialogue, 0x4E6C30);
-    RH_ScopedInstall(PlayLoadedDialogue, 0x4E6F60, { .Reversed = false });
+    RH_ScopedInstall(PlayLoadedDialogue, 0x4E6F60);
     RH_ScopedInstall(PopulateScannerDialogueLists, 0x4E6B60);
     RH_ScopedInstall(CanWePlayNewScannerDialogue, 0x4E6C00);
     RH_ScopedInstall(PlayPoliceScannerDialogue, 0x4E6ED0);
