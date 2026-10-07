@@ -18,6 +18,7 @@ class CPed;
 class CVehicle;
 
 extern bool& gbFirstPersonRunThisFrame;
+void WellBufferMe(float target, float& valueToChange, float& speedSoFar, float topSpeed, float speedStep, bool isAnAngle);
 
 class CCam {
 public:
@@ -98,8 +99,14 @@ public:
     float     m_fBeta_Targeting;
     float     m_fX_Targetting;
     float     m_fY_Targetting;
-    CVehicle* m_pCarWeAreFocussingOn;
-    CVehicle* m_pCarWeAreFocussingOnI;
+    union {
+        CVehicle* m_pCarWeAreFocussingOn;
+        int32     m_nTwoPlayerFocus;
+    };
+    union {
+        CVehicle* m_pCarWeAreFocussingOnI;
+        float     m_fTwoPlayerFocusBlend;
+    };
     float     m_fCamBumpedHorz;
     float     m_fCamBumpedVert;
     uint32    m_nCamBumpedTime; // TODO: Probably float
@@ -170,7 +177,7 @@ public:
     bool Process_DW_PlaneCam1(bool);
     bool Process_DW_PlaneCam2(bool);
     bool Process_DW_PlaneCam3(bool);
-    void Process_DW_PlaneSpotterCam(bool);
+    bool Process_DW_PlaneSpotterCam(bool);
     void Process_Editor(const CVector& target, float orientation, float speedVar, float speedVarWanted);
     void Process_Fixed(const CVector& target, float orientation, float speedVar, float speedVarWanted);
     void Process_FlyBy(const CVector& target, float orientation, float speedVar, float speedVarWanted);
