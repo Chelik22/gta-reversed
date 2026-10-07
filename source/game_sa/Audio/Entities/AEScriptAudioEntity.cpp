@@ -47,7 +47,16 @@ CVector* CAEScriptAudioEntity::AttachMissionAudioToPhysical(uint8 sampleId, CPhy
 
 // 0x4EC040
 void CAEScriptAudioEntity::ClearMissionAudio(uint8 sampleId) {
-    plugin::CallMethod<0x4EC040, CAEScriptAudioEntity*, uint8>(this, sampleId);
+    if (sampleId >= 4) {
+        return;
+    }
+    AESoundManager.CancelSoundsInBankSlot((eSoundBankSlot)(sampleId + 0x1A), true);
+    auto* block = (float*)((char*)this + sampleId * 0x20 + 0x90);
+    block[3] = 0.0f;    // +0x9C
+    block[0] = -1000.0f; // +0x90
+    *(uint32*)((char*)this + (sampleId + 5) * 0x20) = 0; // second interleaved array slot
+    block[1] = -1000.0f; // +0x94
+    block[2] = -1000.0f; // +0x98
 }
 
 // 0x4EBFE0
@@ -793,7 +802,7 @@ void CAEScriptAudioEntity::InjectHooks() {
     RH_ScopedInstall(GetMissionAudioLoadingStatus, 0x4EBF60, { .Reversed = false });
     RH_ScopedInstall(IsMissionAudioSampleFinished, 0x4EBFE0, { .Reversed = false });
     RH_ScopedInstall(GetMissionAudioEvent, 0x4EC020);
-    RH_ScopedInstall(ClearMissionAudio, 0x4EC040, { .Reversed = false });
+    RH_ScopedInstall(ClearMissionAudio, 0x4EC040);
     RH_ScopedInstall(SetMissionAudioPosition, 0x4EC0C0, { .Reversed = false });
     RH_ScopedInstall(AttachMissionAudioToPhysical, 0x4EC100, { .Reversed = false });
     RH_ScopedInstall(PreloadMissionAudio, 0x4EC190, { .Reversed = false });
