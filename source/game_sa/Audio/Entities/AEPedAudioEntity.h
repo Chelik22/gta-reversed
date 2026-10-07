@@ -56,7 +56,7 @@ public:
     void HandleFootstepEvent(eAudioEvents event, float volume, float speed, eSurfaceType surfaceId);
     void HandleSkateEvent(eAudioEvents event, float volume, float speed);
     void HandleLandingEvent(eAudioEvents event);
-    void HandlePedSwing(eAudioEvents event, int32 a3, uint32 volume);
+    void HandlePedSwing(eAudioEvents event);
     void HandlePedHit(eAudioEvents event, CPhysical* physical, uint8 surfaceId, float volume, uint32 maxVol);
     void HandlePedJacked(eAudioEvents event) ;
     void HandleSwimSplash(eAudioEvents event);

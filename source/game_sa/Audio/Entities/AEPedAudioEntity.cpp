@@ -100,7 +100,7 @@ void CAEPedAudioEntity::AddAudioEvent(eAudioEvents event, float volume, float sp
         HandleLandingEvent(event);
         break;
     case AE_PED_SWING:
-        HandlePedSwing(event, a7, maxVol);
+        HandlePedSwing(event);
         break;
     case AE_PED_HIT_HIGH:
     case AE_PED_HIT_LOW:
@@ -494,7 +494,9 @@ void CAEPedAudioEntity::HandleLandingEvent(eAudioEvents event) {
 }
 
 // 0x4E1A40
-void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event, int32 a3, uint32 volume) {
+// NOTE: original takes a single argument (event) -- verified at the call site
+// in the original AddAudioEvent (push eax; call 0x4E1A40).
+void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event) {
     if (!m_pPed) {
         return;
     }
@@ -599,11 +601,11 @@ void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event, int32 a3, uint32 volu
         0
     );
     m_tempSound.RegisterWithPhysicalEntity(m_pPed);
-    if (a3 != 0) {
+    if (event != 0) { // original gates the update-flags tail on the (only) argument
         m_tempSound.m_PhysicalEntity = nullptr;
         m_tempSound.m_RollOffFactor  = 0.0f;
         m_tempSound.m_Speed          = 0.0f;
-        m_tempSound.m_Event          = (int32)(uint32)(CTimer::m_snTimeInMilliseconds + a3); // original stores the float-wrapped bits of the same value
+        m_tempSound.m_Event          = (int32)(uint32)(CTimer::m_snTimeInMilliseconds + (int32)event); // original stores the float-wrapped bits of the same value
         m_tempSound.SetFlags(SOUND_REQUEST_UPDATES, true);
     }
     AESoundManager.RequestNewSound(&m_tempSound);
