@@ -22,7 +22,7 @@ import sys
 TOOLCHAIN = r"D:\tools\msvc71"
 BIN = os.path.join(TOOLCHAIN, "Vc7", "bin")
 INCLUDE = os.path.join(TOOLCHAIN, "Vc7", "include") + ";" + os.path.join(TOOLCHAIN, "Vc7", "PlatformSDK", "Include")
-DEFAULT_FLAGS = "/c /O2 /Ot /G6 /Ob1 /Zp4 /GF /GS-"
+DEFAULT_FLAGS = "/c /O2 /Ot /G6 /Ob1 /Zp4 /GF"
 
 from capstone import Cs, CS_ARCH_X86, CS_MODE_32  # noqa: E402
 
@@ -79,7 +79,7 @@ def main():
         "TMP": r"D:\tools\msvc71\test",
         "TEMP": r"D:\tools\msvc71\test",
     }
-    r = subprocess.run([os.path.join(BIN, "cl.exe")] + a.flags.split() + [src],
+    r = subprocess.run([os.path.join(BIN, "cl.exe")] + a.flags.split() + [src, "/Fo" + obj],
                        env=env, capture_output=True, text=True)
     if r.returncode != 0 or not os.path.exists(obj):
         sys.stdout.write(r.stdout)

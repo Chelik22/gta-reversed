@@ -19,3 +19,11 @@
 
 [INFRA note] archive.org was unreachable (outage) from this network during
     the hunt -- GitHub mirror of the toolchain was used instead.
+
+[SHAPE-BLOCKED] CPedAttractor::AbortPedTasks 0x5EAF60: structure+size perfect (98/98, same instr sequence), 51% bytes.
+    Divergence: VC7.1 collapses 'p ? divide : 0' + 'if (n>0)' into je-to-epilogue;
+    original keeps the diamond (jne + xor edx + jmp to shared test). Tried: ternary,
+    reversed ternary, if/else both orders, while/do/for, /O1 /O /Ox /Og- /Ob2 flag
+    matrix -- canonicalized identically. Needs deeper codegen study (likely a
+    different original source construct). Hook already enabled in repo; matching
+    unit kept at matching_units/abort_ped_tasks.cpp for future revisit.
