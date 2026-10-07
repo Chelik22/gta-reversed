@@ -3,6 +3,9 @@
 #include "AEPoliceScannerAudioEntity.h"
 
 #include "AEAudioHardware.h"
+#include "AEAudioUtility.h"
+#include "TheZones.h"
+#include "World.h"
 
 // 0x4E6E00
 CAEPoliceScannerAudioEntity::~CAEPoliceScannerAudioEntity() {
@@ -33,8 +36,126 @@ void CAEPoliceScannerAudioEntity::Reset() {
 }
 
 // 0x4E71E0
+// 0x4E71E0
 void CAEPoliceScannerAudioEntity::AddAudioEvent(eAudioEvents event, eCrimeType crimeType, const CVector& point) {
-    plugin::CallMethod<0x4E71E0, CAEPoliceScannerAudioEntity*, eAudioEvents, eCrimeType, const CVector&>(this, event, crimeType, point);
+    // Scanner phrase tables (contiguous blob in the original .data)
+    static auto& s_ReportPhrases    = StaticRef<int16[4]>(0x8C8160);      // random report intros
+    static auto& s_CrimePhrases     = StaticRef<int16[0x17]>(0x8C8168);   // by eCrimeType (2..0x16)
+    static auto& s_ZonePhraseNames  = StaticRef<int32[0xC2][2]>(0x8C8198); // zone display-name, first 8 bytes as 2 dwords
+    static auto& s_ZonePhrases      = StaticRef<int16[0xC2]>(0x8C87A8);
+    static auto& s_ZoneHasDirInfo   = StaticRef<uint8[0xC2]>(0x8C8930);
+    static auto& s_VehClassPhrases  = StaticRef<int16[0x2E]>(0x8C89F8);
+    static auto& s_VehClassSayColor = StaticRef<uint8[0x2E]>(0x8C8A54);
+    static auto& s_ColorPhrases     = StaticRef<int16[0x7F]>(0x8C8A88);
+
+    tScannerSlot first[NUM_POLICE_SCANNER_SLOTS]{}, second[NUM_POLICE_SCANNER_SLOTS]{};
+
+    if (event != AE_CRIME_COMMITTED /* 0xA4 */) {
+        return;
+    }
+    if (crimeType < 2 || crimeType > 0x16) {
+        return;
+    }
+
+    first[0] = { (eSoundBank)0x96, (eSoundID)s_ReportPhrases[CAEAudioUtility::GetRandomNumberInRange(0, 3)] };
+    first[1] = { (eSoundBank)0x97, (eSoundID)s_CrimePhrases[crimeType] };
+
+    const auto zone = CTheZones::FindSmallestZoneForPosition(point, true);
+    if (!zone) {
+        return;
+    }
+    // Locate the zone phrase by display name (first 8 bytes); -1 entries are skipped
+    const auto nameLo = *(const int32*)&zone->m_TextLabel[0];
+    const auto nameHi = *(const int32*)&zone->m_TextLabel[4];
+    auto zi = 0;
+    while (nameLo != s_ZonePhraseNames[zi][0] || nameHi != s_ZonePhraseNames[zi][1] || s_ZonePhrases[zi] < 0) {
+        if (++zi > 0xC1) {
+            return;
+        }
+    }
+
+    if (s_ZoneHasDirInfo[zi]) {
+        const auto midX = (zone->m_fX2 - zone->m_fX1) * 0.5f + zone->m_fX1;
+        const auto midY = (zone->m_fY2 - zone->m_fY1) * 0.5f + zone->m_fY1;
+        const auto extX = (zone->m_fX2 - zone->m_fX1) * 0.25f;
+        const auto extY = (zone->m_fY2 - zone->m_fY1) * 0.25f;
+
+        auto ns = (int16)-1; // north/south phrase
+        auto haveNS = false;
+        if (point.y <= midY + extY) {
+            if (point.y < midY - extY) {
+                ns = 3; // south
+                haveNS = true;
+            }
+        } else {
+            ns = 2; // north
+            haveNS = true;
+        }
+        if (haveNS) {
+            first[2] = { (eSoundBank)0x95, (eSoundID)ns };
+        }
+
+        if (point.x <= midX + extX) {
+            if (midX - extX <= point.x) {
+                if (haveNS) {
+                    goto ZonePhrase; // center band on X while off-center on Y: no E/W phrase
+                }
+                first[3] = { (eSoundBank)0x95, (eSoundID)0 };
+            } else {
+                first[3] = { (eSoundBank)0x95, (eSoundID)4 }; // west
+            }
+        } else {
+            first[3] = { (eSoundBank)0x95, (eSoundID)1 }; // east
+        }
+    }
+
+ZonePhrase:
+    first[4] = { (eSoundBank)0x93, (eSoundID)s_ZonePhrases[zi] };
+
+    // Which player owns this scanner, and their ped?
+    CPed* player = nullptr;
+    for (auto i = 0; i < 2; i++) {
+        if (&FindPlayerWanted(i)->m_PoliceScannerAudioEntity == this) {
+            player = FindPlayerPed(i);
+        }
+    }
+    if (player && !player->bInVehicle) {
+        const auto intel = player->GetIntelligence();
+        if (!intel->GetTaskSwim()) {
+            if (intel->GetTaskJetPack()) {
+                goto Play; // no second-part phrases
+            }
+            second[4] = { (eSoundBank)0x96, (eSoundID)4 }; // on foot
+        } else {
+            second[4] = { (eSoundBank)0x96, (eSoundID)2 }; // swimming
+        }
+        second[0] = { (eSoundBank)0x96, (eSoundID)7 };
+        goto Play;
+    }
+    if (player && player->m_pVehicle) {
+        const auto vehicle = player->m_pVehicle;
+        const auto vc = *(int8_t*)((char*)vehicle + 0x1D4); // vehicle class byte (0..0x2D)
+        if (vc >= 0 && vc < 0x2E && s_VehClassPhrases[vc] >= 0) {
+            second[0] = { (eSoundBank)0x96, (eSoundID)7 };
+            second[1] = { (eSoundBank)0x96, (eSoundID)(
+                vc == 0x19 || vc == 0x1D || vc == 0x1E || vc == 0x25 || vc == 0x29 || vc == 0x22 ? 3 : 1
+            ) };
+            if (s_VehClassSayColor[vc]) {
+                if (vehicle->GetRemapIndex() == -1) {
+                    const auto color = *(uint8_t*)((char*)vehicle + 0x434); // paintjob/remap byte
+                    if (color <= 0x7E && s_ColorPhrases[color] >= 0) {
+                        second[3] = { (eSoundBank)0x94, (eSoundID)s_ColorPhrases[color] };
+                    }
+                } else {
+                    second[3] = { (eSoundBank)0x94, (eSoundID)4 };
+                }
+            }
+            second[4] = { (eSoundBank)0x98, (eSoundID)s_VehClassPhrases[vc] };
+        }
+    }
+
+Play:
+    PlayPoliceScannerDialogue(first, second);
 }
 
 // 0x4E6BC0
@@ -318,7 +439,7 @@ void CAEPoliceScannerAudioEntity::InjectHooks() {
     RH_ScopedInstall(Destructor, 0x4E6E00);
     RH_ScopedInstall(StaticInitialise, 0x5B9C30);
     RH_ScopedInstall(Reset, 0x4E6E90);
-    RH_ScopedInstall(AddAudioEvent, 0x4E71E0, { .Reversed = false });
+    RH_ScopedInstall(AddAudioEvent, 0x4E71E0);
     RH_ScopedInstall(PrepSlots, 0x4E6BC0);
     RH_ScopedInstall(LoadSlots, 0x4E6CD0);
     RH_ScopedInstall(EnableScanner, 0x4E6DB0);
