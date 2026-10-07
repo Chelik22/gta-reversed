@@ -2089,7 +2089,7 @@ void FreezeCarPositionAndDontLoadCollision(CRunningScript& S, CVehicle& self, bo
  * @param {bool} state
  */
 void SetLoadCollisionForCarFlag(CRunningScript& S, CVehicle& self, bool state) {
-    self.physicalFlags.b15 = !state;
+    self.physicalFlags.bDontLoadCollision = !state; // 0x4000: PHYSICAL_b15
     if (state) {
         DoSetCarIsWaitingForCollision(S, self);
     } else if (self.m_bIsStaticWaitingForCollision) {
@@ -3968,7 +3968,7 @@ void SetVehicleIsConsideredByPlayer(CVehicle& self, bool state) {
  * @param {int} alpha
  */
 void SetVehicleToFadeIn(CVehicle& self, int32 alpha) {
-    CVisibilityPlugins::SetClumpAlpha(self.m_pRwClump, alpha);
+    CVisibilityPlugins::SetClumpAlpha(self.GetRpClump(), alpha);
 }
 
 /*

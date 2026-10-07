@@ -1,6 +1,7 @@
 #include "StdInc.h"
 
 #include "Garage.h"
+#include "Garages.h"
 
 void CGarage::InjectHooks() {
     RH_ScopedClass(CGarage);
@@ -20,6 +21,7 @@ void CGarage::InjectHooks() {
     // RH_ScopedInstall(PlayerArrestedOrDied, 0x4486C0);
     RH_ScopedInstall(OpenThisGarage, 0x447D50);
     RH_ScopedInstall(CloseThisGarage, 0x447D70);
+    RH_ScopedInstall(FindDoorsWithGarage, 0x449FF0);
     // RH_ScopedInstall(InitDoorsAtStart, 0x447600);
     // RH_ScopedInstall(IsPointInsideGarage, 0x4487D0);
     // RH_ScopedInstall(Update, 0x44AA50);
@@ -129,6 +131,46 @@ void CGarage::OpenThisGarage() {
 void CGarage::CloseThisGarage() {
     if (m_nDoorState == GARAGE_DOOR_OPEN || m_nDoorState == GARAGE_DOOR_OPENING)
         m_nDoorState = GARAGE_DOOR_CLOSING;
+}
+
+// 0x449FF0
+void CGarage::FindDoorsWithGarage(CObject** ppFirstDoor, CObject** ppSecondDoor) {
+    *ppFirstDoor  = nullptr;
+    *ppSecondDoor = nullptr;
+
+    const auto halfWidth  = m_fWidth * 0.5f;
+    const auto halfHeight = m_fHeight * 0.5f;
+    const auto garageIdx  = (int8)(this - &CGarages::aGarages[0]);
+    const auto centerX    = m_vPosn.x + m_vDirectionA.x * halfWidth + m_vDirectionB.x * halfHeight;
+    const auto centerY    = m_vPosn.y + m_vDirectionA.y * halfWidth + m_vDirectionB.y * halfHeight;
+
+    auto nearestDist     = 99999.9f; // fVar9
+    auto secondNearestDist = 99999.9f;
+
+    const auto pool = GetObjectPool();
+    for (auto i = pool->GetSize(); i; i--) { // original iterates downward
+        CObject* object = pool->GetAt(i - 1);
+        if (!object || object->m_nGarageDoorGarageIndex != garageIdx) {
+            continue;
+        }
+        const auto& pos = object->GetPosition();
+        const auto dx = centerX - pos.x;
+        const auto dy = centerY - pos.y;
+        const auto dist = std::sqrt(dx * dx + dy * dy); // 2D distance only
+        if (*ppFirstDoor) {
+            if (nearestDist <= dist) {
+                if (!*ppSecondDoor || dist < secondNearestDist) {
+                    *ppSecondDoor = object;
+                    secondNearestDist = dist;
+                }
+                continue;
+            }
+            *ppSecondDoor = *ppFirstDoor;
+            secondNearestDist = nearestDist;
+        }
+        *ppFirstDoor = object;
+        nearestDist = dist;
+    }
 }
 
 // 0x447600

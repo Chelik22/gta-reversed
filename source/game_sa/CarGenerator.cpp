@@ -315,10 +315,10 @@ void CCarGenerator::DoInternalProcessing()
         }
     }
 
-    if (CGeneral::GetRandomNumberInRange(0, 100) < m_ChanceOfAlarm)
+    if (CGeneral::GetRandomNumberInRange(0, 100) < m_nAlarmChance)
         vehicle->m_nAlarmState = -1;
 
-    if (CGeneral::GetRandomNumberInRange(0, 100) < m_ChanceOfDoorLock)
+    if (CGeneral::GetRandomNumberInRange(0, 100) < m_nDoorLockChance)
         vehicle->m_nDoorLock = eCarLock::CARLOCK_LOCKED;
 
     if (m_nPrimaryColor != -1 && m_nSecondaryColor != -1)
@@ -407,8 +407,8 @@ void CCarGenerator::Setup(
     bHighPriority = isHighPriority;
     bPlayerHasAlreadyOwnedCar = false;
 
-    m_ChanceOfAlarm = chanceOfAlarm;
-    m_ChanceOfDoorLock = chanceOfDoorLock;
+    m_nAlarmChance = chanceOfAlarm;
+    m_nDoorLockChance = chanceOfDoorLock;
     m_nMinDelay = minDelay;
     m_nMaxDelay = maxDelay;
     m_nIplId = iplId;

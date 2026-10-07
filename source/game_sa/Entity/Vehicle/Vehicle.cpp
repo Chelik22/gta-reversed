@@ -2463,7 +2463,7 @@ void CVehicle::RemoveReplacementUpgrade(int32 frameId) {
 }
 
 // 0x6D3A50
-int32 CVehicle::GetReplacementUpgrade(int32 nodeId) {
+eModelID CVehicle::GetReplacementUpgrade(int32 nodeId) {
     auto frame = CClumpModelInfo::GetFrameFromId(GetRpClump(), nodeId);
     tCompSearchStructById data = { nodeId, nullptr };
     RwFrameForAllObjects(frame, FindReplacementUpgradeCB, &data);

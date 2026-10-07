@@ -3,6 +3,9 @@
 #include "Cam.h"
 #include "TimeCycle.h"
 #include "Camera.h"
+#include "PostEffects.h"
+#include "Ragdoll/IKChainManager.h"
+#include "Tasks/TaskTypes/TaskSimpleHoldEntity.h"
 #include "Shadows.h"
 #include "IdleCam.h"
 #include "InterestingEvents.h"
@@ -27,6 +30,8 @@
 auto& gbFirstPersonRunThisFrame = StaticRef<bool>(0xB6EC20);
 auto& gLastFrameProcessedDWCineyCam = StaticRef<uint32>(0x8CCB9C);
 static auto& s_DWCineyCamSceneEndTime = StaticRef<uint32>(0x8CCBA4);
+static auto& gaTempSphereColPoints = StaticRef<std::array<CColPoint, 32>>(0xB9B250); // see World.cpp
+static auto& g_ikChainMan = StaticRef<IKChainManager_c>(0xC15448); // TU-local, see IKChainManager.cpp
 
 static auto& s_ExitCam = StaticRef<std::array<bool, MODE_SYPHON_CRIM_IN_FRONT + 1>>(0xB6EC5C);
 
@@ -84,7 +89,7 @@ static bool GetArrestCameraPositionOnGround(CEntity* target, CPed* cop, const CV
     source += CrossProduct(direction, CVector{0.0f, 0.0f, 1.0f}) * StaticRef<float>(0x8CC7F4);
     source.z = lookAt.z + 5.0f;
     bool foundGround{};
-    const auto ground = CWorld::FindGroundZFor3DCoord(source.x, source.y, source.z, &foundGround, nullptr);
+    const auto ground = CWorld::FindGroundZFor3DCoord({source.x, source.y, source.z}, &foundGround, nullptr);
     if (foundGround) {
         source.z = ground + StaticRef<float>(0x8CC7F8);
     }
@@ -667,7 +672,7 @@ bool CCam::GetBoatHandlingCamHeight(float* outCamHeight) {
     }
 
     const auto* boatHandling = gHandlingDataMgr.GetBoatPointer(
-        CModelInfo::GetVehicleModelInfo(m_pCamTargetEntity->m_nModelIndex)->m_nHandlingId
+        (uint8)CModelInfo::GetVehicleModelInfo(m_pCamTargetEntity->m_nModelIndex)->m_nHandlingId
     );
     if (!boatHandling) {
         return false;
@@ -784,7 +789,7 @@ bool CCam::LookBehind() {
 
         const float      srcAddZ = gZoomAddSourceZBack[TheCamera.m_nPedZoom - 1];
 
-        if (entity->AsPed()->m_pIntelligence->GetTaskSwim()) {
+        if (entity->AsPed()->GetIntelligence()->GetTaskSwim()) {
             m_vecSource = target + (target - m_vecSource) * gZoomLerpBackSwim[TheCamera.m_nPedZoom - 1];
             m_vecSource.z += gZoomAddSourceZBackSwim[TheCamera.m_nPedZoom - 1];
         }
@@ -795,7 +800,7 @@ bool CCam::LookBehind() {
         gNumEntitiesRegisteredForCollision = 0;
 
         if (m_pCamTargetEntity) {
-            const auto* holdTask = entity->AsPed()->m_pIntelligence->GetTaskHold(false);
+            const auto* holdTask = entity->AsPed()->GetIntelligence()->GetTaskHold(false);
             if (holdTask && holdTask->m_pEntityToHold) {
                 g_aEntitiesRegisteredForCollision[gNumEntitiesRegisteredForCollision] = holdTask->m_pEntityToHold;
                 gNumEntitiesRegisteredForCollision++;
@@ -1078,7 +1083,7 @@ void CCam::Process() {
     } else {
         auto* entity = m_pCamTargetEntity;
         target = entity->GetPosition();
-        if (entity->IsVehicle()) {
+        if (entity->GetType() == ENTITY_TYPE_VEHICLE) {
             auto forward = entity->GetMatrix().GetForward();
             orientation = forward.x == 0.0f && forward.y == 0.0f ? 0.0f : CGeneral::GetATanOfXY(forward.x, forward.y);
             forward.z = 0.0f;
@@ -1134,7 +1139,7 @@ void CCam::Process() {
     gCameraDirection = 3;
     if (this == &TheCamera.GetActiveCam()) {
         if ((m_nMode == MODE_CAM_ON_A_STRING || m_nMode == MODE_1STPERSON || m_nMode == MODE_BEHINDBOAT || m_nMode == MODE_BEHINDCAR)
-            && m_pCamTargetEntity->IsVehicle()) {
+            && m_pCamTargetEntity->GetType() == ENTITY_TYPE_VEHICLE) {
             const auto appearance = m_pCamTargetEntity->AsVehicle()->GetVehicleAppearance();
             const bool aircraft = appearance == VEHICLE_APPEARANCE_HELI || appearance == VEHICLE_APPEARANCE_PLANE;
             if (pad->GetLookBehindForCar()) {
@@ -1152,12 +1157,12 @@ void CCam::Process() {
             if (m_nDirectionWasLooking != gCameraDirection) {
                 TheCamera.m_bJust_Switched = true;
             }
-        } else if (m_nMode == MODE_FOLLOWPED && m_pCamTargetEntity->IsPed() && pad->GetLookBehindForPed()) {
+        } else if (m_nMode == MODE_FOLLOWPED && m_pCamTargetEntity->GetType() == ENTITY_TYPE_PED && pad->GetLookBehindForPed()) {
             gCameraDirection = 0;
             if (m_nDirectionWasLooking != 0 && !TheCamera.m_bTransitionState) {
                 TheCamera.m_bJust_Switched = true;
             }
-        } else if ((m_nMode == MODE_FOLLOWPED && m_pCamTargetEntity->IsPed()) || m_nMode == MODE_AIMWEAPON) {
+        } else if ((m_nMode == MODE_FOLLOWPED && m_pCamTargetEntity->GetType() == ENTITY_TYPE_PED) || m_nMode == MODE_AIMWEAPON) {
             if (m_nDirectionWasLooking != 3) {
                 StaticRef<float>(0x8CCB84) = 1.0f;
             }
@@ -1254,8 +1259,8 @@ void CCam::Process() {
     case MODE_DW_PLANECAM3: Process_DW_PlaneCam3(false); break;
     default:
         m_vecSource.Reset();
-        m_vecFront = {0.0f, 1.0f, 0.0f};
-        m_vecUp = {0.0f, 0.0f, 1.0f};
+        m_vecFront.Set(0.0f, 1.0f, 0.0f);
+        m_vecUp.Set(0.0f, 0.0f, 1.0f);
         break;
     }
     if (m_nMode < MODE_DW_HELI_CHASE || m_nMode > MODE_DW_PLANECAM3) {
@@ -1299,7 +1304,7 @@ bool CCam::ProcessArrestCamFirstPerson(CPed* cop, bool firstFrame) {
         return false;
     }
     auto* target = TheCamera.m_pTargetEntity;
-    if (!target->IsPed() || !cop) {
+    if (target->GetType() != ENTITY_TYPE_PED || !cop) {
         return false;
     }
     const auto t = std::clamp((float)(((double)CTimer::GetTimeInMS() - StaticRef<float>(0xB6EC60) - StaticRef<float>(0xB70024)) / StaticRef<float>(0x8CCCB0)), 0.0f, 1.0f);
@@ -1312,7 +1317,7 @@ bool CCam::ProcessArrestCamFirstPerson(CPed* cop, bool firstFrame) {
     }
     if (!(initialized & 2)) {
         initialized |= 2;
-        StaticRef<CVector>(0xB70004) = {0.0f, 0.0f, -0.5f};
+        StaticRef<CVector>(0xB70004).Set(0.0f, 0.0f, -0.5f);
     }
     const auto oldSource = m_vecSource;
     m_vecSource = target->GetPosition() + StaticRef<CVector>(0xB70004);
@@ -1360,9 +1365,9 @@ bool CCam::ProcessArrestCamOne() {
 
     CPed* ped{};
     CVector lookAt;
-    if (target->IsPed()) {
+    if (target->GetType() == ENTITY_TYPE_PED) {
         ped = target->AsPed();
-    } else if (target->IsVehicle()) {
+    } else if (target->GetType() == ENTITY_TYPE_VEHICLE) {
         auto* driver = target->AsVehicle()->m_pDriver;
         if (driver && driver->IsPlayer()) {
             ped = driver;
@@ -1381,7 +1386,7 @@ bool CCam::ProcessArrestCamOne() {
         const auto beforeCollision = m_vecSource;
         TheCamera.AvoidTheGeometry(&beforeCollision, &lookAt, &m_vecSource, m_fFOV);
         m_vecFront = (lookAt - m_vecSource).Normalized();
-        m_vecUp = {0.0f, 0.0f, 1.0f};
+        m_vecUp.Set(0.0f, 0.0f, 1.0f);
         const auto right = CrossProduct(m_vecFront, m_vecUp).Normalized();
         m_vecUp = CrossProduct(right, m_vecFront);
     };
@@ -1390,7 +1395,7 @@ bool CCam::ProcessArrestCamOne() {
         auto* cop = GetArrestingCop();
         std::array<int32, 6> choices{-1, -1, -1, -1, -1, -1};
         const auto randomScale = StaticRef<float>(0x858C7C);
-        if (target->IsPed()) {
+        if (target->GetType() == ENTITY_TYPE_PED) {
             choices = cop && (float)CGeneral::GetRandomNumber() * randomScale > 0.5f
                 ? std::array<int32, 6>{1, 2, 3, 2, 8, -1}
                 : std::array<int32, 6>{1, 3, 2, 8, -1, -1};
@@ -1473,7 +1478,7 @@ bool CCam::ProcessArrestCamOne() {
     } else if (mode >= 4 && mode <= 7) {
         source = m_vecSource;
         m_vecFront = (lookAt - source).Normalized();
-        m_vecUp = {0.0f, 0.0f, 1.0f};
+        m_vecUp.Set(0.0f, 0.0f, 1.0f);
         auto side = CrossProduct(m_vecFront, m_vecUp).Normalized();
         if (mode == 6 || mode == 7) {
             side = -side;
@@ -1484,7 +1489,7 @@ bool CCam::ProcessArrestCamOne() {
                 source.z += CTimer::GetTimeStep() * StaticRef<float>(0x8CC7E8);
             } else {
                 bool foundGround{};
-                const auto ground = CWorld::FindGroundZFor3DCoord(source.x, source.y, source.z, &foundGround, nullptr);
+                const auto ground = CWorld::FindGroundZFor3DCoord({source.x, source.y, source.z}, &foundGround, nullptr);
                 if (foundGround) {
                     source.z = ground + StaticRef<float>(0x8CC7F8);
                 }
@@ -1496,7 +1501,7 @@ bool CCam::ProcessArrestCamOne() {
         m_vecFront = lookAt - source;
         m_vecFront.z = 0.0f;
         m_vecFront.Normalise();
-        m_vecUp = {0.0f, 0.0f, 1.0f};
+        m_vecUp.Set(0.0f, 0.0f, 1.0f);
         const auto side = CrossProduct(m_vecFront, m_vecUp).Normalized();
         m_vecFront = lookAt - source + side * StaticRef<float>(0x8CC7FC);
         m_vecFront.z = 0.0f;
@@ -1528,9 +1533,9 @@ void CCam::ProcessPedsDeadBaby() {
 
     auto* entity = TheCamera.m_pTargetEntity;
     CVector target;
-    if (entity->IsPed()) {
+    if (entity->GetType() == ENTITY_TYPE_PED) {
         entity->AsPed()->GetBonePosition(&target, BONE_SPINE1, true);
-    } else if (entity->IsVehicle()) {
+    } else if (entity->GetType() == ENTITY_TYPE_VEHICLE) {
         target = entity->GetPosition();
         target.z += entity->GetColModel()->GetBoundingBox().m_vecMax.z;
     } else {
@@ -1882,7 +1887,7 @@ void CCam::Process_AimWeapon(const CVector& target, float, float, float) {
         initialized |= 1;
         bufferedTarget.Reset();
     }
-    if (!m_pCamTargetEntity->IsPed() || !m_pCamTargetEntity->AsPed()->IsPlayer()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_PED || !m_pCamTargetEntity->AsPed()->IsPlayer()) {
         return;
     }
     auto* ped = m_pCamTargetEntity->AsPed();
@@ -2027,7 +2032,7 @@ void CCam::Process_AimWeapon(const CVector& target, float, float, float) {
     }
     if (auto* locked = ped->m_pTargetedObject) {
         CVector position;
-        if (locked->IsPed() && !melee) {
+        if (locked->GetType() == ENTITY_TYPE_PED && !melee) {
             locked->AsPed()->GetBonePosition(&position, BONE_SPINE1, true);
         } else {
             position = locked->GetPosition();
@@ -2175,7 +2180,7 @@ void CCam::Process_AimWeapon(const CVector& target, float, float, float) {
     m_fVerticalAngle = std::clamp(m_fVerticalAngle, -settings[6], settings[5]);
     const auto distancePitch = m_fVerticalAngle > 0.0f ? std::min(settings[2] * m_fVerticalAngle, HALF_PI) : m_fVerticalAngle;
     const auto distance = std::cos(distancePitch) * settings[1] + settings[0];
-    m_vecFront = {-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+    m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     m_vecSource = lookAt - m_vecFront * distance;
     TheCamera.HandleCameraMotionForDuckingDuringAim(ped, &m_vecSource, &lookAt, false);
     m_vecTargetCoorsForFudgeInter = lookAt;
@@ -2236,7 +2241,7 @@ void CCam::Process_AttachedCam() {
 
 // 0x5132D0
 void CCam::GetTwoPlayerCameraPosition(float beta, CVector& source, CVector& front, CVector& target) {
-    front = {-std::cos(beta) * std::cos(m_fVerticalAngle), -std::sin(beta) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+    front.Set(-std::cos(beta) * std::cos(m_fVerticalAngle), -std::sin(beta) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     const auto horizontalFront = CVector{front.x, front.y, 0.0f}.Normalized();
     const auto& first = FindPlayerPed(PED_TYPE_PLAYER1)->GetPosition();
     const auto& second = FindPlayerPed(PED_TYPE_PLAYER2)->GetPosition();
@@ -2385,7 +2390,7 @@ void CCam::Process_Cam_TwoPlayer() {
             ++CGameLogic::nPrintFocusHelpCounter;
         }
     }
-    m_vecUp = {0.0f, 0.0f, 1.0f};
+    m_vecUp.Set(0.0f, 0.0f, 1.0f);
     m_vecUp.Normalise();
     const auto right = CrossProduct(m_vecUp, m_vecFront).Normalized();
     m_vecUp = CrossProduct(m_vecFront, right).Normalized();
@@ -2395,7 +2400,7 @@ void CCam::Process_Cam_TwoPlayer() {
 
 // 0x519810
 void CCam::Process_Cam_TwoPlayer_InCarAndShooting() {
-    if (!m_pCamTargetEntity->IsVehicle()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return;
     }
     auto* first = FindPlayerPed(PED_TYPE_PLAYER1);
@@ -2560,7 +2565,7 @@ void CCam::Process_Cam_TwoPlayer_Separate_Cars() {
     m_vecSource = source1 * blend + source2 * (1.0f - blend) - side * sine * distance * 0.75f;
     m_vecFront = ((front1 * blend + front2 * (1.0f - blend)) * (1.0f - sine) + side * sine).Normalized();
     m_vecTargetCoorsForFudgeInter = m_nTwoPlayerFocus == 0 ? position2 : position1;
-    m_vecUp = {0.0f, 0.0f, 1.0f};
+    m_vecUp.Set(0.0f, 0.0f, 1.0f);
     m_vecUp.Normalise();
     const auto left = CrossProduct(m_vecUp, m_vecFront).Normalized();
     m_vecUp = CrossProduct(m_vecFront, left).Normalized();
@@ -2621,7 +2626,7 @@ bool CCam::Process_DW_BirdyCam(bool) {
     const auto maxClearFrames = StaticRef<int32>(0x8CCD74);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
     CEntity* entity{};
@@ -2639,7 +2644,7 @@ bool CCam::Process_DW_BirdyCam(bool) {
 
     if (lastCamMode != MODE_DW_BIRDY || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_BIRDY;
-        gDWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBB0);
+        s_DWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBB0);
         sceneStartTime = now;
         clearFrames = maxClearFrames;
         exitCam = false;
@@ -2710,7 +2715,7 @@ bool CCam::Process_DW_BirdyCam(bool) {
         }
     }
 
-    const auto t = (float)(int32)(now - sceneStartTime) / (float)(int32)(gDWCineyCamSceneEndTime - sceneStartTime);
+    const auto t = (float)(int32)(now - sceneStartTime) / (float)(int32)(s_DWCineyCamSceneEndTime - sceneStartTime);
     const auto offset = (positions[1] - positions[0]).Normalized() * StaticRef<float>(0x8CCD5C);
     const auto start = positions[0] + offset * 2.0f;
     const auto end = positions[1] - offset;
@@ -2751,7 +2756,7 @@ bool CCam::Process_DW_CamManCam(bool) {
     const auto maxClearFrames = StaticRef<int32>(0x8CCD58);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
     CEntity* entity{};
@@ -2768,7 +2773,7 @@ bool CCam::Process_DW_CamManCam(bool) {
     }
     if (lastCamMode != MODE_DW_CAM_MAN || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_CAM_MAN;
-        gDWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBAC);
+        s_DWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBAC);
         sceneStartTime = now;
         clearFrames = maxClearFrames;
         exitCam = false;
@@ -2813,7 +2818,7 @@ bool CCam::Process_DW_CamManCam(bool) {
         }
     }
 
-    const auto t = (float)(int32)(now - sceneStartTime) / (float)(int32)(gDWCineyCamSceneEndTime - sceneStartTime);
+    const auto t = (float)(int32)(now - sceneStartTime) / (float)(int32)(s_DWCineyCamSceneEndTime - sceneStartTime);
     if (!exitCam) {
         source = cameraPosition + (target - cameraPosition).Normalized() * StaticRef<float>(0x8CCD48);
     }
@@ -2860,7 +2865,7 @@ bool CCam::Process_DW_HeliChaseCam(bool) {
     TheCamera.m_bUseNearClipScript = false;
     // The original consumes a random number to select from a single configuration.
     CGeneral::GetRandomNumber();
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
     CEntity* entity{};
@@ -2873,7 +2878,7 @@ bool CCam::Process_DW_HeliChaseCam(bool) {
     if (lastMode != MODE_DW_HELI_CHASE || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastMode = MODE_DW_HELI_CHASE;
         startTime = now;
-        gDWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBA8);
+        s_DWCineyCamSceneEndTime = now + StaticRef<uint32>(0x8CCBA8);
         exitCam = false;
         state.SetDefaults();
         state.Randomise();
@@ -2918,7 +2923,7 @@ bool CCam::Process_DW_HeliChaseCam(bool) {
         return false;
     }
 
-    const auto t = (float)(int32)(now - startTime) / (float)(int32)(gDWCineyCamSceneEndTime - startTime);
+    const auto t = (float)(int32)(now - startTime) / (float)(int32)(s_DWCineyCamSceneEndTime - startTime);
     source = state.start + (state.end - state.start) * t;
     target += forward * (speed * state.lookAhead) + forward;
     const auto distance2D = (target - source).Magnitude2D();
@@ -3028,7 +3033,7 @@ bool CCam::Process_DW_PlaneCam1(bool) {
     static auto& minGroundDistance = StaticRef<float>(0x8CCDB8);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
 
@@ -3050,7 +3055,7 @@ bool CCam::Process_DW_PlaneCam1(bool) {
     const auto now = CTimer::GetTimeInMS();
     if (lastCamMode != MODE_DW_PLANECAM1 || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_PLANECAM1;
-        gDWCineyCamSceneEndTime = now + sceneDuration;
+        s_DWCineyCamSceneEndTime = now + sceneDuration;
         exitCam = false;
         sceneStartTime = now;
 
@@ -3074,7 +3079,7 @@ bool CCam::Process_DW_PlaneCam1(bool) {
 
     const auto t = static_cast<float>(
         static_cast<double>(static_cast<int32>(now - sceneStartTime))
-        / static_cast<int32>(gDWCineyCamSceneEndTime - sceneStartTime)
+        / static_cast<int32>(s_DWCineyCamSceneEndTime - sceneStartTime)
     );
     const auto forward = targetFwd.Normalized();
     const auto right = targetRight.Normalized() * sideSign;
@@ -3083,7 +3088,7 @@ bool CCam::Process_DW_PlaneCam1(bool) {
     // Windows converts each timestamp to a signed integer before subtracting.
     const auto waveStart = static_cast<double>(static_cast<int32>(sceneStartTime));
     const auto waveT = (static_cast<double>(static_cast<int32>(now)) - waveStart)
-                    / (static_cast<double>(static_cast<int32>(gDWCineyCamSceneEndTime)) - waveStart);
+                    / (static_cast<double>(static_cast<int32>(s_DWCineyCamSceneEndTime)) - waveStart);
     const auto wave = std::sin(waveT * waveFrequency * 360.0 * 0.0174532924f);
     src += targetUp * waveAmplitude * static_cast<float>(wave);
 
@@ -3136,7 +3141,7 @@ bool CCam::Process_DW_PlaneCam2(bool) {
     static auto& unusedSign = StaticRef<float>(0xB700D0);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
 
@@ -3158,7 +3163,7 @@ bool CCam::Process_DW_PlaneCam2(bool) {
     const auto now = CTimer::GetTimeInMS();
     if (lastCamMode != MODE_DW_PLANECAM2 || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_PLANECAM2;
-        gDWCineyCamSceneEndTime = now + sceneDuration;
+        s_DWCineyCamSceneEndTime = now + sceneDuration;
         exitCam = false;
         sceneStartTime = now;
 
@@ -3180,7 +3185,7 @@ bool CCam::Process_DW_PlaneCam2(bool) {
 
     const auto t = static_cast<float>(
         static_cast<double>(static_cast<int32>(now - sceneStartTime))
-        / static_cast<int32>(gDWCineyCamSceneEndTime - sceneStartTime)
+        / static_cast<int32>(s_DWCineyCamSceneEndTime - sceneStartTime)
     );
     const auto forward = targetFwd.Normalized() * (1.0f - (t + t)) * forwardSign;
     const auto right = targetRight.Normalized() * (1.0f - t) * sideSign;
@@ -3188,7 +3193,7 @@ bool CCam::Process_DW_PlaneCam2(bool) {
     // Windows converts each timestamp to a signed integer before subtracting.
     const auto waveStart = static_cast<double>(static_cast<int32>(sceneStartTime));
     const auto waveT = (static_cast<double>(static_cast<int32>(now)) - waveStart)
-                    / (static_cast<double>(static_cast<int32>(gDWCineyCamSceneEndTime)) - waveStart);
+                    / (static_cast<double>(static_cast<int32>(s_DWCineyCamSceneEndTime)) - waveStart);
     const auto wave = std::sin(waveT * waveFrequency * 360.0 * 0.0174532924f);
     src += targetUp * waveAmplitude * static_cast<float>(wave);
 
@@ -3234,7 +3239,7 @@ bool CCam::Process_DW_PlaneCam3(bool) {
     static auto& staticsInitialized = StaticRef<uint32>(0xB700D8);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
 
@@ -3256,7 +3261,7 @@ bool CCam::Process_DW_PlaneCam3(bool) {
     const auto now = CTimer::GetTimeInMS();
     if (lastCamMode != MODE_DW_PLANECAM3 || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_PLANECAM3;
-        gDWCineyCamSceneEndTime = now + sceneDuration;
+        s_DWCineyCamSceneEndTime = now + sceneDuration;
         exitCam = false;
         sceneStartTime = now;
 
@@ -3272,7 +3277,7 @@ bool CCam::Process_DW_PlaneCam3(bool) {
     }
 
     const auto t = static_cast<float>(static_cast<int32>(now - sceneStartTime))
-                 / static_cast<float>(static_cast<int32>(gDWCineyCamSceneEndTime - sceneStartTime));
+                 / static_cast<float>(static_cast<int32>(s_DWCineyCamSceneEndTime - sceneStartTime));
     const auto& bounds = entity->GetColModel()->GetBoundingBox();
     forwardOffset = (bounds.m_vecMax.y - bounds.m_vecMin.y) * 0.5f;
     forwardOffset += forwardOffset;
@@ -3327,7 +3332,7 @@ bool CCam::Process_DW_PlaneSpotterCam(bool) {
     static auto& exitCam = StaticRef<bool>(0xB6EC73);
 
     TheCamera.m_bUseNearClipScript = false;
-    if (!m_pCamTargetEntity || !m_pCamTargetEntity->IsVehicle()) {
+    if (!m_pCamTargetEntity || m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return false;
     }
     CEntity* entity{};
@@ -3340,7 +3345,7 @@ bool CCam::Process_DW_PlaneSpotterCam(bool) {
     initialized |= 1;
     if (lastCamMode != MODE_DW_PLANE_SPOTTER || gLastFrameProcessedDWCineyCam < CTimer::GetFrameCounter() - 1u) {
         lastCamMode = MODE_DW_PLANE_SPOTTER;
-        gDWCineyCamSceneEndTime = now + sceneDuration;
+        s_DWCineyCamSceneEndTime = now + sceneDuration;
         exitCam = false;
         sceneStartTime = now;
         if (searchAttempts > 0) {
@@ -3369,7 +3374,7 @@ bool CCam::Process_DW_PlaneSpotterCam(bool) {
         useZoom = CGeneral::GetRandomNumber() < 0x3FFF;
     }
 
-    const float t = (float)(int32)(now - sceneStartTime) / (float)(int32)(gDWCineyCamSceneEndTime - sceneStartTime);
+    const float t = (float)(int32)(now - sceneStartTime) / (float)(int32)(s_DWCineyCamSceneEndTime - sceneStartTime);
     source = cameraPosition;
     if ((source - target).Magnitude2D() < 5.0f) {
         exitCam = true;
@@ -3551,7 +3556,7 @@ void CCam::Process_FlyBy(const CVector&, float, float, float) {
     const auto* upPath = TheCamera.m_aPathArray[1].m_pArrPathData;
     const auto* sourcePath = TheCamera.m_aPathArray[2].m_pArrPathData;
     const auto* targetPath = TheCamera.m_aPathArray[3].m_pArrPathData;
-    m_vecUp = {0.0f, 0.0f, 1.0f};
+    m_vecUp.Set(0.0f, 0.0f, 1.0f);
     if (!TheCamera.m_bStartingSpline) {
         m_fTimeElapsedFloat = 0.0f;
         m_nFinishTime = (uint32)(sourcePath[((int32)sourcePath[0] - 1) * 10 + 1] * 1000.0f);
@@ -3612,7 +3617,7 @@ void CCam::Process_FlyBy(const CVector&, float, float, float) {
 
 // 0x5245B0
 void CCam::Process_FollowCar_SA(const CVector& target, float, float, float, bool preserveAngles) {
-    if (!m_pCamTargetEntity->IsVehicle()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_VEHICLE) {
         return;
     }
     auto* vehicle = m_pCamTargetEntity->AsVehicle();
@@ -3728,7 +3733,7 @@ void CCam::Process_FollowCar_SA(const CVector& target, float, float, float, bool
         }
         m_fBetaSpeed = m_fAlphaSpeed = 0.0f;
         m_fDistance = 1000.0f;
-        m_vecFront = {-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+        m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
         m_avecTargetHistoryPos[0] = lookAt - m_vecFront * historyDistance;
         m_anTargetHistoryTime[0] = CTimer::GetTimeInMS();
         m_avecTargetHistoryPos[1] = lookAt - m_vecFront * distance;
@@ -3925,7 +3930,7 @@ void CCam::Process_FollowCar_SA(const CVector& target, float, float, float, bool
         m_fHorizontalAngle = previousHeading;
     }
     previousHeading = m_fHorizontalAngle;
-    m_vecFront = {-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+    m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     RoundCamCoordinates(m_vecSource, 4);
     GetVectorsReadyForRW();
     TheCamera.m_bCamDirectlyBehind = TheCamera.m_bCamDirectlyInFront = false;
@@ -3941,7 +3946,7 @@ void CCam::Process_FollowCar_SA(const CVector& target, float, float, float, bool
         TheCamera.m_nExtraEntitiesCount = 0;
         CWorld::pIgnoreEntity = vehicle;
         TheCamera.CameraVehicleModeSpecialCases(vehicle);
-        if (vehicle->bIsBig) {
+        if (vehicle->vehicleFlags.bIsBig) {
             StaticRef<bool>(0x9655E5) = true;
         }
         TheCamera.CameraColDetAndReact(&m_vecSource, &lookAt);
@@ -3958,7 +3963,7 @@ void CCam::Process_FollowCar_SA(const CVector& target, float, float, float, bool
 // 0x50F970
 void CCam::Process_FollowPedWithMouse(const CVector& target, float orientation, float, float) {
     m_fFOV = 70.0f;
-    if (!m_pCamTargetEntity->IsPed()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_PED) {
         return;
     }
     auto* pad = CPad::GetPad(0);
@@ -4014,11 +4019,7 @@ void CCam::Process_FollowPedWithMouse(const CVector& target, float orientation, 
     if (onTrain) {
         m_fHorizontalAngle = orientation;
     }
-    m_vecFront = {
-        -std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle),
-        -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle),
-        std::sin(m_fVerticalAngle)
-    };
+    m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     m_vecSource = cameraTarget - m_vecFront * desiredDistance;
     m_vecTargetCoorsForFudgeInter = cameraTarget;
 
@@ -4027,7 +4028,7 @@ void CCam::Process_FollowPedWithMouse(const CVector& target, float orientation, 
     CWorld::pIgnoreEntity = m_pCamTargetEntity;
     if (CWorld::ProcessLineOfSight(cameraTarget, m_vecSource, collision, hitEntity, true, true, true, true, false, false, true, false)) {
         const auto hitDistance = (cameraTarget - collision.m_vecPoint).Magnitude();
-        if (!hitEntity->IsPed() || desiredDistance - hitDistance <= 0.4f) {
+        if (hitEntity->GetType() != ENTITY_TYPE_PED || desiredDistance - hitDistance <= 0.4f) {
             m_vecSource = collision.m_vecPoint;
             if (hitDistance < 0.6f) {
                 RwCameraSetNearClipPlane(Scene.m_pRwCamera, std::max(hitDistance - 0.3f, 0.05f));
@@ -4091,7 +4092,7 @@ void CCam::Process_FollowPedWithMouse(const CVector& target, float orientation, 
 
 // 0x522D40
 void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool preserveAngles) {
-    if (!m_pCamTargetEntity->IsPed() || !m_pCamTargetEntity->AsPed()->IsPlayer()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_PED || !m_pCamTargetEntity->AsPed()->IsPlayer()) {
         return;
     }
     auto* ped = m_pCamTargetEntity->AsPed();
@@ -4169,7 +4170,7 @@ void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool
         if (!TheCamera.m_bJustCameOutOfGarage && !preserveAngles) {
             m_fVerticalAngle = ped->bIsStanding ? -std::asin(std::clamp(DotProduct(ped->field_578, ped->GetMatrix().GetForward()), -1.0f, 1.0f)) : 0.0f;
         }
-        m_vecFront = {-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+        m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
         m_avecTargetHistoryPos[0] = lookAt - m_vecFront * historyDistance;
         m_anTargetHistoryTime[0] = CTimer::GetTimeInMS();
         m_avecTargetHistoryPos[1] = lookAt - m_vecFront * distance;
@@ -4186,7 +4187,7 @@ void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool
     } else if (auto* standingOn = ped->m_standingOnEntity) {
         auto* physical = standingOn->AsPhysical();
         const auto IsTrain = [](CEntity* entity) {
-            return entity && entity->IsVehicle() && entity->AsVehicle()->IsSubTrain();
+            return entity && entity->GetType() == ENTITY_TYPE_VEHICLE && entity->AsVehicle()->IsSubTrain();
         };
         if (IsTrain(standingOn) || IsTrain(physical->m_pAttachedTo)) {
             const auto speed = physical->GetMoveSpeed().Magnitude();
@@ -4287,7 +4288,7 @@ void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool
         const auto forward = TheCamera.GetForwardVector();
         if (DotProduct(forward, player->GetMatrix().GetForward()) > StaticRef<float>(0x858C24)) {
             auto position = player->GetPosition() + forward * 5.0f;
-            g_ikChainMan.LookAt("FollowPedSA", player, nullptr, 1500, static_cast<eBoneTag32>(-1), &position, false, 0.25f, 500, 3, false);
+            g_ikChainMan.LookAt("FollowPedSA", player, nullptr, 1500, BONE_UNKNOWN, &position, false, 0.25f, 500, 3, false);
         }
     }
     const auto scale = m_fFOV / 80.0f * sq(StaticRef<float>(0x8CC4A0));
@@ -4343,7 +4344,7 @@ void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool
         m_fHorizontalAngle = previousHeading;
     }
     previousHeading = m_fHorizontalAngle;
-    m_vecFront = {-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle)};
+    m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     GetVectorsReadyForRW();
     TheCamera.m_bCamDirectlyBehind = TheCamera.m_bCamDirectlyInFront = false;
     m_vecSource = lookAt - m_vecFront * distance;
@@ -4389,7 +4390,7 @@ void CCam::Process_FollowPed_SA(const CVector& target, float, float, float, bool
 
 // 0x5105C0
 void CCam::Process_M16_1stPerson(const CVector&, float, float, float) {
-    if (!m_pCamTargetEntity->IsPed()) {
+    if (m_pCamTargetEntity->GetType() != ENTITY_TYPE_PED) {
         return;
     }
     auto* ped = m_pCamTargetEntity->AsPed();
@@ -4544,7 +4545,7 @@ void CCam::Process_M16_1stPerson(const CVector&, float, float, float) {
         auto upOffset = 0.1f;
         auto upperLimit = DegreesToRadians(60.0f);
         auto lowerLimit = DegreesToRadians(85.5f);
-        if (parent->IsVehicle() && parent->AsVehicle()->IsBike()) {
+        if (parent->GetType() == ENTITY_TYPE_VEHICLE && parent->AsVehicle()->IsBike()) {
             upOffset = forwardOffset = 0.0f;
             upperLimit = lowerLimit = ped->m_nTurretPosnMode;
         }
@@ -4564,7 +4565,7 @@ void CCam::Process_M16_1stPerson(const CVector&, float, float, float) {
         if (delta > softLimit || delta < -softLimit) {
             const auto excess = delta > softLimit ? delta - softLimit : delta + softLimit;
             const auto correction = std::max(timeStep * 0.05f * std::abs(excess), std::abs(excess) - margin);
-            if (parent->IsVehicle() && parent->AsVehicle()->IsSubHeli()) {
+            if (parent->GetType() == ENTITY_TYPE_VEHICLE && parent->AsVehicle()->IsSubHeli()) {
                 auto* heli = parent->AsVehicle()->AsHeli();
                 if (heli->m_fForcedOrientation > 0.0f) {
                     heli->SetHeliOrientation(heli->m_fForcedOrientation - timeStep * excess * 0.1f);
@@ -4598,11 +4599,7 @@ void CCam::Process_M16_1stPerson(const CVector&, float, float, float) {
 
     const auto pitchLimit = StaticRef<float>(0x8CCC90);
     m_fVerticalAngle = std::clamp(m_fVerticalAngle, -pitchLimit, pitchLimit);
-    m_vecFront = {
-        -std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle),
-        -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle),
-        std::sin(m_fVerticalAngle)
-    };
+    m_vecFront.Set(-std::cos(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), -std::sin(m_fHorizontalAngle) * std::cos(m_fVerticalAngle), std::sin(m_fVerticalAngle));
     const auto lookAt = m_vecSource + m_vecFront * 3.0f;
     m_vecSource += m_vecFront * 0.4f;
     if (m_bCollisionChecksOn) {
@@ -4781,7 +4778,7 @@ void CCam::Process_SpecialFixedForSyphon(const CVector& target, float, float, fl
     m_vecFront = CrossProduct(right, m_vecUp).Normalized();
     m_fFOV = 70.0f;
 
-    if (m_pCamTargetEntity && m_pCamTargetEntity->IsPed()) {
+    if (m_pCamTargetEntity && m_pCamTargetEntity->GetType() == ENTITY_TYPE_PED) {
         auto* ped = m_pCamTargetEntity->AsPed();
         if (ped->m_pTargetedObject) {
             const auto* weapon = CWeaponInfo::GetWeaponInfo(ped->GetActiveWeapon().m_Type, ped->GetWeaponSkill());
@@ -4813,17 +4810,17 @@ bool CCam::Process_WheelCam(const CVector&, float, float, float) {
     m_fFOV = 70.0f;
     auto* entity = m_pCamTargetEntity;
     CVector offset;
-    if (entity->IsPed()) {
+    if (entity->GetType() == ENTITY_TYPE_PED) {
         m_vecSource = entity->GetMatrix().TransformVector({-0.3f, -0.5f, 0.1f}) + entity->GetPosition();
-        m_vecFront = {1.0f, 0.0f, 0.0f};
+        m_vecFront.Set(1.0f, 0.0f, 0.0f);
     } else {
-        offset = {entity->GetColModel()->GetBoundingBox().m_vecMin.x - sideOffset, -2.3f, 0.3f};
+        offset.Set(entity->GetColModel()->GetBoundingBox().m_vecMin.x - sideOffset, -2.3f, 0.3f);
         m_vecSource = entity->GetMatrix().TransformPoint(offset);
         m_vecFront = entity->GetMatrix().GetForward();
     }
 
     CVector right, up;
-    auto* vehicle = entity->IsVehicle() ? entity->AsVehicle() : nullptr;
+    auto* vehicle = entity->GetType() == ENTITY_TYPE_VEHICLE ? entity->AsVehicle() : nullptr;
     if (vehicle && (vehicle->GetVehicleAppearance() == VEHICLE_APPEARANCE_HELI || vehicle->GetVehicleAppearance() == VEHICLE_APPEARANCE_PLANE)) {
         right = entity->GetMatrix().GetRight();
         up = entity->GetMatrix().GetUp();
@@ -4849,7 +4846,7 @@ bool CCam::Process_WheelCam(const CVector&, float, float, float) {
         }
     } else if (vehicle && vehicle->IsBike()) {
         right = entity->GetMatrix().GetRight();
-        up = {0.0f, 0.0f, 1.0f};
+        up.Set(0.0f, 0.0f, 1.0f);
         m_vecFront = CrossProduct(m_vecUp, right).Normalized();
         offset.x += sideOffset - bikeSideOffset;
         m_vecSource = entity->GetPosition() + right * offset.x + m_vecFront * offset.y + m_vecUp * offset.z;
