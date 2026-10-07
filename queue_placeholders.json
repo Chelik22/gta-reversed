@@ -1,0 +1,6784 @@
+[
+ {
+  "addr": 6205280,
+  "addr_hex": "0x5EAF60",
+  "name": "AbortPedTasks",
+  "file": "source/game_sa/Attractors/PedAttractor.cpp",
+  "line": 37,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5118528,
+  "addr_hex": "0x4E1A40",
+  "name": "HandlePedSwing",
+  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
+  "line": 26,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5119168,
+  "addr_hex": "0x4E1CC0",
+  "name": "HandlePedHit",
+  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
+  "line": 27,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5120848,
+  "addr_hex": "0x4E2350",
+  "name": "HandlePedJacked",
+  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
+  "line": 28,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5139664,
+  "addr_hex": "0x4E6CD0",
+  "name": "LoadSlots",
+  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
+  "line": 325,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5142064,
+  "addr_hex": "0x4E7630",
+  "name": "Service",
+  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
+  "line": 335,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5161024,
+  "addr_hex": "0x4EC040",
+  "name": "ClearMissionAudio",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 796,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5180480,
+  "addr_hex": "0x4F0C40",
+  "name": "SetAudioBuffer",
+  "file": "source/game_sa/Audio/Hardware/AEStaticChannel.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5183488,
+  "addr_hex": "0x4F1800",
+  "name": "Constructor",
+  "file": "source/game_sa/Audio/Hardware/AEStreamingChannel.cpp",
+  "line": 502,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5186512,
+  "addr_hex": "0x4F23D0",
+  "name": "PrepareStream",
+  "file": "source/game_sa/Audio/Hardware/AEStreamingChannel.cpp",
+  "line": 505,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5074528,
+  "addr_hex": "0x4D6E60",
+  "name": "UpdateAmbienceTrackAndVolume",
+  "file": "source/game_sa/Audio/Managers/AEAmbienceTrackManager.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5150720,
+  "addr_hex": "0x4E9800",
+  "name": "IsVehicleRadioActive",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 24,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5150752,
+  "addr_hex": "0x4E9820",
+  "name": "StopRadio",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 51,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5152784,
+  "addr_hex": "0x4EA010",
+  "name": "UpdateRadioVolumes",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 44,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5155888,
+  "addr_hex": "0x4EAC30",
+  "name": "TrackRadioStation",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 32,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6394016,
+  "addr_hex": "0x6190A0",
+  "name": "GenerateGameFilename",
+  "file": "source/game_sa/C_PcSave.cpp",
+  "line": 18,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4330560,
+  "addr_hex": "0x421440",
+  "name": "GetNewVehicleDependingOnCarModel",
+  "file": "source/game_sa/CarCtrl.cpp",
+  "line": 40,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6612800,
+  "addr_hex": "0x64E740",
+  "name": "GetPositionToOpenCarDoor",
+  "file": "source/game_sa/CarEnterExit.cpp",
+  "line": 26,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6620352,
+  "addr_hex": "0x6504C0",
+  "name": "IsRoomForPedToLeaveCar",
+  "file": "source/game_sa/CarEnterExit.cpp",
+  "line": 35,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5930656,
+  "addr_hex": "0x5A7EA0",
+  "name": "GetTextureDependency",
+  "file": "source/game_sa/Clothes.cpp",
+  "line": 27,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5916592,
+  "addr_hex": "0x5A47B0",
+  "name": "ReleaseGeometry",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 29,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5916992,
+  "addr_hex": "0x5A4940",
+  "name": "BlendGeometry",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 33,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5918480,
+  "addr_hex": "0x5A4F10",
+  "name": "BlendGeometry",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 34,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5920160,
+  "addr_hex": "0x5A55A0",
+  "name": "ConstructGeometryArray",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 36,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7427248,
+  "addr_hex": "0x7154B0",
+  "name": "RenderBottomFromHeight",
+  "file": "source/game_sa/Clouds.cpp",
+  "line": 23,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6292784,
+  "addr_hex": "0x600530",
+  "name": "SetDefault",
+  "file": "source/game_sa/DecisionMakers/Decision.cpp",
+  "line": 9,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6159856,
+  "addr_hex": "0x5DFDF0",
+  "name": "PositionAttachedPed",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 171,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6162464,
+  "addr_hex": "0x5E0820",
+  "name": "PositionPedOutOfCollision",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 115,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6167312,
+  "addr_hex": "0x5E1B10",
+  "name": "UpdatePosition",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 76,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6179920,
+  "addr_hex": "0x5E4C50",
+  "name": "CalculateNewVelocity",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 70,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6181760,
+  "addr_hex": "0x5E5380",
+  "name": "DoFootLanded",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 67,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6226784,
+  "addr_hex": "0x5F0360",
+  "name": "KillPedWithCar",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 89,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5524016,
+  "addr_hex": "0x544A30",
+  "name": "Add",
+  "file": "source/game_sa/Entity/Physical.cpp",
+  "line": 33,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7036752,
+  "addr_hex": "0x6B5F50",
+  "name": "SetRemoveAnimFlags",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 24,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7038784,
+  "addr_hex": "0x6B6740",
+  "name": "ResetSuspension",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 28,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7040320,
+  "addr_hex": "0x6B6D40",
+  "name": "DoSoftGroundResistance",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 31,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7041152,
+  "addr_hex": "0x6B7080",
+  "name": "PlayCarHorn",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 51,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7041664,
+  "addr_hex": "0x6B7280",
+  "name": "ProcessRiderAnims",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 34,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7045008,
+  "addr_hex": "0x6B7F90",
+  "name": "FixHandsToBars",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 35,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7047600,
+  "addr_hex": "0x6B89B0",
+  "name": "SetupSuspensionLines",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 49,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7073456,
+  "addr_hex": "0x6BEEB0",
+  "name": "PlaceOnRoadProperly",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 36,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7074352,
+  "addr_hex": "0x6BF230",
+  "name": "GetCorrectedWorldDoorPosition",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 37,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7110576,
+  "addr_hex": "0x6C7FB0",
+  "name": "SetupSuspensionLines",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7296464,
+  "addr_hex": "0x6F55D0",
+  "name": "ReadAndInterpretTrackFile",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 34,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7297504,
+  "addr_hex": "0x6F59E0",
+  "name": "FindCoorsFromPositionOnTrack",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 37,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7297952,
+  "addr_hex": "0x6F5BA0",
+  "name": "FindMaximumSpeedToStopAtStations",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 38,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7298672,
+  "addr_hex": "0x6F5E70",
+  "name": "FindCaboose",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 48,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7298704,
+  "addr_hex": "0x6F5E90",
+  "name": "FindEngine",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 49,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7298736,
+  "addr_hex": "0x6F5EB0",
+  "name": "FindCarriage",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 50,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7298816,
+  "addr_hex": "0x6F5F00",
+  "name": "FindNextStationPositionInDirection",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 52,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7299120,
+  "addr_hex": "0x6F6030",
+  "name": "Constructor",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 32,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7301200,
+  "addr_hex": "0x6F6850",
+  "name": "RemoveRandomPassenger",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 54,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7301792,
+  "addr_hex": "0x6F6AA0",
+  "name": "RemoveAllTrains",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 56,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7302096,
+  "addr_hex": "0x6F6BD0",
+  "name": "FindClosestTrackNode",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 58,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7302336,
+  "addr_hex": "0x6F6CC0",
+  "name": "FindPositionOnTrackFromCoors",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 59,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7303312,
+  "addr_hex": "0x6F7090",
+  "name": "FindNearestTrain",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 60,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7303776,
+  "addr_hex": "0x6F7260",
+  "name": "IsNextStationAllowed",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 62,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7303920,
+  "addr_hex": "0x6F72F0",
+  "name": "SkipToNextAllowedStation",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 63,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7304528,
+  "addr_hex": "0x6F7550",
+  "name": "CreateMissionTrain",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 64,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7305472,
+  "addr_hex": "0x6F7900",
+  "name": "DoTrainGenerationAndRemoval",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 65,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7307632,
+  "addr_hex": "0x6F8170",
+  "name": "AddNearbyPedAsRandomPassenger",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 66,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7156656,
+  "addr_hex": "0x6D33B0",
+  "name": "RemoveObjectsCB",
+  "file": "source/game_sa/Entity/Vehicle/Vehicle.cpp",
+  "line": 233,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 4956144,
+  "addr_hex": "0x4B9FF0",
+  "name": "ComputeKnockOffBikeResponse",
+  "file": "source/game_sa/Events/EventHandler.cpp",
+  "line": 265,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7443136,
+  "addr_hex": "0x7192C0",
+  "name": "FindSubFontCharacter",
+  "file": "source/game_sa/Font.cpp",
+  "line": 60,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1414,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4860736,
+  "addr_hex": "0x4A2B40",
+  "name": "CreateInstance",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 20,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4860864,
+  "addr_hex": "0x4A2BC0",
+  "name": "Update",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 21,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6039024,
+  "addr_hex": "0x5C25F0",
+  "name": "Load",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 22,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4888752,
+  "addr_hex": "0x4A98B0",
+  "name": "DestroyAllFxSystems",
+  "file": "source/game_sa/Fx/FxManager.cpp",
+  "line": 29,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4891712,
+  "addr_hex": "0x4AA440",
+  "name": "AddParticle",
+  "file": "source/game_sa/Fx/FxSystem.cpp",
+  "line": 25,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4891968,
+  "addr_hex": "0x4AA540",
+  "name": "AddParticle",
+  "file": "source/game_sa/Fx/FxSystem.cpp",
+  "line": 26,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4893088,
+  "addr_hex": "0x4AA9A0",
+  "name": "UpdateBoundingBoxCB",
+  "file": "source/game_sa/Fx/FxSystem.cpp",
+  "line": 35,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4894576,
+  "addr_hex": "0x4AAF70",
+  "name": "Update",
+  "file": "source/game_sa/Fx/FxSystem.cpp",
+  "line": 49,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4471120,
+  "addr_hex": "0x443950",
+  "name": "AddKillToProvocation",
+  "file": "source/game_sa/GangWars.cpp",
+  "line": 25,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5805648,
+  "addr_hex": "0x589650",
+  "name": "DrawVitalStats",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 52,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5812608,
+  "addr_hex": "0x58B180",
+  "name": "DrawMissionTimers",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 44,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5813984,
+  "addr_hex": "0x58B6E0",
+  "name": "DrawHelpText",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 43,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5816912,
+  "addr_hex": "0x58C250",
+  "name": "DrawSubtitles",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 49,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5818016,
+  "addr_hex": "0x58C6A0",
+  "name": "DrawSuccessFailedMessage",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 50,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5822880,
+  "addr_hex": "0x58D9A0",
+  "name": "DrawWanted",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 56,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5824544,
+  "addr_hex": "0x58E020",
+  "name": "DrawCrossHairs",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 41,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5827312,
+  "addr_hex": "0x58EAF0",
+  "name": "DrawPlayerInfo",
+  "file": "source/game_sa/Hud.cpp",
+  "line": 54,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5340144,
+  "addr_hex": "0x517BF0",
+  "name": "ProcessFOVZoom",
+  "file": "source/game_sa/IdleCam.cpp",
+  "line": 24,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1461,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6300576,
+  "addr_hex": "0x6023A0",
+  "name": "Constructor",
+  "file": "source/game_sa/InterestingEvents.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 8743040,
+  "addr_hex": "0x856880",
+  "name": "Destructor",
+  "file": "source/game_sa/InterestingEvents.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5775584,
+  "addr_hex": "0x5820E0",
+  "name": "FillGridWithCarColours",
+  "file": "source/game_sa/MenuSystem.cpp",
+  "line": 29,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4330176,
+  "addr_hex": "0x4212C0",
+  "name": "SwaysInWind",
+  "file": "source/game_sa/Models/BaseModelInfo.cpp",
+  "line": 49,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4527568,
+  "addr_hex": "0x4515D0",
+  "name": "DoPathSearch",
+  "file": "source/game_sa/PathFind.cpp",
+  "line": 77,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4938794,
+  "addr_hex": "0x4B5C2A",
+  "name": "IsBleedingWeapon",
+  "file": "source/game_sa/PedDamageResponseCalculator.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6231120,
+  "addr_hex": "0x5F1450",
+  "name": "ComputeEntityHitSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 32,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6232944,
+  "addr_hex": "0x5F1B70",
+  "name": "CanPedTargetPoint",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6233648,
+  "addr_hex": "0x5F1E30",
+  "name": "ComputeBuildingHitPoints",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 13,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6233712,
+  "addr_hex": "0x5F1E70",
+  "name": "ComputePedHitSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 35,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6234016,
+  "addr_hex": "0x5F1FA0",
+  "name": "ComputeEntityBoundingBoxCornersUncached",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 21,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6237200,
+  "addr_hex": "0x5F2C10",
+  "name": "ComputeClosestSurfacePoint",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6237952,
+  "addr_hex": "0x5F2F00",
+  "name": "GetIsLineOfSightClear",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 41,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6238928,
+  "addr_hex": "0x5F32D0",
+  "name": "CanPedJumpObstacle",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 10,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6239808,
+  "addr_hex": "0x5F3640",
+  "name": "ComputePedHitSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 34,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6239840,
+  "addr_hex": "0x5F3660",
+  "name": "ComputeEntityBoundingBoxPlanes",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 22,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6239984,
+  "addr_hex": "0x5F36F0",
+  "name": "ComputeClosestSurfacePoint",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 16,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6240960,
+  "addr_hex": "0x5F3AC0",
+  "name": "ComputeEntityHitSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 33,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6241216,
+  "addr_hex": "0x5F3BC0",
+  "name": "ComputeEntityHitSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 31,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6241744,
+  "addr_hex": "0x5F3DD0",
+  "name": "ComputeRouteRoundEntityBoundingBox",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 38,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6250768,
+  "addr_hex": "0x5F6110",
+  "name": "ComputeRouteRoundEntityBoundingBox",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 37,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5059824,
+  "addr_hex": "0x4D34F0",
+  "name": "RpAnimBlendClumpUpdateAnimations",
+  "file": "source/game_sa/Plugins/RpAnimBlendPlugin/RpAnimBlend.cpp",
+  "line": 1930,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6356944,
+  "addr_hex": "0x60FFD0",
+  "name": "PickPedMIToStreamInForCurrentZone",
+  "file": "source/game_sa/PopCycle.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6375200,
+  "addr_hex": "0x614720",
+  "name": "AddToPopulation",
+  "file": "source/game_sa/Population.cpp",
+  "line": 66,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6380992,
+  "addr_hex": "0x615DC0",
+  "name": "ManageObject",
+  "file": "source/game_sa/Population.cpp",
+  "line": 69,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7568256,
+  "addr_hex": "0x737B80",
+  "name": "RemoveFXSystem",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 27,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7317232,
+  "addr_hex": "0x6FA6F0",
+  "name": "Init",
+  "file": "source/game_sa/Scripts/Scripted2dEffects.cpp",
+  "line": 9,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4630720,
+  "addr_hex": "0x46A8C0",
+  "name": "Init",
+  "file": "source/game_sa/ScriptsForBrains.cpp",
+  "line": 9,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4633552,
+  "addr_hex": "0x46B3D0",
+  "name": "IsObjectWithinBrainActivationRange",
+  "file": "source/game_sa/ScriptsForBrains.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4640128,
+  "addr_hex": "0x46CD80",
+  "name": "StartOrRequestNewStreamedScriptBrain",
+  "file": "source/game_sa/ScriptsForBrains.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7368544,
+  "addr_hex": "0x706F60",
+  "name": "AddPermanentShadow",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 20,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7374512,
+  "addr_hex": "0x7086B0",
+  "name": "CastShadowEntityXY",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 35,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7380208,
+  "addr_hex": "0x709CF0",
+  "name": "ShadowRenderTriangleCB",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 47,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7381056,
+  "addr_hex": "0x70A040",
+  "name": "CastShadowEntityXYZ",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 36,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7386928,
+  "addr_hex": "0x70B730",
+  "name": "GeneratePolysForStaticShadow",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 41,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7387648,
+  "addr_hex": "0x70BA00",
+  "name": "StoreStaticShadow",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 42,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7388576,
+  "addr_hex": "0x70BDA0",
+  "name": "StoreShadowForVehicle",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 43,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7391568,
+  "addr_hex": "0x70C950",
+  "name": "UpdatePermanentShadows",
+  "file": "source/game_sa/Shadows.cpp",
+  "line": 21,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7411552,
+  "addr_hex": "0x711760",
+  "name": "RegisterStencilShadows",
+  "file": "source/game_sa/StencilShadows.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6254528,
+  "addr_hex": "0x5F6FC0",
+  "name": "AllocateDefaultTasks",
+  "file": "source/game_sa/Tasks/Allocators/PedGroup/PedGroupDefaultTaskAllocatorSitInLeaderCar.h",
+  "line": 59,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6932560,
+  "addr_hex": "0x69C850",
+  "name": "ComputeClosestPeds",
+  "file": "source/game_sa/Tasks/Allocators/TaskAllocatorKillThreatsBasic.cpp",
+  "line": 82,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6868864,
+  "addr_hex": "0x68CF80",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexArrestPed.cpp",
+  "line": 28,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6594960,
+  "addr_hex": "0x64A190",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6900128,
+  "addr_hex": "0x6949A0",
+  "name": "Constructor",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 9,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6900272,
+  "addr_hex": "0x694A30",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 13,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6903616,
+  "addr_hex": "0x695740",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6679200,
+  "addr_hex": "0x65EAA0",
+  "name": "Constructor",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 9,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6679472,
+  "addr_hex": "0x65EBB0",
+  "name": "Destructor",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 10,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6690704,
+  "addr_hex": "0x661790",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangJoinRespond.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6693520,
+  "addr_hex": "0x662290",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangJoinRespond.cpp",
+  "line": 13,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6731456,
+  "addr_hex": "0x66B6C0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToAttractor.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6738224,
+  "addr_hex": "0x66D130",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToAttractor.cpp",
+  "line": 13,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6737872,
+  "addr_hex": "0x66CFD0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAndStandStillAndAchieveHeading.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6741968,
+  "addr_hex": "0x66DFD0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAndStandStillAndAchieveHeading.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6760896,
+  "addr_hex": "0x6729C0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAnyMeans.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6720704,
+  "addr_hex": "0x668CC0",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointShooting.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6737424,
+  "addr_hex": "0x66CE10",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointShooting.cpp",
+  "line": 11,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6732960,
+  "addr_hex": "0x66BCA0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6634016,
+  "addr_hex": "0x653A20",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 18,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6634304,
+  "addr_hex": "0x653B40",
+  "name": "ComputeEvasiveStepMoveDir",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6642096,
+  "addr_hex": "0x6559B0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6432800,
+  "addr_hex": "0x622820",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedFromBoat.cpp",
+  "line": 11,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6536768,
+  "addr_hex": "0x63BE40",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 18,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6536880,
+  "addr_hex": "0x63BEB0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 21,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6536896,
+  "addr_hex": "0x63BEC0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6544080,
+  "addr_hex": "0x63DAD0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6562496,
+  "addr_hex": "0x6422C0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 19,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6562624,
+  "addr_hex": "0x642340",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexLeaveCarAndWander.cpp",
+  "line": 20,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6667680,
+  "addr_hex": "0x65BDA0",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6672080,
+  "addr_hex": "0x65CED0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 16,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6496320,
+  "addr_hex": "0x632040",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6514336,
+  "addr_hex": "0x6366A0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 16,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4950128,
+  "addr_hex": "0x4B8870",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexUseClosestFreeScriptedAttractorSprint.cpp",
+  "line": 11,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4950224,
+  "addr_hex": "0x4B88D0",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexUseClosestFreeScriptedAttractorSprint.cpp",
+  "line": 12,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6498592,
+  "addr_hex": "0x632920",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWaitForBus.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6498624,
+  "addr_hex": "0x632940",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWaitForBus.cpp",
+  "line": 16,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6498880,
+  "addr_hex": "0x632A40",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWaitForBus.cpp",
+  "line": 18,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6515296,
+  "addr_hex": "0x636A60",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWaitForBus.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6523200,
+  "addr_hex": "0x638940",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWaitForBus.cpp",
+  "line": 17,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6683648,
+  "addr_hex": "0x65FC00",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 13,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6693296,
+  "addr_hex": "0x6621B0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGoToVehicleAndLean.cpp",
+  "line": 11,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6689040,
+  "addr_hex": "0x661110",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskLeanOnVehicle.cpp",
+  "line": 14,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6796896,
+  "addr_hex": "0x67B660",
+  "name": "DropJetPack",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleJetPack.cpp",
+  "line": 37,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6845744,
+  "addr_hex": "0x687530",
+  "name": "PlayerControlFighter",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimplePlayerOnFoot.cpp",
+  "line": 33,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6400656,
+  "addr_hex": "0x61AA90",
+  "name": "GetTaskType",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleRunNamedAnim.cpp",
+  "line": 16,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6403952,
+  "addr_hex": "0x61B770",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleRunNamedAnim.cpp",
+  "line": 15,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7243136,
+  "addr_hex": "0x6E8580",
+  "name": "GetWaterLevelNoWaves",
+  "file": "source/game_sa/WaterLevel.cpp",
+  "line": 46,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1499,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7249264,
+  "addr_hex": "0x6E9D70",
+  "name": "FindNearestWaterAndItsFlow",
+  "file": "source/game_sa/WaterLevel.cpp",
+  "line": 45,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1499,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7594560,
+  "addr_hex": "0x73E240",
+  "name": "FindNearestTargetEntityWithScreenCoors",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 60,
+  "tags": [],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6222880,
+  "addr_hex": "0x5EF420",
+  "name": "GetDisplacement",
+  "file": "source/game_sa/Attractors/PedShelterAttractor.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6223216,
+  "addr_hex": "0x5EF570",
+  "name": "BroadcastDeparture",
+  "file": "source/game_sa/Attractors/PedShelterAttractor.cpp",
+  "line": 35,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5100704,
+  "addr_hex": "0x4DD4A0",
+  "name": "AddAudioEvent",
+  "file": "source/game_sa/Audio/Entities/AEFrontendAudioEntity.cpp",
+  "line": 815,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5107104,
+  "addr_hex": "0x4DEDA0",
+  "name": "UpdateParameters",
+  "file": "source/game_sa/Audio/Entities/AEFrontendAudioEntity.cpp",
+  "line": 818,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5123808,
+  "addr_hex": "0x4E2EE0",
+  "name": "Service",
+  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5140320,
+  "addr_hex": "0x4E6F60",
+  "name": "PlayLoadedDialogue",
+  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
+  "line": 330,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5140960,
+  "addr_hex": "0x4E71E0",
+  "name": "AddAudioEvent",
+  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
+  "line": 323,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5160800,
+  "addr_hex": "0x4EBF60",
+  "name": "GetMissionAudioLoadingStatus",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 793,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5160928,
+  "addr_hex": "0x4EBFE0",
+  "name": "IsMissionAudioSampleFinished",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 794,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5161152,
+  "addr_hex": "0x4EC0C0",
+  "name": "SetMissionAudioPosition",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 797,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5161216,
+  "addr_hex": "0x4EC100",
+  "name": "AttachMissionAudioToPhysical",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 798,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5161360,
+  "addr_hex": "0x4EC190",
+  "name": "PreloadMissionAudio",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 799,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5161584,
+  "addr_hex": "0x4EC270",
+  "name": "PlayLoadedMissionAudio",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 800,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5162192,
+  "addr_hex": "0x4EC4D0",
+  "name": "GetMissionAudioPosition",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 801,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5162704,
+  "addr_hex": "0x4EC6D0",
+  "name": "PlayMissionBankSound",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 803,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5163376,
+  "addr_hex": "0x4EC970",
+  "name": "UpdateParameters",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 807,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5164272,
+  "addr_hex": "0x4ECCF0",
+  "name": "ProcessMissionAudioEvent",
+  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
+  "line": 804,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1225,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5241088,
+  "addr_hex": "0x4FF900",
+  "name": "ProcessGenericJet",
+  "file": "source/game_sa/Audio/Entities/AEVehicleAudioEntity.cpp",
+  "line": 4840,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 5242304,
+  "addr_hex": "0x4FFDC0",
+  "name": "ProcessDummyBicycle",
+  "file": "source/game_sa/Audio/Entities/AEVehicleAudioEntity.cpp",
+  "line": 4845,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 5242944,
+  "addr_hex": "0x500040",
+  "name": "ProcessPlayerBicycle",
+  "file": "source/game_sa/Audio/Entities/AEVehicleAudioEntity.cpp",
+  "line": 4846,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 5246800,
+  "addr_hex": "0x500F50",
+  "name": "ProcessDummyHovercraft",
+  "file": "source/game_sa/Audio/Entities/AEVehicleAudioEntity.cpp",
+  "line": 4850,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 5186896,
+  "addr_hex": "0x4F2550",
+  "name": "Service",
+  "file": "source/game_sa/Audio/Hardware/AEStreamingChannel.cpp",
+  "line": 519,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5148224,
+  "addr_hex": "0x4E8E40",
+  "name": "ChooseTalkRadioShow",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 41,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5149888,
+  "addr_hex": "0x4E94C0",
+  "name": "ChooseIdentIndex",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5150064,
+  "addr_hex": "0x4E9570",
+  "name": "ChooseAdvertIndex",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 38,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5150176,
+  "addr_hex": "0x4E95E0",
+  "name": "ChooseDJBanterIndexFromList",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 37,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5153392,
+  "addr_hex": "0x4EA270",
+  "name": "ChooseMusicTrackIndex",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 40,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5153488,
+  "addr_hex": "0x4EA2D0",
+  "name": "ChooseDJBanterIndex",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 36,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5154416,
+  "addr_hex": "0x4EA670",
+  "name": "QueueUpTracksForStation",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 35,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5155120,
+  "addr_hex": "0x4EA930",
+  "name": "CheckForTrackConcatenation",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 34,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5158496,
+  "addr_hex": "0x4EB660",
+  "name": "CheckForStationRetune",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 5159328,
+  "addr_hex": "0x4EB9A0",
+  "name": "Service",
+  "file": "source/game_sa/Audio/Managers/AERadioTrackManager.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1459,
+    "mergeable": false
+   },
+   {
+    "pr": 1460,
+    "mergeable": false
+   },
+   {
+    "pr": 1468,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6615616,
+  "addr_hex": "0x64F240",
+  "name": "IsPlayerToQuitCarEnter",
+  "file": "source/game_sa/CarEnterExit.cpp",
+  "line": 34,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6616384,
+  "addr_hex": "0x64F540",
+  "name": "MakeUndraggedPassengerPedsLeaveCar",
+  "file": "source/game_sa/CarEnterExit.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6622128,
+  "addr_hex": "0x650BB0",
+  "name": "GetNearestCarPassengerDoor",
+  "file": "source/game_sa/CarEnterExit.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5915840,
+  "addr_hex": "0x5A44C0",
+  "name": "PreprocessClothesDesc",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 28,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5919552,
+  "addr_hex": "0x5A5340",
+  "name": "CopyGeometry",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 35,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5922880,
+  "addr_hex": "0x5A6040",
+  "name": "ConstructTextures",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 45,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5924144,
+  "addr_hex": "0x5A6530",
+  "name": "ConstructGeometryAndSkinArrays",
+  "file": "source/game_sa/ClothesBuilder.cpp",
+  "line": 46,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4440464,
+  "addr_hex": "0x43C190",
+  "name": "Update",
+  "file": "source/game_sa/Conversations/ConversationForPed.cpp",
+  "line": 7,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1152,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4435376,
+  "addr_hex": "0x43ADB0",
+  "name": "DoneSettingUpConversation",
+  "file": "source/game_sa/Conversations/Conversations.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1152,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4436208,
+  "addr_hex": "0x43B0F0",
+  "name": "Update",
+  "file": "source/game_sa/Conversations/PedToPlayerConversations.cpp",
+  "line": 9,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1152,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6182896,
+  "addr_hex": "0x5E57F0",
+  "name": "PlayFootSteps",
+  "file": "source/game_sa/Entity/Ped/Ped.cpp",
+  "line": 66,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6334496,
+  "addr_hex": "0x60A820",
+  "name": "GetButtonSprintResults",
+  "file": "source/game_sa/Entity/Ped/PlayerPed.cpp",
+  "line": 61,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7038944,
+  "addr_hex": "0x6B67E0",
+  "name": "SetUpWheelColModel",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 54,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7039312,
+  "addr_hex": "0x6B6950",
+  "name": "DoBurstAndSoftGroundRatios",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 53,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7048896,
+  "addr_hex": "0x6B8EC0",
+  "name": "VehicleDamage",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 48,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7049808,
+  "addr_hex": "0x6B9250",
+  "name": "ProcessControl",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 47,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7063856,
+  "addr_hex": "0x6BC930",
+  "name": "ProcessAI",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 26,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7065744,
+  "addr_hex": "0x6BD090",
+  "name": "PreRender",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 45,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7070480,
+  "addr_hex": "0x6BE310",
+  "name": "ProcessControlInputs",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 42,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7072272,
+  "addr_hex": "0x6BEA10",
+  "name": "BlowUpCar",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7072544,
+  "addr_hex": "0x6BEB20",
+  "name": "BurstTyre",
+  "file": "source/game_sa/Entity/Vehicle/Bike.cpp",
+  "line": 41,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7076688,
+  "addr_hex": "0x6BFB50",
+  "name": "ProcessDrivingAnims",
+  "file": "source/game_sa/Entity/Vehicle/Bmx.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7079952,
+  "addr_hex": "0x6C0810",
+  "name": "PreRender",
+  "file": "source/game_sa/Entity/Vehicle/Bmx.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7083120,
+  "addr_hex": "0x6C1470",
+  "name": "ProcessAI",
+  "file": "source/game_sa/Entity/Vehicle/Bmx.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7109952,
+  "addr_hex": "0x6C7D40",
+  "name": "ResetSuspension",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7110016,
+  "addr_hex": "0x6C7D80",
+  "name": "ExtendSuspension",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7111248,
+  "addr_hex": "0x6C8250",
+  "name": "ProcessControl",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7111472,
+  "addr_hex": "0x6C8330",
+  "name": "ProcessControlCollisionCheck",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7111584,
+  "addr_hex": "0x6C83A0",
+  "name": "ProcessSuspension",
+  "file": "source/game_sa/Entity/Vehicle/MonsterTruck.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1475,
+    "mergeable": false
+   },
+   {
+    "pr": 1500,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7115360,
+  "addr_hex": "0x6C9260",
+  "name": "ProcessControl",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 30,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7115936,
+  "addr_hex": "0x6C94A0",
+  "name": "PreRender",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7122384,
+  "addr_hex": "0x6CADD0",
+  "name": "ProcessControlInputs",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 31,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7124928,
+  "addr_hex": "0x6CB7C0",
+  "name": "ProcessFlyingCarStuff",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7128240,
+  "addr_hex": "0x6CC4B0",
+  "name": "VehicleDamage",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 33,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7130192,
+  "addr_hex": "0x6CCC50",
+  "name": "SwitchAmbientPlanes",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 37,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7130352,
+  "addr_hex": "0x6CCCF0",
+  "name": "BlowUpCar",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 38,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7131280,
+  "addr_hex": "0x6CD090",
+  "name": "FindPlaneCreationCoors",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7131888,
+  "addr_hex": "0x6CD2F0",
+  "name": "DoPlaneGenerationAndRemoval",
+  "file": "source/game_sa/Entity/Vehicle/Plane.cpp",
+  "line": 40,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7134400,
+  "addr_hex": "0x6CDCC0",
+  "name": "ProcessControl",
+  "file": "source/game_sa/Entity/Vehicle/QuadBike.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1366,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7304256,
+  "addr_hex": "0x6F7440",
+  "name": "InitTrains",
+  "file": "source/game_sa/Entity/Vehicle/Train.cpp",
+  "line": 33,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1154,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6289952,
+  "addr_hex": "0x5FFA20",
+  "name": "ScanForEntitiesInRange",
+  "file": "source/game_sa/EntityScanner.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4457632,
+  "addr_hex": "0x4404A0",
+  "name": "TransitionFinished",
+  "file": "source/game_sa/EntryExit.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4971392,
+  "addr_hex": "0x4BDB80",
+  "name": "ComputePedCollisionWithPedResponse",
+  "file": "source/game_sa/Events/EventHandler.cpp",
+  "line": 273,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4974544,
+  "addr_hex": "0x4BE7D0",
+  "name": "ComputePedCollisionWithPlayerResponse",
+  "file": "source/game_sa/Events/EventHandler.cpp",
+  "line": 274,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6260992,
+  "addr_hex": "0x5F8900",
+  "name": "ComputeResponseLeaderEnteredCar",
+  "file": "source/game_sa/Events/GroupEventHandler.cpp",
+  "line": 68,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6264112,
+  "addr_hex": "0x5F9530",
+  "name": "ComputeResponsLeaderQuitEnteringCar",
+  "file": "source/game_sa/Events/GroupEventHandler.cpp",
+  "line": 67,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7440912,
+  "addr_hex": "0x718A10",
+  "name": "PrintChar",
+  "file": "source/game_sa/Font.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1414,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7444544,
+  "addr_hex": "0x719840",
+  "name": "RenderFontBuffer",
+  "file": "source/game_sa/Font.cpp",
+  "line": 48,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1414,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7447072,
+  "addr_hex": "0x71A220",
+  "name": "ProcessCurrentString",
+  "file": "source/game_sa/Font.cpp",
+  "line": 51,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1414,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6118336,
+  "addr_hex": "0x5D5BC0",
+  "name": "InitialiseDirtTexture",
+  "file": "source/game_sa/Fx/CarFXRenderer.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4856128,
+  "addr_hex": "0x4A1940",
+  "name": "RenderHeatHaze",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4858320,
+  "addr_hex": "0x4A21D0",
+  "name": "UpdateParticle",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4859152,
+  "addr_hex": "0x4A2510",
+  "name": "FreePrtFromPrim",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4860992,
+  "addr_hex": "0x4A2C40",
+  "name": "Render",
+  "file": "source/game_sa/Fx/FxEmitterBP.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6037520,
+  "addr_hex": "0x5C2010",
+  "name": "Load",
+  "file": "source/game_sa/Fx/FxPrimBP.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4474896,
+  "addr_hex": "0x444810",
+  "name": "CreateAttackWave",
+  "file": "source/game_sa/GangWars.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4482576,
+  "addr_hex": "0x446610",
+  "name": "Update",
+  "file": "source/game_sa/GangWars.cpp",
+  "line": 55,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6301072,
+  "addr_hex": "0x602590",
+  "name": "Add",
+  "file": "source/game_sa/InterestingEvents.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6301856,
+  "addr_hex": "0x6028A0",
+  "name": "GetInterestingEvent",
+  "file": "source/game_sa/InterestingEvents.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6314544,
+  "addr_hex": "0x605A30",
+  "name": "ScanForNearbyEntities",
+  "file": "source/game_sa/InterestingEvents.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5836512,
+  "addr_hex": "0x590EE0",
+  "name": "GetFurniture",
+  "file": "source/game_sa/Interior/FurnitureSubGroup_c.cpp",
+  "line": 8,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5836752,
+  "addr_hex": "0x590FD0",
+  "name": "GetRandomId",
+  "file": "source/game_sa/Interior/FurnitureSubGroup_c.cpp",
+  "line": 9,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6029504,
+  "addr_hex": "0x5C00C0",
+  "name": "AddFurniture",
+  "file": "source/game_sa/Interior/FurnitureSubGroup_c.cpp",
+  "line": 10,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851104,
+  "addr_hex": "0x5947E0",
+  "name": "Init",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851200,
+  "addr_hex": "0x594840",
+  "name": "AddInterior",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 34,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851328,
+  "addr_hex": "0x5948C0",
+  "name": "GetRandomInterior",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 33,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851424,
+  "addr_hex": "0x594920",
+  "name": "GetNumInteriorInfos",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851504,
+  "addr_hex": "0x594970",
+  "name": "FindInteriorInfo",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 31,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5851728,
+  "addr_hex": "0x594A50",
+  "name": "FindClosestInteriorInfo",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 30,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852048,
+  "addr_hex": "0x594B90",
+  "name": "GetPed",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 29,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852112,
+  "addr_hex": "0x594BD0",
+  "name": "GetEntity",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 28,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852144,
+  "addr_hex": "0x594BF0",
+  "name": "SetupOfficePeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 27,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852176,
+  "addr_hex": "0x594C10",
+  "name": "SetupShopPeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 26,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852720,
+  "addr_hex": "0x594E30",
+  "name": "RemovePed",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5852816,
+  "addr_hex": "0x594E90",
+  "name": "UpdateOfficePeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5853696,
+  "addr_hex": "0x595200",
+  "name": "CalcIsVisible",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5853776,
+  "addr_hex": "0x595250",
+  "name": "ContainsInteriorType",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5853840,
+  "addr_hex": "0x595290",
+  "name": "Exit",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5853984,
+  "addr_hex": "0x595320",
+  "name": "Setup",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5854080,
+  "addr_hex": "0x595380",
+  "name": "ArePathsLoaded",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5854608,
+  "addr_hex": "0x595590",
+  "name": "SetupPaths",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5858784,
+  "addr_hex": "0x5965E0",
+  "name": "SetupHousePeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5859376,
+  "addr_hex": "0x596830",
+  "name": "UpdatePeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5859472,
+  "addr_hex": "0x596890",
+  "name": "SetupPeds",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5859552,
+  "addr_hex": "0x5968E0",
+  "name": "Update",
+  "file": "source/game_sa/Interior/InteriorGroup_c.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5837744,
+  "addr_hex": "0x5913B0",
+  "name": "GetFurnitureEntity",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 38,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5837792,
+  "addr_hex": "0x5913E0",
+  "name": "IsPtInside",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838032,
+  "addr_hex": "0x5914D0",
+  "name": "CalcMatrix",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 40,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838224,
+  "addr_hex": "0x591590",
+  "name": "Furnish",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 41,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838288,
+  "addr_hex": "0x5915D0",
+  "name": "Unfurnish",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 42,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838464,
+  "addr_hex": "0x591680",
+  "name": "CheckTilesEmpty",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 43,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838592,
+  "addr_hex": "0x591700",
+  "name": "SetTilesStatus",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 44,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5838784,
+  "addr_hex": "0x5917C0",
+  "name": "SetCornerTiles",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 45,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5839072,
+  "addr_hex": "0x5918E0",
+  "name": "GetTileStatus",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 46,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5839136,
+  "addr_hex": "0x591920",
+  "name": "GetNumEmptyTiles",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 47,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5839648,
+  "addr_hex": "0x591B20",
+  "name": "GetRandomTile",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 48,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5839824,
+  "addr_hex": "0x591BD0",
+  "name": "GetTileCentre",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 50,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5839952,
+  "addr_hex": "0x591C50",
+  "name": "FindEmptyTiles",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 61,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5840160,
+  "addr_hex": "0x591D20",
+  "name": "AddGotoPt",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 51,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5840448,
+  "addr_hex": "0x591E40",
+  "name": "AddInteriorInfo",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 52,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5840784,
+  "addr_hex": "0x591F90",
+  "name": "AddPickups",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 53,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5841456,
+  "addr_hex": "0x592230",
+  "name": "Exit",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 54,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5841600,
+  "addr_hex": "0x5922C0",
+  "name": "FindBoundingBox",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 55,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5842080,
+  "addr_hex": "0x5924A0",
+  "name": "CalcExitPts",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 56,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5843440,
+  "addr_hex": "0x5929F0",
+  "name": "IsVisible",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 57,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5843616,
+  "addr_hex": "0x592AA0",
+  "name": "PlaceFurniture",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 58,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5845280,
+  "addr_hex": "0x593120",
+  "name": "PlaceFurnitureOnWall",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 59,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5845824,
+  "addr_hex": "0x593340",
+  "name": "PlaceFurnitureInCorner",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 60,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5846240,
+  "addr_hex": "0x5934E0",
+  "name": "PlaceObject",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 37,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5847312,
+  "addr_hex": "0x593910",
+  "name": "ResetTiles",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 36,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5848048,
+  "addr_hex": "0x593BF0",
+  "name": "Init",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 35,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5848496,
+  "addr_hex": "0x593DB0",
+  "name": "GetBoundingBox",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 34,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5848848,
+  "addr_hex": "0x593F10",
+  "name": "Bedroom_AddTableItem",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5849024,
+  "addr_hex": "0x593FC0",
+  "name": "FurnishBedroom",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5859632,
+  "addr_hex": "0x596930",
+  "name": "Kitchen_FurnishEdges",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5861552,
+  "addr_hex": "0x5970B0",
+  "name": "FurnishKitchen",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5861952,
+  "addr_hex": "0x597240",
+  "name": "Lounge_AddTV",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5862448,
+  "addr_hex": "0x597430",
+  "name": "Lounge_AddHifi",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5862624,
+  "addr_hex": "0x5974E0",
+  "name": "Lounge_AddChairInfo",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5862848,
+  "addr_hex": "0x5975C0",
+  "name": "Lounge_AddSofaInfo",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5863232,
+  "addr_hex": "0x597740",
+  "name": "FurnishLounge",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5870096,
+  "addr_hex": "0x599210",
+  "name": "Office_PlaceEdgeFillers",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5870560,
+  "addr_hex": "0x5993E0",
+  "name": "Office_PlaceDesk",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5871024,
+  "addr_hex": "0x5995B0",
+  "name": "Office_PlaceEdgeDesks",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5871472,
+  "addr_hex": "0x599770",
+  "name": "Office_FurnishEdges",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5871968,
+  "addr_hex": "0x599960",
+  "name": "Office_PlaceDeskQuad",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5872176,
+  "addr_hex": "0x599A30",
+  "name": "Office_FurnishCenter",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5872368,
+  "addr_hex": "0x599AF0",
+  "name": "FurnishOffice",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 26,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5872560,
+  "addr_hex": "0x599BB0",
+  "name": "Shop_Place3PieceUnit",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 27,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5873088,
+  "addr_hex": "0x599DC0",
+  "name": "Shop_PlaceEdgeUnits",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 28,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5873392,
+  "addr_hex": "0x599EF0",
+  "name": "Shop_PlaceCounter",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 29,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5873712,
+  "addr_hex": "0x59A030",
+  "name": "Shop_PlaceFixedUnits",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 30,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5873968,
+  "addr_hex": "0x59A130",
+  "name": "Shop_FurnishCeiling",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 31,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5873984,
+  "addr_hex": "0x59A140",
+  "name": "Shop_AddShelfInfo",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 32,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5874096,
+  "addr_hex": "0x59A1B0",
+  "name": "Shop_FurnishEdges",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 33,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5875088,
+  "addr_hex": "0x59A590",
+  "name": "Shop_FurnishAisles",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 49,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5875600,
+  "addr_hex": "0x59A790",
+  "name": "FurnishShop",
+  "file": "source/game_sa/Interior/Interior_c.cpp",
+  "line": 62,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4532064,
+  "addr_hex": "0x452760",
+  "name": "ComputeRoute",
+  "file": "source/game_sa/PathFind.cpp",
+  "line": 71,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4903984,
+  "addr_hex": "0x4AD430",
+  "name": "AccountForPedDamageStats",
+  "file": "source/game_sa/PedDamageResponseCalculator.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4904272,
+  "addr_hex": "0x4AD550",
+  "name": "AccountForPedArmour",
+  "file": "source/game_sa/PedDamageResponseCalculator.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4904464,
+  "addr_hex": "0x4AD610",
+  "name": "ComputeWillForceDeath",
+  "file": "source/game_sa/PedDamageResponseCalculator.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4938432,
+  "addr_hex": "0x4B5AC0",
+  "name": "ComputeDamageResponse",
+  "file": "source/game_sa/PedDamageResponseCalculator.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6231024,
+  "addr_hex": "0x5F13F0",
+  "name": "ComputePedShotSide",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 36,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6231296,
+  "addr_hex": "0x5F1500",
+  "name": "ComputeEntityDirs",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 30,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6231888,
+  "addr_hex": "0x5F1750",
+  "name": "ComputeEntityBoundingBoxSegmentPlanesUncached",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 26,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6232208,
+  "addr_hex": "0x5F1890",
+  "name": "ComputeRouteRoundSphere",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 39,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6232832,
+  "addr_hex": "0x5F1B00",
+  "name": "CanPedJumpObstacle",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 9,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6233264,
+  "addr_hex": "0x5F1CB0",
+  "name": "IsInAir",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 44,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6238064,
+  "addr_hex": "0x5F2F70",
+  "name": "IsWanderPathClear",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 45,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6239632,
+  "addr_hex": "0x5F3590",
+  "name": "GetNearestPed",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 42,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6240048,
+  "addr_hex": "0x5F3730",
+  "name": "ComputeMoveDirToAvoidEntity",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 29,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6240384,
+  "addr_hex": "0x5F3880",
+  "name": "LiesInsideBoundingBox",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 46,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6240624,
+  "addr_hex": "0x5F3970",
+  "name": "IsEntityBlockingTarget",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 43,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6241312,
+  "addr_hex": "0x5F3C20",
+  "name": "ComputeEntityBoundingSphere",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 28,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6249008,
+  "addr_hex": "0x5F5A30",
+  "name": "GetIsLineOfSightClear",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 40,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6249856,
+  "addr_hex": "0x5F5D80",
+  "name": "ComputeClearTarget",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6269792,
+  "addr_hex": "0x5FAB60",
+  "name": "PlayerGaveCommand_Gather",
+  "file": "source/game_sa/PedGroup.cpp",
+  "line": 147,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6270992,
+  "addr_hex": "0x5FB010",
+  "name": "FindDistanceToFurthestMember",
+  "file": "source/game_sa/PedGroup.cpp",
+  "line": 151,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6277552,
+  "addr_hex": "0x5FC9B0",
+  "name": "PlaceFormationGroup",
+  "file": "source/game_sa/PedGroupPlacer.cpp",
+  "line": 7,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6278784,
+  "addr_hex": "0x5FCE80",
+  "name": "PlaceChatGroup",
+  "file": "source/game_sa/PedGroupPlacer.cpp",
+  "line": 8,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6279984,
+  "addr_hex": "0x5FD330",
+  "name": "PlaceRandomGroup",
+  "file": "source/game_sa/PedGroupPlacer.cpp",
+  "line": 9,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6923072,
+  "addr_hex": "0x69A340",
+  "name": "BuildListFromGroup_NotInCar_NoLeader",
+  "file": "source/game_sa/PedList.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1167,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6923184,
+  "addr_hex": "0x69A3B0",
+  "name": "BuildListOfPedsOfPedType",
+  "file": "source/game_sa/PedList.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1167,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6923296,
+  "addr_hex": "0x69A420",
+  "name": "RemovePedsThatDontListenToPlayer",
+  "file": "source/game_sa/PedList.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1167,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6923344,
+  "addr_hex": "0x69A450",
+  "name": "RemovePedsAttackingPedType",
+  "file": "source/game_sa/PedList.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1167,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4544288,
+  "addr_hex": "0x455720",
+  "name": "DoPickUpEffects",
+  "file": "source/game_sa/Pickups.cpp",
+  "line": 31,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4557440,
+  "addr_hex": "0x458A80",
+  "name": "CreatePickupCoorsCloseToCoors",
+  "file": "source/game_sa/Pickups.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6127360,
+  "addr_hex": "0x5D7F00",
+  "name": "AtomicSetup",
+  "file": "source/game_sa/Pipelines/CustomBuilding/CustomBuildingRenderer.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6127424,
+  "addr_hex": "0x5D7F40",
+  "name": "IsCBPCPipelineAttached",
+  "file": "source/game_sa/Pipelines/CustomBuilding/CustomBuildingRenderer.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6127488,
+  "addr_hex": "0x5D7F80",
+  "name": "UpdateDayNightBalanceParam",
+  "file": "source/game_sa/Pipelines/CustomBuilding/CustomBuildingRenderer.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6127696,
+  "addr_hex": "0x5D8050",
+  "name": "Update",
+  "file": "source/game_sa/Pipelines/CustomBuilding/CustomBuildingRenderer.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5692368,
+  "addr_hex": "0x56DBD0",
+  "name": "FindObjectToSteal",
+  "file": "source/game_sa/PlayerInfo.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5698784,
+  "addr_hex": "0x56F4E0",
+  "name": "FindClosestCarSectorList",
+  "file": "source/game_sa/PlayerInfo.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5699792,
+  "addr_hex": "0x56F8D0",
+  "name": "Process",
+  "file": "source/game_sa/PlayerInfo.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7346048,
+  "addr_hex": "0x701780",
+  "name": "HeatHazeFX",
+  "file": "source/game_sa/PostEffects.cpp",
+  "line": 42,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7348352,
+  "addr_hex": "0x702080",
+  "name": "Radiosity",
+  "file": "source/game_sa/PostEffects.cpp",
+  "line": 57,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7352480,
+  "addr_hex": "0x7030A0",
+  "name": "SpeedFX",
+  "file": "source/game_sa/PostEffects.cpp",
+  "line": 54,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7568192,
+  "addr_hex": "0x737B40",
+  "name": "Initialise",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7568320,
+  "addr_hex": "0x737BC0",
+  "name": "Shutdown",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7568368,
+  "addr_hex": "0x737BF0",
+  "name": "GetProjectileInfo",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7568384,
+  "addr_hex": "0x737C00",
+  "name": "RemoveNotAdd",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7568512,
+  "addr_hex": "0x737C80",
+  "name": "AddProjectile",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7571552,
+  "addr_hex": "0x738860",
+  "name": "RemoveDetonatorProjectiles",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7571696,
+  "addr_hex": "0x7388F0",
+  "name": "RemoveProjectile",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7572256,
+  "addr_hex": "0x738B20",
+  "name": "Update",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7575984,
+  "addr_hex": "0x7399B0",
+  "name": "RemoveAllProjectiles",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7576128,
+  "addr_hex": "0x739A40",
+  "name": "RemoveIfThisIsAProjectile",
+  "file": "source/game_sa/ProjectileInfo.cpp",
+  "line": 26,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1469,
+    "mergeable": false
+   },
+   {
+    "pr": 1471,
+    "mergeable": false
+   },
+   {
+    "pr": 1472,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7366768,
+  "addr_hex": "0x706870",
+  "name": "ReInit",
+  "file": "source/game_sa/RealTimeShadowManager.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7367024,
+  "addr_hex": "0x706970",
+  "name": "GetRealTimeShadow",
+  "file": "source/game_sa/RealTimeShadowManager.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4594112,
+  "addr_hex": "0x4619C0",
+  "name": "CreateRoadBlockBetween2Points",
+  "file": "source/game_sa/RoadBlocks.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5595568,
+  "addr_hex": "0x5561B0",
+  "name": "UpdateWeightInRope",
+  "file": "source/game_sa/Rope.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5600560,
+  "addr_hex": "0x557530",
+  "name": "Update",
+  "file": "source/game_sa/Rope.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5594688,
+  "addr_hex": "0x555E40",
+  "name": "FindCoorsAlongRope",
+  "file": "source/game_sa/Ropes.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 5598016,
+  "addr_hex": "0x556B40",
+  "name": "RegisterRope",
+  "file": "source/game_sa/Ropes.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 4654256,
+  "addr_hex": "0x4704B0",
+  "name": "AddToResourceManager",
+  "file": "source/game_sa/ScriptResourceManager.cpp",
+  "line": 10,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4654352,
+  "addr_hex": "0x470510",
+  "name": "RemoveFromResourceManager",
+  "file": "source/game_sa/ScriptResourceManager.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4654624,
+  "addr_hex": "0x470620",
+  "name": "HasResourceBeenRequested",
+  "file": "source/game_sa/ScriptResourceManager.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4610720,
+  "addr_hex": "0x465AA0",
+  "name": "ShutdownThisScript",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 78,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4632400,
+  "addr_hex": "0x46AF50",
+  "name": "ScriptTaskPickUpObject",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 81,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4653392,
+  "addr_hex": "0x470150",
+  "name": "PlayAnimScriptCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 50,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4746624,
+  "addr_hex": "0x486D80",
+  "name": "LocateCharCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 52,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4747504,
+  "addr_hex": "0x4870F0",
+  "name": "LocateCharCharCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 55,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4748320,
+  "addr_hex": "0x487420",
+  "name": "LocateCharCarCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 54,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4749088,
+  "addr_hex": "0x487720",
+  "name": "LocateCharObjectCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 56,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4749856,
+  "addr_hex": "0x487A20",
+  "name": "LocateCarCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 51,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4750608,
+  "addr_hex": "0x487D10",
+  "name": "LocateObjectCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 53,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4751200,
+  "addr_hex": "0x487F60",
+  "name": "CharInAngledAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 60,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4752368,
+  "addr_hex": "0x4883F0",
+  "name": "ObjectInAngledAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 62,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4753280,
+  "addr_hex": "0x488780",
+  "name": "FlameInAngledAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 61,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4754256,
+  "addr_hex": "0x488B50",
+  "name": "CharInAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 58,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4755136,
+  "addr_hex": "0x488EC0",
+  "name": "CarInAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 57,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 4755792,
+  "addr_hex": "0x489150",
+  "name": "ObjectInAreaCheckCommand",
+  "file": "source/game_sa/Scripts/RunningScript.cpp",
+  "line": 59,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7404256,
+  "addr_hex": "0x70FAE0",
+  "name": "RenderForVehicle",
+  "file": "source/game_sa/StencilShadows.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7406352,
+  "addr_hex": "0x710310",
+  "name": "RenderForObject",
+  "file": "source/game_sa/StencilShadows.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7408976,
+  "addr_hex": "0x710D50",
+  "name": "Render",
+  "file": "source/game_sa/StencilShadows.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6254224,
+  "addr_hex": "0x5F6E90",
+  "name": "AllocateDefaultTasks",
+  "file": "source/game_sa/Tasks/Allocators/PedGroup/PedGroupDefaultTaskAllocatorRandom.h",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6781216,
+  "addr_hex": "0x677920",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/Interior/TaskInteriorSitAtDesk.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6773600,
+  "addr_hex": "0x675B60",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/Interior/TaskInteriorUseInfo.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6776960,
+  "addr_hex": "0x676880",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/Interior/TaskInteriorUseInfo.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6869840,
+  "addr_hex": "0x68D350",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexArrestPed.cpp",
+  "line": 27,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6881824,
+  "addr_hex": "0x690220",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexArrestPed.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6588144,
+  "addr_hex": "0x6486F0",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6588176,
+  "addr_hex": "0x648710",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6588656,
+  "addr_hex": "0x6488F0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6588944,
+  "addr_hex": "0x648A10",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6589312,
+  "addr_hex": "0x648B80",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexCarSlowBeDraggedOutAndStandUp.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6457536,
+  "addr_hex": "0x6288C0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexDestroyCar.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6569216,
+  "addr_hex": "0x643D00",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexDragPedFromCar.cpp",
+  "line": 10,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6555440,
+  "addr_hex": "0x640730",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexEnterCarAsPassengerWait.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6555856,
+  "addr_hex": "0x6408D0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexEnterCarAsPassengerWait.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6569488,
+  "addr_hex": "0x643E10",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexEnterCarAsPassengerWait.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6569728,
+  "addr_hex": "0x643F00",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexEnterCarAsPassengerWait.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6907936,
+  "addr_hex": "0x696820",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6908128,
+  "addr_hex": "0x6968E0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6908224,
+  "addr_hex": "0x696940",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexFollowLeaderInFormation.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6679600,
+  "addr_hex": "0x65EC30",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6679728,
+  "addr_hex": "0x65ECB0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6695440,
+  "addr_hex": "0x662A10",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6708736,
+  "addr_hex": "0x665E00",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6709600,
+  "addr_hex": "0x666160",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangFollower.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6690720,
+  "addr_hex": "0x6617A0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangJoinRespond.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6691024,
+  "addr_hex": "0x6618D0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangJoinRespond.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6691152,
+  "addr_hex": "0x661950",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGangJoinRespond.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6751264,
+  "addr_hex": "0x670420",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToAttractor.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6719696,
+  "addr_hex": "0x6688D0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAiming.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6719968,
+  "addr_hex": "0x6689E0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAiming.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6741424,
+  "addr_hex": "0x66DDB0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAiming.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6721152,
+  "addr_hex": "0x668E80",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAndStandStillAndAchieveHeading.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6742064,
+  "addr_hex": "0x66E030",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAndStandStillAndAchieveHeading.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6751696,
+  "addr_hex": "0x6705D0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAnyMeans.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6760608,
+  "addr_hex": "0x6728A0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAnyMeans.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6761040,
+  "addr_hex": "0x672A50",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGoToPointAnyMeans.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6733120,
+  "addr_hex": "0x66BD40",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6734032,
+  "addr_hex": "0x66C0D0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6734320,
+  "addr_hex": "0x66C1F0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6634128,
+  "addr_hex": "0x653A90",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6634208,
+  "addr_hex": "0x653AE0",
+  "name": "HitHurtsPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6643936,
+  "addr_hex": "0x6560E0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6644480,
+  "addr_hex": "0x656300",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6650608,
+  "addr_hex": "0x657AF0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6872160,
+  "addr_hex": "0x68DC60",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillCriminal.cpp",
+  "line": 30,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6875472,
+  "addr_hex": "0x68E950",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillCriminal.cpp",
+  "line": 31,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6432912,
+  "addr_hex": "0x622890",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedFromBoat.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6433024,
+  "addr_hex": "0x622900",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedFromBoat.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6433152,
+  "addr_hex": "0x622980",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedFromBoat.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6437024,
+  "addr_hex": "0x6238A0",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedFromBoat.cpp",
+  "line": 10,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6451136,
+  "addr_hex": "0x626FC0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedOnFootArmed.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6472080,
+  "addr_hex": "0x62C190",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexKillPedOnFootArmed.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6402800,
+  "addr_hex": "0x61B2F0",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6403168,
+  "addr_hex": "0x61B460",
+  "name": "GetAnimIdForPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6403312,
+  "addr_hex": "0x61B4F0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6403440,
+  "addr_hex": "0x61B570",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6403456,
+  "addr_hex": "0x61B580",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6404608,
+  "addr_hex": "0x61BA00",
+  "name": "Clone",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexPlayHandSignalAnim.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6687536,
+  "addr_hex": "0x660B30",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSignalAtPed.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6687936,
+  "addr_hex": "0x660CC0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSignalAtPed.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6688128,
+  "addr_hex": "0x660D80",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSignalAtPed.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6667712,
+  "addr_hex": "0x65BDC0",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6667776,
+  "addr_hex": "0x65BE00",
+  "name": "SetDefaultTaskWanderDir",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6667840,
+  "addr_hex": "0x65BE40",
+  "name": "ComputeFleeDir",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6667904,
+  "addr_hex": "0x65BE80",
+  "name": "CreateSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6668480,
+  "addr_hex": "0x65C0C0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6668608,
+  "addr_hex": "0x65C140",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6668768,
+  "addr_hex": "0x65C1E0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6669248,
+  "addr_hex": "0x65C3C0",
+  "name": "SetFleePosition",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSmartFleePoint.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6496496,
+  "addr_hex": "0x6320F0",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 18,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6521248,
+  "addr_hex": "0x6381A0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6527472,
+  "addr_hex": "0x6399F0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 19,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6528176,
+  "addr_hex": "0x639CB0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexSunbathe.cpp",
+  "line": 20,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6506304,
+  "addr_hex": "0x634740",
+  "name": "ComputeClosestFreeScriptedEffect",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexUseClosestFreeScriptedAttractor.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6526256,
+  "addr_hex": "0x639530",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexUseClosestFreeScriptedAttractor.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1136,
+    "mergeable": true
+   },
+   {
+    "pr": 1216,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6636400,
+  "addr_hex": "0x654370",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWalkRoundCar.cpp",
+  "line": 24,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6636784,
+  "addr_hex": "0x6544F0",
+  "name": "ComputeRouteRoundSmallCar",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWalkRoundCar.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6646704,
+  "addr_hex": "0x656BB0",
+  "name": "ComputeRouteRoundBigCar",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWalkRoundCar.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6652416,
+  "addr_hex": "0x658200",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWalkRoundCar.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6766912,
+  "addr_hex": "0x674140",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexWander.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6684640,
+  "addr_hex": "0x65FFE0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHasslePed.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6701760,
+  "addr_hex": "0x6642C0",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHasslePed.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6701952,
+  "addr_hex": "0x664380",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHasslePed.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6683776,
+  "addr_hex": "0x65FC80",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6684112,
+  "addr_hex": "0x65FDD0",
+  "name": "GetTargetHeading",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 11,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6698944,
+  "addr_hex": "0x6637C0",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6701472,
+  "addr_hex": "0x6641A0",
+  "name": "CalcTargetOffset",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6704032,
+  "addr_hex": "0x664BA0",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGangHassleVehicle.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6702336,
+  "addr_hex": "0x664500",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGoToVehicleAndLean.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6702480,
+  "addr_hex": "0x664590",
+  "name": "CreateNextSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGoToVehicleAndLean.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6704448,
+  "addr_hex": "0x664D40",
+  "name": "CreateFirstSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGoToVehicleAndLean.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6704736,
+  "addr_hex": "0x664E60",
+  "name": "ControlSubTask",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskGoToVehicleAndLean.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6703296,
+  "addr_hex": "0x6648C0",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskLeanOnVehicle.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1527,
+    "mergeable": true
+   }
+  ]
+ },
+ {
+  "addr": 6538864,
+  "addr_hex": "0x63C670",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 21,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6539120,
+  "addr_hex": "0x63C770",
+  "name": "SetPedPosition",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6563680,
+  "addr_hex": "0x642760",
+  "name": "StartBopping",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 15,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6564032,
+  "addr_hex": "0x6428C0",
+  "name": "ProcessHeadBopping",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 16,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6564576,
+  "addr_hex": "0x642AE0",
+  "name": "ProcessArmBopping",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6571120,
+  "addr_hex": "0x644470",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleCarDrive.cpp",
+  "line": 22,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6423536,
+  "addr_hex": "0x6203F0",
+  "name": "MakeAbortable",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleChoking.cpp",
+  "line": 65,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6423696,
+  "addr_hex": "0x620490",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleChoking.cpp",
+  "line": 66,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6489600,
+  "addr_hex": "0x630600",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleDead.cpp",
+  "line": 8,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6463648,
+  "addr_hex": "0x62A0A0",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleFightingControl.cpp",
+  "line": 25,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6405920,
+  "addr_hex": "0x61BF20",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleRunNamedAnim.cpp",
+  "line": 17,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6464384,
+  "addr_hex": "0x62A380",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskSimpleUseGun.cpp",
+  "line": 33,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6618128,
+  "addr_hex": "0x64FC10",
+  "name": "GetLocalPositionToOpenCarDoor",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskUtilityLineUpPedWithCar.cpp",
+  "line": 12,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6621824,
+  "addr_hex": "0x650A80",
+  "name": "GetPositionToOpenCarDoor",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskUtilityLineUpPedWithCar.cpp",
+  "line": 13,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 6624160,
+  "addr_hex": "0x6513A0",
+  "name": "ProcessPed",
+  "file": "source/game_sa/Tasks/TaskTypes/TaskUtilityLineUpPedWithCar.cpp",
+  "line": 14,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7239520,
+  "addr_hex": "0x6E7760",
+  "name": "RenderWaterFog",
+  "file": "source/game_sa/WaterLevel.cpp",
+  "line": 47,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1499,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7242208,
+  "addr_hex": "0x6E81E0",
+  "name": "AddWaveToResult",
+  "file": "source/game_sa/WaterLevel.cpp",
+  "line": 50,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1499,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7272016,
+  "addr_hex": "0x6EF650",
+  "name": "RenderWater",
+  "file": "source/game_sa/WaterLevel.cpp",
+  "line": 49,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": [
+   {
+    "pr": 1499,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 7590368,
+  "addr_hex": "0x73D1E0",
+  "name": "DoTankDoomAiming",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 58,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7591712,
+  "addr_hex": "0x73D720",
+  "name": "DoDriveByAutoAiming",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 59,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7597120,
+  "addr_hex": "0x73EC40",
+  "name": "FireInstantHitFromCar",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 50,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7599232,
+  "addr_hex": "0x73F480",
+  "name": "CheckForShootingVehicleOccupant",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 62,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7600912,
+  "addr_hex": "0x73FB10",
+  "name": "FireInstantHit",
+  "file": "source/game_sa/Weapon.cpp",
+  "line": 52,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ },
+ {
+  "addr": 7613680,
+  "addr_hex": "0x742CF0",
+  "name": "Render",
+  "file": "source/game_sa/WeaponEffects.cpp",
+  "line": 23,
+  "tags": [
+   "REDIRECT_BODY"
+  ],
+  "upstream_prs": []
+ }
+]

@@ -1,0 +1,10 @@
+# skipped_functions.log -- sprint-100 dead ends (per loop rules: log & continue)
+
+[INFRA] MSVC 7.1 (VC.NET 2003, cl 13.10) NOT INSTALLED on this machine.
+        VS2003 dir absent; Docker 29.5.3 present but no legal/redistributable
+        VC7.1 image exists to pull autonomously; wine absent.
+        => True byte-identical codegen unreachable with the modern MSVC toolchain.
+        => Working metric: bin_diff score (>=0.9 = practical equivalence;
+           constants/call-set/branch structure all checked).
+        => Revisit only if the user provides a licensed VC7.1 environment
+           (e.g. his own VS2003 media) -- then re-run objdiff_cli on the queue.
