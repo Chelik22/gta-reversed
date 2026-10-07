@@ -69,7 +69,10 @@ def main():
             print("//   %s  %s" % (k, called[k]))
         print("\n// ---- DATA REFS (globals) ----")
         for k in sorted(data_refs):
-            sym = prog.getSymbolTable().getPrimarySymbol(af.getAddress(int(k, 16)))
+            try:
+                sym = prog.getSymbolTable().getPrimarySymbol(af.getAddress(int(k, 16)))
+            except (ValueError, TypeError):
+                sym = None  # Ghidra sometimes emits 'Stack[-0x10]' pseudo-refs
             print("//   %s  %s" % (k, sym.getName() if sym else "?"))
         return 0
     finally:
