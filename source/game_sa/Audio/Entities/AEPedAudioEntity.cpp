@@ -23,7 +23,7 @@ void CAEPedAudioEntity::InjectHooks() {
     RH_ScopedInstall(HandleFootstepEvent, 0x4E13A0);
     RH_ScopedInstall(HandleSkateEvent, 0x4E17E0);
     RH_ScopedInstall(HandleLandingEvent, 0x4E18E0);
-    RH_ScopedInstall(HandlePedSwing, 0x4E1A40, { .Reversed = false });
+    RH_ScopedInstall(HandlePedSwing, 0x4E1A40);
     RH_ScopedInstall(HandlePedHit, 0x4E1CC0, { .Reversed = false });
     RH_ScopedInstall(HandlePedJacked, 0x4E2350, { .Reversed = false });
     RH_ScopedInstall(HandleSwimSplash, 0x4E26A0);
@@ -495,7 +495,118 @@ void CAEPedAudioEntity::HandleLandingEvent(eAudioEvents event) {
 
 // 0x4E1A40
 void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event, int32 a3, uint32 volume) {
-    plugin::CallMethod<0x4E1A40, CAEPedAudioEntity*, int32, int32, uint32>(this, event, a3, volume);
+    if (!m_pPed) {
+        return;
+    }
+    if (!AEAudioHardware.EnsureSoundBankIsLoaded(SND_BANK_GENRL_WEAPONS, SND_BANK_SLOT_WEAPON_GEN, true)) {
+        return;
+    }
+
+    eSoundID soundId = (eSoundID)-1;
+    float    speed   = 1.0f;
+    float    volAdd  = 0.0f;
+    switch (m_pPed->GetActiveWeapon().m_Type) {
+    case WEAPON_UNARMED:
+    case WEAPON_BRASSKNUCKLE:
+    case WEAPON_CHAINSAW:
+    case WEAPON_FLOWERS:
+    case WEAPON_GRENADE:
+    case WEAPON_TEARGAS:
+    case WEAPON_MOLOTOV:
+    case WEAPON_PISTOL:
+    case WEAPON_PISTOL_SILENCED:
+    case WEAPON_DESERT_EAGLE:
+    case WEAPON_SHOTGUN:
+    case WEAPON_SAWNOFF_SHOTGUN:
+    case WEAPON_SPAS12_SHOTGUN:
+    case WEAPON_MICRO_UZI:
+    case WEAPON_MP5:
+    case WEAPON_AK47:
+    case WEAPON_M4:
+    case WEAPON_TEC9:
+    case WEAPON_COUNTRYRIFLE:
+    case WEAPON_SNIPERRIFLE:
+    case WEAPON_FLAMETHROWER:
+    case WEAPON_MINIGUN:
+    case WEAPON_REMOTE_SATCHEL_CHARGE:
+    case WEAPON_DETONATOR:
+    case WEAPON_SPRAYCAN:
+    case WEAPON_EXTINGUISHER:
+    case WEAPON_CAMERA:
+    case WEAPON_NIGHTVISION:
+    case WEAPON_INFRARED:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE_FIST;
+        speed   = 0.84f; // 0x3F570A3D
+        volAdd  = -6.0f;
+        break;
+    case WEAPON_GOLFCLUB:
+    case WEAPON_CANE:
+        soundId = SND_GENRL_WEAPONS_CANE_SWISH;
+        break;
+    case WEAPON_NIGHTSTICK:
+    case WEAPON_POOL_CUE:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE;
+        speed   = 0.84f;
+        break;
+    case WEAPON_KNIFE:
+    case WEAPON_KATANA:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE_METAL;
+        volAdd  = -3.0f;
+        break;
+    case WEAPON_BASEBALLBAT:
+    case WEAPON_SHOVEL:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE;
+        speed   = 0.67f; // 0x3F2B851F
+        break;
+    default:
+        break;
+    }
+
+    // Original also handles the unarmed hit events here (0x40-0x44)
+    switch (event) {
+    case AE_PED_HIT_GROUND_KICK:
+    case AE_PED_HIT_HIGH_UNARMED:
+    case AE_PED_HIT_LOW_UNARMED:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE_FIST;
+        speed   = 0.84f;
+        volAdd  = -6.0f;
+        break;
+    case AE_PED_HIT_MARTIAL_PUNCH:
+    case AE_PED_HIT_MARTIAL_KICK:
+        soundId = SND_GENRL_WEAPONS_WEAPON_SWIPE_FIST;
+        speed   = 0.84f;
+        volAdd  = -2.0f;
+        break;
+    default:
+        if ((int16)soundId < 0) {
+            return;
+        }
+        break;
+    }
+
+    m_tempSound.Initialise(
+        SND_BANK_SLOT_WEAPON_GEN,
+        soundId,
+        this,
+        m_pPed->GetPosition(),
+        (float)GetDefaultVolume(event) + volAdd,
+        1.0f,
+        speed,
+        1.0f,
+        0,
+        SOUND_LIFESPAN_TIED_TO_PHYSICAL_ENTITY,
+        0.04f,
+        0
+    );
+    m_tempSound.RegisterWithPhysicalEntity(m_pPed);
+    if (a3 != 0) {
+        m_tempSound.m_PhysicalEntity = nullptr;
+        m_tempSound.m_RollOffFactor  = 0.0f;
+        m_tempSound.m_Speed          = 0.0f;
+        m_tempSound.m_Event          = (int32)(uint32)(CTimer::m_snTimeInMilliseconds + a3); // original stores the float-wrapped bits of the same value
+        m_tempSound.SetFlags(SOUND_REQUEST_UPDATES, true);
+    }
+    AESoundManager.RequestNewSound(&m_tempSound);
 }
 
 // 0x4E1CC0
