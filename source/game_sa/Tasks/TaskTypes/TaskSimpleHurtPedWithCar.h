@@ -8,6 +8,8 @@ class CPed;
 
 class NOTSA_EXPORT_VTABLE CTaskSimpleHurtPedWithCar : public CTaskSimple {
 public:
+    // sprint: original CTaskComplexHitPedWithCar::CreateNextSubTask reads byte at +0x10
+    [[nodiscard]] bool GetWillKillPed() const { return m_bWillKillPed; }
     static constexpr auto Type = eTaskType::TASK_SIMPLE_HURT_PED_WITH_CAR;
 
     static void InjectHooks();
@@ -34,7 +36,7 @@ private: // Wrappers for hooks
         return this;
     }
 
-private:
+public:  // sprint: m_bWillKillPed read cross-class by CTaskComplexHitPedWithCar (original reads byte at +0x10)
     CVehicle::Ref m_Car{};          //< The car that has hit the ped
     float         m_ImpulseMag{};   //< Unused
     bool          m_bWillKillPed{}; //< Whenever the damage will kill the ped
