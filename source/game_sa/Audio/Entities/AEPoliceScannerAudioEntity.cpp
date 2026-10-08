@@ -143,7 +143,7 @@ ZonePhrase:
             if (s_VehClassSayColor[vc]) {
                 if (vehicle->GetRemapIndex() == -1) {
                     const auto color = *(uint8_t*)((char*)vehicle + 0x434); // paintjob/remap byte
-                    if (color <= 0x7E && s_ColorPhrases[color] >= 0) {
+                    if (color != 0 && color <= 0x7E && s_ColorPhrases[color] >= 0) { // skip color==0
                         second[3] = { (eSoundBank)0x94, (eSoundID)s_ColorPhrases[color] };
                     }
                 } else {
@@ -185,14 +185,14 @@ void CAEPoliceScannerAudioEntity::LoadSlots() {
                     canPlay = false;
                 }
             }
-        } else if (currentSlot.IsActive()) {
-            s_SlotState[i] = 1;
-        } else {
+        } else if (currentSlot.IsActive()) { // slot HAS content → load it
             if (!CStreaming::IsVeryBusy()) {
                 AEAudioHardware.LoadSound(currentSlot.Bank, currentSlot.SoundID, slot);
                 s_SlotState[i] = 2;
             }
             canPlay = false;
+        } else { // empty slot
+            s_SlotState[i] = 1;
         }
     }
     if (canPlay) {
@@ -298,6 +298,7 @@ void CAEPoliceScannerAudioEntity::PlayLoadedDialogue() {
         sound.m_Flags = SOUND_FRONT_END | SOUND_IS_CANCELLABLE | SOUND_REQUEST_UPDATES | SOUND_IS_DUCKABLE;
         sound.m_Event = AE_CRIME_COMMITTED;
 
+        s_nAbortPlaybackTime = CTimer::GetTimeInMS() + 5000; // lost: 5000ms abort timeout (0x8C8148)
         s_pSound = AESoundManager.RequestNewSound(&sound);
         if (s_pSound) {
             s_SlotState[i] = 5;

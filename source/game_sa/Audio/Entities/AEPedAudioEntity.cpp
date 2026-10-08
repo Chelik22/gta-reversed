@@ -100,7 +100,7 @@ void CAEPedAudioEntity::AddAudioEvent(eAudioEvents event, float volume, float sp
         HandleLandingEvent(event);
         break;
     case AE_PED_SWING:
-        HandlePedSwing(event);
+        HandlePedSwing(event, a7, maxVol);
         break;
     case AE_PED_HIT_HIGH:
     case AE_PED_HIT_LOW:
@@ -494,9 +494,8 @@ void CAEPedAudioEntity::HandleLandingEvent(eAudioEvents event) {
 }
 
 // 0x4E1A40
-// NOTE: original takes a single argument (event) -- verified at the call site
-// in the original AddAudioEvent (push eax; call 0x4E1A40).
-void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event) {
+// ABI verified: original takes 3 args (ret 0xC at call site 0x4E2C7C)
+void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event, int32 a7, uint32 maxVol) {
     if (!m_pPed) {
         return;
     }
@@ -564,8 +563,8 @@ void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event) {
         break;
     }
 
-    // Original also handles the unarmed hit events here (0x40-0x44)
-    switch (event) {
+    // Original also handles the unarmed hit events here (0x40-0x44, switch on a7)
+    switch ((eAudioEvents)a7) {
     case AE_PED_HIT_GROUND_KICK:
     case AE_PED_HIT_HIGH_UNARMED:
     case AE_PED_HIT_LOW_UNARMED:
@@ -601,11 +600,11 @@ void CAEPedAudioEntity::HandlePedSwing(eAudioEvents event) {
         0
     );
     m_tempSound.RegisterWithPhysicalEntity(m_pPed);
-    if (event != 0) { // original gates the update-flags tail on the (only) argument
+    if (maxVol != 0) { // original gates on maxVol (3rd arg)
         m_tempSound.m_SpeedVariance  = 0.0f;  // +0x28 (CAESound layout verified via original Initialise)
         m_tempSound.m_Speed          = 0.0f;  // +0x24
-        m_tempSound.m_ClientVariable = (float)(uint32)(CTimer::m_snTimeInMilliseconds + (int32)event); // +0x18
-        m_tempSound.m_Event          = 0;     // +0x14
+        m_tempSound.m_ClientVariable = (float)(uint32)(CTimer::m_snTimeInMilliseconds + (int32)maxVol); // +0x18
+        m_tempSound.m_Event          = event; // +0x14 = the event that triggered this swing
         m_tempSound.SetFlags(SOUND_REQUEST_UPDATES, true);
     }
     AESoundManager.RequestNewSound(&m_tempSound);
@@ -627,7 +626,7 @@ void CAEPedAudioEntity::HandlePedHit(eAudioEvents event, CPhysical* physical, ui
 
     // TAIL1 (weapon-hit sound, bank slot 5) state
     eSoundID soundId1  = (eSoundID)-1;
-    float    volOff1   = -3.0f;         // [esp+0x14] init
+    float    volOff1   = 0.0f;          // [esp+0x14] init (original: 0.0, NOT -3.0)
     float    variance1 = 0.0138f;       // [esp+0x1C] init (0x3D70D845)
     // TAIL2 (impact sound) state
     eSoundID        soundId2 = (eSoundID)-1;
@@ -737,7 +736,7 @@ void CAEPedAudioEntity::HandlePedHit(eAudioEvents event, CPhysical* physical, ui
         case AE_PED_HIT_HIGH:
         case AE_PED_HIT_LOW:
         case AE_PED_HIT_GROUND:
-            volOff2 = plugin::CallAndReturn<float, 0x4DA510, uint8>(surfaceId); // surface volume (log10 table), not yet reversed
+            volOff1 = plugin::CallAndReturn<float, 0x4DA510, uint8>(surfaceId); // goes to volOff1 (TAIL1 volume) // surface volume (log10 table), not yet reversed
             ReportHit();
             break;
         case AE_PED_HIT_GROUND_KICK:
@@ -748,7 +747,7 @@ void CAEPedAudioEntity::HandlePedHit(eAudioEvents event, CPhysical* physical, ui
         case AE_PED_HIT_LOW_UNARMED:
         case AE_PED_HIT_MARTIAL_PUNCH:
             soundId1 = SND_GENRL_WEAPONS_KNUCKLE;
-            volOff2 = plugin::CallAndReturn<float, 0x4DA510, uint8>(surfaceId);
+            volOff1 = plugin::CallAndReturn<float, 0x4DA510, uint8>(surfaceId); // goes to volOff1 (TAIL1 volume)
             ReportHit();
             break;
         default:

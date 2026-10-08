@@ -828,7 +828,12 @@ void CShadows::CastShadowEntityXY(CEntity* entity, float conrerAX, float cornerA
         sideX * m.GetRight().x   + sideY * m.GetRight().y,
         sideX * m.GetForward().x + sideY * m.GetForward().y
     };
-    const auto localPos = CVector2D{ *posn - m.GetPosition() };
+    const auto worldDelta = *posn - m.GetPosition();
+    // Rotate into entity space (dot with right/forward — verified by disasm 0x7088BC-0x7088CD)
+    const auto localPos = CVector2D{
+        worldDelta.x * m.GetRight().x + worldDelta.y * m.GetRight().y,
+        worldDelta.x * m.GetForward().x + worldDelta.y * m.GetForward().y
+    };
 
     // The 4 corners of the shadow quad (in entity space)
     aShadowQuadCorners = {

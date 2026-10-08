@@ -494,7 +494,7 @@ void CAEScriptAudioEntity::ProcessMissionAudioEvent(eAudioEvents eventId, CVecto
         PlayMissionBankSound(eventId, posn, physical, 5, 3);
         break;
     case AE_SCRIPT_GOGO_ENEMY_FIRE: // 1060
-        PlayMissionBankSound(eventId, posn, physical, 5, 3, 0, 0.0f, 2.0f, 0.79f);
+        PlayMissionBankSound(eventId, posn, physical, 2, 3); // ASM 0x4ED571: sfxId=2, speed=1.0 (not 5/0.79)
         break;
     case AE_SCRIPT_GOGO_EXPLOSION: // 1061
     case AE_SCRIPT_BANDIT_INSERT_COIN: // 1087
@@ -843,7 +843,7 @@ void CAEScriptAudioEntity::ProcessMissionAudioEvent(eAudioEvents eventId, CVecto
         PlayMissionBankSound(eventId, posn, physical, 5, 3, 0, 0.0f, 2.0f, 0.67f);
         break;
     case AE_SCRIPT_TEMPEST_PICKUP2: // 1174
-        PlayMissionBankSound(eventId, posn, physical, 5, 3, 0, 0.0f, 2.0f, 0.79f);
+        PlayMissionBankSound(eventId, posn, physical, 2, 3); // ASM 0x4ED571: sfxId=2, speed=1.0 (not 5/0.79)
         break;
     case AE_SCRIPT_TEMPEST_PICKUP3: // 1175
         PlayMissionBankSound(eventId, posn, physical, 5, 3);

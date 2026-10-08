@@ -108,7 +108,7 @@ CTask* CTaskComplexHitPedWithCar::CreateSubTask(eTaskType taskType) {
         }
         return new CTaskComplexFallAndGetUp{ fallAnimId, ANIM_GROUP_DEFAULT, m_DownTime };
     }
-    case TASK_SIMPLE_DUCK: // 0x19E — CTaskSimpleHitFromBehind reports this very type in the original
+    case TASK_SIMPLE_HIT_BEHIND: // 0x19E=414 (NOT TASK_SIMPLE_DUCK=415) — verified by disasm
         return new CTaskSimpleHitFromBehind{};
     case TASK_SIMPLE_KILL_PED_WITH_CAR:
         return new CTaskSimpleKillPedWithCar{ m_Veh, m_ImpulseMag };
@@ -125,7 +125,7 @@ CTask* CTaskComplexHitPedWithCar::CreateNextSubTask(CPed* ped) {
     case TASK_COMPLEX_EVASIVE_STEP:
     case TASK_NONE:
     case TASK_COMPLEX_FALL_AND_GET_UP:
-    case TASK_SIMPLE_DUCK: // 0x19E — CTaskSimpleHitFromBehind reports this very type in the original
+    case TASK_SIMPLE_HIT_BEHIND: // 0x19E=414 (NOT TASK_SIMPLE_DUCK=415) — verified by disasm
     case TASK_SIMPLE_KILL_PED_WITH_CAR:
         return CreateSubTask(TASK_FINISHED); // Returns null — the task is finished
     case TASK_SIMPLE_HURT_PED_WITH_CAR:
