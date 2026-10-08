@@ -1,42 +1,5 @@
 [
  {
-  "addr": 6205280,
-  "addr_hex": "0x5EAF60",
-  "name": "AbortPedTasks",
-  "file": "source/game_sa/Attractors/PedAttractor.cpp",
-  "line": 37,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 5118528,
-  "addr_hex": "0x4E1A40",
-  "name": "HandlePedSwing",
-  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
-  "line": 26,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5119168,
-  "addr_hex": "0x4E1CC0",
-  "name": "HandlePedHit",
-  "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
-  "line": 27,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
   "addr": 5120848,
   "addr_hex": "0x4E2350",
   "name": "HandlePedJacked",
@@ -49,57 +12,6 @@
     "mergeable": false
    }
   ]
- },
- {
-  "addr": 5139664,
-  "addr_hex": "0x4E6CD0",
-  "name": "LoadSlots",
-  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
-  "line": 325,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5142064,
-  "addr_hex": "0x4E7630",
-  "name": "Service",
-  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
-  "line": 335,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5161024,
-  "addr_hex": "0x4EC040",
-  "name": "ClearMissionAudio",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 796,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5180480,
-  "addr_hex": "0x4F0C40",
-  "name": "SetAudioBuffer",
-  "file": "source/game_sa/Audio/Hardware/AEStaticChannel.cpp",
-  "line": 19,
-  "tags": [],
-  "upstream_prs": []
  },
  {
   "addr": 5183488,
@@ -1033,151 +945,11 @@
   "upstream_prs": []
  },
  {
-  "addr": 6231120,
-  "addr_hex": "0x5F1450",
-  "name": "ComputeEntityHitSide",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 32,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6232944,
-  "addr_hex": "0x5F1B70",
-  "name": "CanPedTargetPoint",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 12,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6233648,
-  "addr_hex": "0x5F1E30",
-  "name": "ComputeBuildingHitPoints",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 13,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6233712,
-  "addr_hex": "0x5F1E70",
-  "name": "ComputePedHitSide",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 35,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6234016,
-  "addr_hex": "0x5F1FA0",
-  "name": "ComputeEntityBoundingBoxCornersUncached",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 21,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6237200,
-  "addr_hex": "0x5F2C10",
-  "name": "ComputeClosestSurfacePoint",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 17,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6237952,
-  "addr_hex": "0x5F2F00",
-  "name": "GetIsLineOfSightClear",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 41,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6238928,
-  "addr_hex": "0x5F32D0",
-  "name": "CanPedJumpObstacle",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 10,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6239808,
-  "addr_hex": "0x5F3640",
-  "name": "ComputePedHitSide",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 34,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6239840,
-  "addr_hex": "0x5F3660",
-  "name": "ComputeEntityBoundingBoxPlanes",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 22,
-  "tags": [],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
   "addr": 6239984,
   "addr_hex": "0x5F36F0",
   "name": "ComputeClosestSurfacePoint",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 16,
+  "line": 26,
   "tags": [],
   "upstream_prs": [
    {
@@ -1191,7 +963,7 @@
   "addr_hex": "0x5F3AC0",
   "name": "ComputeEntityHitSide",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 33,
+  "line": 43,
   "tags": [],
   "upstream_prs": [
    {
@@ -1205,7 +977,7 @@
   "addr_hex": "0x5F3BC0",
   "name": "ComputeEntityHitSide",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 31,
+  "line": 41,
   "tags": [],
   "upstream_prs": [
    {
@@ -1219,7 +991,21 @@
   "addr_hex": "0x5F3DD0",
   "name": "ComputeRouteRoundEntityBoundingBox",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 38,
+  "line": 48,
+  "tags": [],
+  "upstream_prs": [
+   {
+    "pr": 1434,
+    "mergeable": false
+   }
+  ]
+ },
+ {
+  "addr": 6249008,
+  "addr_hex": "0x5F5A30",
+  "name": "GetIsLineOfSightClear",
+  "file": "source/game_sa/PedGeometryAnalyser.cpp",
+  "line": 50,
   "tags": [],
   "upstream_prs": [
    {
@@ -1233,7 +1019,7 @@
   "addr_hex": "0x5F6110",
   "name": "ComputeRouteRoundEntityBoundingBox",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 37,
+  "line": 47,
   "tags": [],
   "upstream_prs": [
    {
@@ -1373,74 +1159,11 @@
   ]
  },
  {
-  "addr": 7368544,
-  "addr_hex": "0x706F60",
-  "name": "AddPermanentShadow",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 20,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7374512,
-  "addr_hex": "0x7086B0",
-  "name": "CastShadowEntityXY",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 35,
-  "tags": [],
-  "upstream_prs": []
- },
- {
   "addr": 7380208,
   "addr_hex": "0x709CF0",
   "name": "ShadowRenderTriangleCB",
   "file": "source/game_sa/Shadows.cpp",
-  "line": 47,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7381056,
-  "addr_hex": "0x70A040",
-  "name": "CastShadowEntityXYZ",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 36,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7386928,
-  "addr_hex": "0x70B730",
-  "name": "GeneratePolysForStaticShadow",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 41,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7387648,
-  "addr_hex": "0x70BA00",
-  "name": "StoreStaticShadow",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 42,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7388576,
-  "addr_hex": "0x70BDA0",
-  "name": "StoreShadowForVehicle",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 43,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 7391568,
-  "addr_hex": "0x70C950",
-  "name": "UpdatePermanentShadows",
-  "file": "source/game_sa/Shadows.cpp",
-  "line": 21,
+  "line": 48,
   "tags": [],
   "upstream_prs": []
  },
@@ -1621,33 +1344,6 @@
   "name": "Clone",
   "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
   "line": 12,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 6634016,
-  "addr_hex": "0x653A20",
-  "name": "GetTaskType",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 18,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 6634304,
-  "addr_hex": "0x653B40",
-  "name": "ComputeEvasiveStepMoveDir",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 12,
-  "tags": [],
-  "upstream_prs": []
- },
- {
-  "addr": 6642096,
-  "addr_hex": "0x6559B0",
-  "name": "Clone",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 17,
   "tags": [],
   "upstream_prs": []
  },
@@ -2006,198 +1702,6 @@
   "name": "Service",
   "file": "source/game_sa/Audio/Entities/AEPedAudioEntity.cpp",
   "line": 32,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5140320,
-  "addr_hex": "0x4E6F60",
-  "name": "PlayLoadedDialogue",
-  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
-  "line": 330,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5140960,
-  "addr_hex": "0x4E71E0",
-  "name": "AddAudioEvent",
-  "file": "source/game_sa/Audio/Entities/AEPoliceScannerAudioEntity.cpp",
-  "line": 323,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5160800,
-  "addr_hex": "0x4EBF60",
-  "name": "GetMissionAudioLoadingStatus",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 793,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5160928,
-  "addr_hex": "0x4EBFE0",
-  "name": "IsMissionAudioSampleFinished",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 794,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5161152,
-  "addr_hex": "0x4EC0C0",
-  "name": "SetMissionAudioPosition",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 797,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5161216,
-  "addr_hex": "0x4EC100",
-  "name": "AttachMissionAudioToPhysical",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 798,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5161360,
-  "addr_hex": "0x4EC190",
-  "name": "PreloadMissionAudio",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 799,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5161584,
-  "addr_hex": "0x4EC270",
-  "name": "PlayLoadedMissionAudio",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 800,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5162192,
-  "addr_hex": "0x4EC4D0",
-  "name": "GetMissionAudioPosition",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 801,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5162704,
-  "addr_hex": "0x4EC6D0",
-  "name": "PlayMissionBankSound",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 803,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5163376,
-  "addr_hex": "0x4EC970",
-  "name": "UpdateParameters",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 807,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1225,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 5164272,
-  "addr_hex": "0x4ECCF0",
-  "name": "ProcessMissionAudioEvent",
-  "file": "source/game_sa/Audio/Entities/AEScriptAudioEntity.cpp",
-  "line": 804,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4220,7 +3724,7 @@
   "addr_hex": "0x5F13F0",
   "name": "ComputePedShotSide",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 36,
+  "line": 46,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4236,7 +3740,7 @@
   "addr_hex": "0x5F1500",
   "name": "ComputeEntityDirs",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 30,
+  "line": 40,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4252,7 +3756,7 @@
   "addr_hex": "0x5F1750",
   "name": "ComputeEntityBoundingBoxSegmentPlanesUncached",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 26,
+  "line": 36,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4268,7 +3772,7 @@
   "addr_hex": "0x5F1890",
   "name": "ComputeRouteRoundSphere",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 39,
+  "line": 49,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4284,7 +3788,7 @@
   "addr_hex": "0x5F1B00",
   "name": "CanPedJumpObstacle",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 9,
+  "line": 19,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4300,7 +3804,7 @@
   "addr_hex": "0x5F1CB0",
   "name": "IsInAir",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 44,
+  "line": 54,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4316,7 +3820,7 @@
   "addr_hex": "0x5F2F70",
   "name": "IsWanderPathClear",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 45,
+  "line": 55,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4332,7 +3836,7 @@
   "addr_hex": "0x5F3590",
   "name": "GetNearestPed",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 42,
+  "line": 52,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4348,7 +3852,7 @@
   "addr_hex": "0x5F3730",
   "name": "ComputeMoveDirToAvoidEntity",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 29,
+  "line": 39,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4364,7 +3868,7 @@
   "addr_hex": "0x5F3880",
   "name": "LiesInsideBoundingBox",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 46,
+  "line": 56,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4380,7 +3884,7 @@
   "addr_hex": "0x5F3970",
   "name": "IsEntityBlockingTarget",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 43,
+  "line": 53,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4396,23 +3900,7 @@
   "addr_hex": "0x5F3C20",
   "name": "ComputeEntityBoundingSphere",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 28,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": [
-   {
-    "pr": 1434,
-    "mergeable": false
-   }
-  ]
- },
- {
-  "addr": 6249008,
-  "addr_hex": "0x5F5A30",
-  "name": "GetIsLineOfSightClear",
-  "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 40,
+  "line": 38,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -4428,7 +3916,7 @@
   "addr_hex": "0x5F5D80",
   "name": "ComputeClearTarget",
   "file": "source/game_sa/PedGeometryAnalyser.cpp",
-  "line": 14,
+  "line": 24,
   "tags": [
    "REDIRECT_BODY"
   ],
@@ -5835,61 +5323,6 @@
   "name": "ControlSubTask",
   "file": "source/game_sa/Tasks/TaskTypes/TaskComplexGotoDoorAndOpen.cpp",
   "line": 15,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": []
- },
- {
-  "addr": 6634128,
-  "addr_hex": "0x653A90",
-  "name": "ControlSubTask",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 21,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": []
- },
- {
-  "addr": 6634208,
-  "addr_hex": "0x653AE0",
-  "name": "HitHurtsPed",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 14,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": []
- },
- {
-  "addr": 6643936,
-  "addr_hex": "0x6560E0",
-  "name": "CreateSubTask",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 15,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": []
- },
- {
-  "addr": 6644480,
-  "addr_hex": "0x656300",
-  "name": "CreateFirstSubTask",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 20,
-  "tags": [
-   "REDIRECT_BODY"
-  ],
-  "upstream_prs": []
- },
- {
-  "addr": 6650608,
-  "addr_hex": "0x657AF0",
-  "name": "CreateNextSubTask",
-  "file": "source/game_sa/Tasks/TaskTypes/TaskComplexHitPedWithCar.cpp",
-  "line": 19,
   "tags": [
    "REDIRECT_BODY"
   ],
