@@ -322,8 +322,21 @@ RpSkin* _rpSkinSplitDataCreate(RpSkin* skin, RwUInt32 boneLimit, RwUInt32 numMat
 }
 
 
+// Декомпил 0x7C8B10: фрит только meshBoneRemapIndices (+0x30, один malloc на все split-массивы),
+// затем обнуление +0x24..+0x38 без освобождения (RLE-указатели указывают внутрь той же аллокации).
 RwBool _rpSkinSplitDataDestroy(RpSkin* skin) {
-    return ((RwBool(__cdecl *)(RpSkin*))0x7C8B10)(skin);
+    RpSkinGta* s = reinterpret_cast<RpSkinGta*>(skin);
+    if (s->meshBoneRemapIndices != nullptr) {
+        // RwGlobals +0x138 = memoryFuncs.rwfree
+        (*reinterpret_cast<void (**)(void*)>(reinterpret_cast<RwUInt8*>(RwEngineInstance) + 0x138))(s->meshBoneRemapIndices);
+    }
+    s->boneLimit          = 0;
+    s->numMeshes          = 0;
+    s->numRLE             = 0;
+    s->meshBoneRemapIndices = nullptr;
+    s->meshBoneRLECount   = nullptr;
+    s->meshBoneRLE        = nullptr;
+    return TRUE;
 }
 
 RxNodeDefinition* RxNodeDefinitionGetD3D9SkinAtomicAllInOne() {

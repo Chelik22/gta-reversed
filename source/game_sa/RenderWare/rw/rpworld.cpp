@@ -3,6 +3,106 @@
 #include "rpworld.h"
 #include <rpdbgerr.h>
 
+// ==== RW-CAMPAIGN wave-D shared decls (canonical rebuild) ====
+// GTA SA RpWorldSector = tagged union (BSP node / leaf), 0x88 байт (rpworld-4/5/11).
+struct RpWorldSectorGta
+{
+    RwInt32      type;                       // +0x00 (-1 leaf; 0..0x14 BSP axis)
+    union {
+        RpTriangle*     triangles;           // +0x04 (leaf)
+        RwReal          value;               // +0x04 (node: plane position)
+    };
+    union {
+        RwV3d*          vertices;            // +0x08 (leaf)
+        void*           leftSubTree;         // +0x08 (node)
+    };
+    union {
+        RpVertexNormal* normals;             // +0x0C (leaf)
+        void*           rightSubTree;        // +0x0C (node)
+    };
+    void*        field_10[8];                // +0x10..0x2F
+    void*        field_30;                   // +0x30
+    void*        repEntry;                   // +0x34
+    RwLinkList   collAtomicsInWorldSector;   // +0x38
+    RwLinkList   lightsInWorldSector;        // +0x40
+    RwBBox       boundingBox;                // +0x48
+    RwBBox       tightBoundingBox;           // +0x60
+    RpMeshHeader* mesh;                      // +0x78
+    void*        pipeline;                   // +0x7C
+    RwUInt16     field_80;                   // +0x80
+    RwUInt16     numVertices;                // +0x82
+    RwUInt16     numTriangles;               // +0x84
+    RwUInt16     field_86;                   // +0x86
+};
+static_assert(sizeof(RpWorldSectorGta) == 0x88, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, repEntry)                 == 0x34, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, collAtomicsInWorldSector) == 0x38, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, lightsInWorldSector)      == 0x40, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, tightBoundingBox)         == 0x60, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, mesh)                     == 0x78, "RpWorldSectorGta layout");
+static_assert(offsetof(RpWorldSectorGta, numTriangles)             == 0x84, "RpWorldSectorGta layout");
+
+struct RpWorldCameraChunkGta
+{
+    RpWorldSector** frustumSectors;    /* +0x00 */
+    RwUInt32        pad04;             /* +0x04 */
+    RwInt32         numFrustumSectors; /* +0x08 */
+    RpWorld*        world;             /* +0x0C */
+};
+
+struct RxD3D9AllInOneCallBacksSA
+{
+    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
+    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
+    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
+    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
+};
+
+// world-module offsets (rpworld-6)
+static auto& gRpWorldGlobalsOffset  = StaticRef<RwInt32>(0xC9259C);
+static auto& gRpWorldCameraChunkOff = StaticRef<RwInt32>(0xC925A4);
+static auto& gRpWorldAtomicChunkOff = StaticRef<RwInt32>(0xC925A8);
+static auto& gRpWorldClumpChunkOff  = StaticRef<RwInt32>(0xC925AC);
+static auto& gRpWorldLightChunkOff  = StaticRef<RwInt32>(0xC925B0);
+static inline auto& rwD3D9FindFormatCapsBits = StaticRef<RwUInt32>(0xC9BFEC);
+
+// light-module globals 0xC925E0 (rpworld-8); D3DLIGHT9 stride 0x68 (D3DCOLORVALUE alpha)
+typedef D3DLIGHT9 RwD3D9RpWorldLightTemplateSA;
+struct RwD3D9RpWorldGlobalsSA
+{
+    RwD3D9RpWorldLightTemplateSA localLightTemplate;       // 0xC925E0
+    RwD3D9RpWorldLightTemplateSA directionalLightTemplate; // 0xC92648
+    RwInt32   lightPluginOffset;            // 0xC926B0
+    RwInt32   maxLights;                    // 0xC926B4
+    RwInt32   freeIndexCount;               // 0xC926B8
+    RwInt32   field_BC;                     // 0xC926BC
+    RwInt32   nextLightIndex;               // 0xC926C0
+    RwInt32*  freeIndices;                  // 0xC926C4
+    RwInt32*  curIndices;                   // 0xC926C8
+    RwInt32   curCount;                     // 0xC926CC
+    RwInt32   curCapacity;                  // 0xC926D0
+    RwInt32*  prevIndices;                  // 0xC926D4
+    RwInt32   prevCount;                    // 0xC926D8
+    RwInt32   prevCapacity;                 // 0xC926DC
+    RwInt32   field_100;                    // 0xC92600 abs (gap; unnamed)
+    RwInt32   field_E4;                     // 0xC926E4
+    RwInt32   geometryUsageChunkOffset;     // 0xC926E8
+    RwInt32   worldSectorUsageChunkOffset;  // 0xC926EC
+};
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, directionalLightTemplate)    == 0x68,  "RwD3D9RpWorldGlobalsSA layout");
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, lightPluginOffset)           == 0xD0,  "RwD3D9RpWorldGlobalsSA layout");
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, curIndices)                  == 0xE8,  "RwD3D9RpWorldGlobalsSA layout");
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, prevIndices)                 == 0xF4,  "RwD3D9RpWorldGlobalsSA layout");
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, geometryUsageChunkOffset)    == 0x108, "RwD3D9RpWorldGlobalsSA layout");
+static_assert(offsetof(RwD3D9RpWorldGlobalsSA, worldSectorUsageChunkOffset) == 0x10C, "RwD3D9RpWorldGlobalsSA layout");
+static_assert(sizeof(RwD3D9RpWorldGlobalsSA) == 0x110, "RwD3D9RpWorldGlobalsSA layout");
+static inline auto& rwD3D9RpWorldGlobals = StaticRef<RwD3D9RpWorldGlobalsSA>(0xC925E0);
+
+// render-state module globals referenced by rpworld fragments (rwcore-7 layout)
+static RwInt32&  rwD3D9ChangedRenderStateCount = StaticRef<RwInt32>(0xC980F4);
+static RwInt32*& rwD3D9ChangedRenderStates     = StaticRef<RwInt32*>(0xC980F8);
+static RwBool&   rwD3D9LightingEnabledState    = StaticRef<RwBool>(0xC9A5F4);
+static RwBool&   rwD3D9LightingForceResend     = StaticRef<RwBool>(0xC9A5F8);
 
 // ==== RW-CAMPAIGN wave-D shared decls (consolidated) ====
 // ==== rpworld-5 COMMON BLOCK — ВСТАВИТЬ ОДИН РАЗ в rpworld.cpp (например выше _rpWorldFindBBox) ====
@@ -99,15 +199,6 @@ struct RpSectorBSP
     RwReal       rightValue;   // 0x14
 };
 
-// GTA SA RpWorldSector = tagged union (BSP node / leaf), 0x88 байт. Комбинированная
-// раскладка из декомпилов батчей rpworld-4/5/11; type@0: -1 = лист, 0..0x14 = ось плоскости.
-struct RpWorldSectorGta
-{
-    RwInt32      type;                       // +0x00
-    union {
-        RpTriangle*     triangles;           // +0x04 (leaf)
-        RwReal          value;               // +0x04 (node: позиция плоскости)
-    };
     union {
         RwV3d*          vertices;            // +0x08 (leaf)
         void*           leftSubTree;         // +0x08 (node)
@@ -138,31 +229,12 @@ static_assert(offsetof(RpWorldSectorGta, tightBoundingBox)         == 0x60, "RpW
 static_assert(offsetof(RpWorldSectorGta, mesh)                     == 0x78, "RpWorldSectorGta layout");
 static_assert(offsetof(RpWorldSectorGta, numTriangles)             == 0x84, "RpWorldSectorGta layout");
 
-// privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
-struct RxD3D9AllInOneCallBacksSA
-{
-    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
-    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
-    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
-    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
-};
 
-// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
-static auto& gRpWorldGlobalsOffset  = StaticRef<RwInt32>(0xC9259C); // world global-data block offset in RwGlobals
-static auto& gRpWorldCameraChunkOff = StaticRef<RwInt32>(0xC925A4); // world chunk offset in RwCamera
-static auto& gRpWorldAtomicChunkOff = StaticRef<RwInt32>(0xC925A8); // world chunk offset in RpAtomic
-static auto& gRpWorldClumpChunkOff  = StaticRef<RwInt32>(0xC925AC); // world chunk offset in RpClump
-static auto& gRpWorldLightChunkOff  = StaticRef<RwInt32>(0xC925B0); // world chunk offset in RpLight
-static inline auto& rwD3D9FindFormatCapsBits = StaticRef<RwUInt32>(0xC9BFEC); // FindFormatV2d/V3d blending bitmask (rpworld-8)
+
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
 
-// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
 
-// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
-// privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
-
-// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // Сырые хелперы вне вендорского этажа (нет в rw_addr_map.json) - оставить кастами:
 //   void      __cdecl sub_74FFF0(RwLLLink*) - teardown звена collAtomicsInWorldSector
 //   void      __cdecl sub_74FFA0(RwLLLink*) - teardown узла lightsInWorldSector (освобождает {link,light})
@@ -235,39 +307,9 @@ static RwMatrix&  g_rwD3D9VSProjMatrix     = StaticRef<RwMatrix>(0x8E2458);    /
 
 // ==== rwD3D9/rpworld lights module globals (0xC925E0..0xC926F0; reconstructed from
 // rpworld-8 commented spec; layout decompile-verified across 0x755D20..0x758900) ====
-typedef D3DLIGHT9 RwD3D9RpWorldLightTemplateSA;  // sizeof==0x68 (D3DCOLORVALUE has alpha) — stride explained
-struct RwD3D9RpWorldGlobalsSA
-{
-    RwD3D9RpWorldLightTemplateSA localLightTemplate;       // 0xC925E0
-    RwD3D9RpWorldLightTemplateSA directionalLightTemplate; // 0xC92648
-    RwInt32   lightPluginOffset;            // 0xC926B0: D3D9 chunk offset in RpLight
-    RwInt32   maxLights;                    // 0xC926B4: D3DCAPS9.MaxLights, -1 if 0
-    RwInt32   freeIndexCount;               // 0xC926B8
-    RwInt32   field_BC;                     // 0xC926BC
-    RwInt32   nextLightIndex;               // 0xC926C0
-    RwInt32*  freeIndices;                  // 0xC926C4
-    RwInt32*  curIndices;                   // 0xC926C8
-    RwInt32   curCount;                     // 0xC926CC
-    RwInt32   curCapacity;                  // 0xC926D0
-    RwInt32*  prevIndices;                  // 0xC926D4
-    RwInt32   prevCount;                    // 0xC926D8
-    RwInt32   prevCapacity;                 // 0xC926DC
-    RwInt32   field_100;                    // 0xC92600 abs (gap; unnamed)
-    RwInt32   field_E4;                     // 0xC926E4
-    RwInt32   geometryUsageChunkOffset;     // 0xC926E8
-    RwInt32   worldSectorUsageChunkOffset;  // 0xC926EC
-};
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, directionalLightTemplate)    == 0x68,  "RwD3D9RpWorldGlobalsSA layout");
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, lightPluginOffset)           == 0xD0,  "RwD3D9RpWorldGlobalsSA layout");
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, curIndices)                  == 0xE8,  "RwD3D9RpWorldGlobalsSA layout");
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, prevIndices)                 == 0xF4,  "RwD3D9RpWorldGlobalsSA layout");
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, geometryUsageChunkOffset)    == 0x108, "RwD3D9RpWorldGlobalsSA layout");
-static_assert(offsetof(RwD3D9RpWorldGlobalsSA, worldSectorUsageChunkOffset) == 0x10C, "RwD3D9RpWorldGlobalsSA layout");
-static_assert(sizeof(RwD3D9RpWorldGlobalsSA) == 0x110, "RwD3D9RpWorldGlobalsSA layout");
-static inline auto& rwD3D9RpWorldGlobals = StaticRef<RwD3D9RpWorldGlobalsSA>(0xC925E0);
 
 // ==== END wave-D shared decls ====
-
+// ==== END wave-D shared decls ====
 
 void _rwD3D9VSSetActiveWorldMatrix(const RwMatrix* worldMatrix) {
     g_rwD3D9VSActiveWorld = const_cast<RwMatrix*>(worldMatrix);
@@ -1956,7 +1998,7 @@ void* _rpMeshOpen(void* instance, RwInt32 offset, RwInt32 size) {
     if (rpMeshOpenCountGta == 0) {
         // декомпил: FUN_00801980(0xC, 0x32, 4, 0x40502) — бинарник зовёт 4 аргумента;
         // репо-обёртка _rwFreeListCreate (rwplcore.cpp) принимает ещё (файл, строку)
-        rpMeshFreeListGta = _rwFreeListCreate(0xC, 0x32, 4, 0x40502, nullptr, 0);
+        rpMeshFreeListGta = ((RwFreeList*(__cdecl*)(RwInt32, RwInt32, RwInt32, RwUInt32))0x801980)(0xC, 0x32, 4, 0x40502);
         if (rpMeshFreeListGta == nullptr) {
             return nullptr;
         }
@@ -6195,7 +6237,6 @@ void _rpWorldSectorDeinstanceAll(RpSector* sector) {
 
 
 
-
 // ============================================================================================
 // ============================================================================================
 
@@ -6958,11 +6999,11 @@ void _rpD3D9AddDynamicGeometry(RpGeometry* geometry) {
     rpD3D9DynamicGeometryEntryGta* entry = g_rpD3D9DynamicGeometryList;
     while (true) {
         if (entry == nullptr) {
-            // create the entry freelist once: _rwFreeListCreate(8, 0x80, 4, 0x3050d)
+            // create the entry freelist once: ((RwFreeList*(__cdecl*)(RwInt32, RwInt32, RwInt32, RwUInt32))0x801980)(8, 0x80, 4, 0x3050d)
             // (vendor 0x801980 is the 4-arg flavor == CreateAndPreallocateSpace(...,1,NULL,...);
             //  repo 6-arg wrapper ignores file/line and performs the identical call)
             if (g_rpD3D9DynamicGeometryFreeList == nullptr) {
-                g_rpD3D9DynamicGeometryFreeList = _rwFreeListCreate(8, 0x80, 4, 0x3050d, nullptr, 0);
+                g_rpD3D9DynamicGeometryFreeList = ((RwFreeList*(__cdecl*)(RwInt32, RwInt32, RwInt32, RwUInt32))0x801980)(8, 0x80, 4, 0x3050d);
             }
             // decompile: RwGlobals +0x144 freelist-heap alloc(fl, 0x3050d)
             entry = (rpD3D9DynamicGeometryEntryGta*)

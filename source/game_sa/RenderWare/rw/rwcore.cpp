@@ -5998,8 +5998,119 @@ RwBool RwD3D9ChangeMultiSamplingLevels(RwUInt32 numLevels) {
 }
 
 
+// Verified from disassembly (stack-frame analysis; see keep/rw_campaign/0x7F8D70.disasm.txt)
 RwBool RwD3D9CameraAttachWindow(void* camera, void* hwnd) {
-    return ((RwBool(__cdecl *)(void*, void*))0x7F8D70)(camera, hwnd);
+    // 0x7F8D70 mov ecx,[0xC9C060]; 0x7F8D79 xor eax,eax (default FALSE);
+    // 0x7F8D80-0x7F8D82 cmp/je -> return FALSE if template.Windowed == 0
+    if (*(RwUInt32*)0xC9C060 == 0) // 0xC9C040+0x20 = present-params template .Windowed
+        return FALSE;
+
+    // 0x7F8D8F-0x7F8D97: if (current driver window == hwnd) return FALSE
+    if (*(void**)0xC97C1C == hwnd)
+        return FALSE;
+
+    // 0x7F8D9D-0x7F8DA9: GetWindowRect(hwnd, &rect); rect lives at L+0x10.
+    // Return value ignored. (ebx = hwnd for the rest of the function.)
+    RECT rect;
+    GetWindowRect((HWND)hwnd, &rect);
+
+    RwUInt8* cam = (RwUInt8*)camera; // 0x7F8DA9 ebp = arg1 ([esp+0x7C])
+
+    // 0x7F8DAD-0x7F8DBD: if (camera+0x60) { raster=it; camera+0x60=NULL; destroy(raster); }
+    // 0x7F8DC0-0x7F8DD0: same for camera+0x64   (0x7FB020 cdecl, add esp,4)
+    if (*(void**)(cam + 0x60) != nullptr) {
+        void* old = *(void**)(cam + 0x60);
+        *(void**)(cam + 0x60) = nullptr;
+        ((void(__cdecl*)(void*))0x7FB020)(old);
+    }
+    if (*(void**)(cam + 0x64) != nullptr) {
+        void* old = *(void**)(cam + 0x64);
+        *(void**)(cam + 0x64) = nullptr;
+        ((void(__cdecl*)(void*))0x7FB020)(old);
+    }
+
+    // 0x7F8DD3 edx = rect.left ([L+0x10], loaded BEFORE push edi);
+    // 0x7F8DD7 push edi (esp := M); 0x7F8DD8-0x7F8DEB rep movsd: copy 14 dwords
+    // from 0xC9C040 to L+0x40 ([M+0x44]); eax = *(void**)0xC97C28 (device).
+    D3DPRESENT_PARAMETERS presentParams;
+    memcpy(&presentParams, (const void*)0xC9C040, 14 * 4);
+
+    // 0x7F8DED-0x7F8E01 + 0x7F8E06-0x7F8E0E, the neg/sbb/inc idiom:
+    //   sub ecx,edx  -> d = rect.right - rect.left   (magnitude is DEAD)
+    //   neg ecx      -> CF = (d != 0)
+    //   sbb ecx,ecx  -> ecx = (d != 0) ? -1 : 0
+    //   inc ecx      -> ecx = (d != 0) ? 0 : 1  ==  (rect.right == rect.left) ? 1 : 0
+    // Same for edx over rect.bottom - rect.top. CONFIRMED: result is ONLY the
+    // 0/1 boolean (a==b)?1:0 -- NOT the rect extent, NOT max(1,extent).
+    presentParams.BackBufferWidth  = (rect.right == rect.left) ? 1 : 0;  // 0x7F8E0A [M+0x44]
+    presentParams.BackBufferHeight = (rect.bottom == rect.top) ? 1 : 0;  // 0x7F8E17 [M+0x48]
+    presentParams.hDeviceWindow    = (HWND)hwnd;                         // 0x7F8E02 [M+0x60]
+    presentParams.EnableAutoDepthStencil = FALSE;                        // 0x7F8E0F [M+0x68]
+
+    // 0x7F8E1B-0x7F8E2E: device->CreateAdditionalSwapChain (slot 13 = [v+0x34],
+    // stdcall, callee cleans). Arg1 = &presentParams (lea [M-4+0x48] = L+0x40),
+    // arg2 = &swapChain (lea [M+0x10] = L+0x0C). HRESULT != 0 -> pop edi; return FALSE.
+    void* device = *(void**)0xC97C28; // _RwD3DDevice
+    void* swapChain = nullptr;        // lands at L+0x0C
+    HRESULT hr = ((HRESULT(__stdcall*)(void*, void*, void**))(*(void***)device)[0x34 / 4])(
+        device, &presentParams, &swapChain);
+    if (hr != 0)
+        return FALSE; // 0x7F8F0F xor eax,eax; pops; ret
+
+    // 0x7F8E34-0x7F8E4A: swapChain->GetBackBuffer (slot 5 = [v+0x14], 3 args).
+    // Out slot is lea [L+0x80] -- the incoming ARG2 SLOT reused as scratch
+    // (hwnd is already safe in ebx). eax = resulting IDirect3DSurface9*.
+    IDirect3DSurface9* backBuffer = nullptr;
+    ((HRESULT(__stdcall*)(void*, RwUInt32, RwUInt32, void**))(*(void***)swapChain)[0x14 / 4])(
+        swapChain, 0 /*iBackBuffer*/, 0 /*D3DBACKBUFFER_TYPE_MONO*/, (void**)&backBuffer);
+
+    // 0x7F8E51-0x7F8E59: backBuffer->GetDesc (slot 12 = [v+0x30], 1 arg).
+    // Desc buffer at L+0x20: Format@L+0x20, Width@L+0x38, Height@L+0x3C.
+    // Return value ignored.
+    D3DSURFACE_DESC desc;
+    ((HRESULT(__stdcall*)(void*, void*))(*(void***)backBuffer)[0x30 / 4])(backBuffer, &desc);
+
+    // 0x7F8E5C-0x7F8E72: raster create #1, cdecl 4 args. Push order
+    // 0x82, 0, eax=desc.Height, ecx=desc.Width  =>  (width, height, depth=0, flags=0x82).
+    // 0x82 = rwRASTERDONTALLOCATE|rwRASTERTYPECAMERA -> this is the CAMERA raster.
+    // (0x7FB230 = RwRasterCreate(width, height, depth, flags); arg3 is ALWAYS 0,
+    //  arg4 is the type/flags dword: 0x82 here, 1 at the second call site.)
+    RwRaster* rasterCam = (RwRaster*)((RwRaster * (__cdecl*)(RwInt32, RwInt32, RwInt32, RwInt32))0x7FB230)(
+        (RwInt32)desc.Width, (RwInt32)desc.Height, 0, 0x82);
+    if (rasterCam != nullptr) { // 0x7F8E75-0x7F8E77
+        // 0x7F8E79-0x7F8E84: raster->width (+0x0C) = desc.Width; ->height (+0x10) = desc.Height
+        *(RwInt32*)((RwUInt8*)rasterCam + 0x0C) = (RwInt32)desc.Width;
+        *(RwInt32*)((RwUInt8*)rasterCam + 0x10) = (RwInt32)desc.Height;
+        // 0x7F8E87-0x7F8E94: fmtIdx = [L+0x20] = desc.Format;
+        // raster->depth (+0x14, dword store of byte) = fmtTable[fmtIdx].depthBits
+        const RwUInt32 fmtIdx = (RwUInt32)desc.Format;
+        *(RwInt32*)((RwUInt8*)rasterCam + 0x14) = *(RwUInt8*)(fmtIdx * 4 + 0xB4E7E1);
+        // 0x7F8E97-0x7F8EA2: raster->cFormat (+0x23, byte store) = fmtTable[fmtIdx].alphaBits
+        *(RwUInt8*)((RwUInt8*)rasterCam + 0x23) = *(RwUInt8*)(fmtIdx * 4 + 0xB4E7E3);
+        // 0x7F8EA5-0x7F8EA B: ext = (RwUInt8*)rasterCam + *(RwUInt32*)0xB4E9E0 (rasterExt offset)
+        RwUInt8* ext = (RwUInt8*)rasterCam + *(RwUInt32*)0xB4E9E0;
+        *(void**)(ext + 0x00) = backBuffer;                       // 0x7F8EAE-0x7F8EB5 ([L+0x80])
+        *(RwUInt8*)(ext + 0x08) = *(RwUInt8*)(fmtIdx * 4 + 0xB4E7E0); // 0x7F8EB7-0x7F8EC2 (byte)
+        *(RwUInt32*)(ext + 0x18) = fmtIdx;                        // 0x7F8EC5-0x7F8EC9
+        *(void**)(ext + 0x20) = hwnd;                             // 0x7F8ECC (ebx)
+        *(void**)(ext + 0x1C) = swapChain;                        // 0x7F8ECF-0x7F8ED3 ([L+0x0C])
+        *(void**)(cam + 0x60) = rasterCam;                        // 0x7F8ED6 camera+0x60
+    }
+
+    // 0x7F8ED9-0x7F8EEC: raster create #2: push 1, 0, eax=desc.Height, ecx=desc.Width
+    // => (width, height, 0, rwRASTERTYPEZBUFFER). On success camera+0x64 = raster.
+    RwRaster* rasterZ = (RwRaster*)((RwRaster * (__cdecl*)(RwInt32, RwInt32, RwInt32, RwInt32))0x7FB230)(
+        (RwInt32)desc.Width, (RwInt32)desc.Height, 0, 0x01);
+    if (rasterZ != nullptr) // 0x7F8EEF-0x7F8EF1
+        *(void**)(cam + 0x64) = rasterZ; // 0x7F8EF3
+
+    // 0x7F8EF6-0x7F8F00: backBuffer->Release() -- slot 2 = [v+8], UNCONDITIONAL
+    // (no null/HRESULT guard in the binary; the surface was AddRef'd by
+    //  GetBackBuffer and its pointer is retained in ext+0x00, so this drops the
+    //  local reference). stdcall, callee cleans.
+    ((ULONG(__stdcall*)(void*))(*(void***)backBuffer)[2])(backBuffer);
+
+    return TRUE; // 0x7F8F05 mov eax,1; pops; ret
 }
 
 
