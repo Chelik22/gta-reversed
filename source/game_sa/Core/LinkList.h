@@ -16,13 +16,15 @@ public:
     CLink<T>  freeListTail{};
     CLink<T>* links{};
 
-    void* operator new(unsigned size) {
-        return ((void*(__cdecl*)(uint32))0x821195)(size);
-    }
+void* operator new(unsigned size) {
+    return ::operator new(size);
+}
 
-    void operator delete(void* object) {
-        ((void(__cdecl*)(void*))0x8213AE)(object);
-    }
+
+void operator delete(void* object) {
+    free(object);
+}
+
 
     void Init(int32 count) {
         usedListHead.next = &usedListTail;

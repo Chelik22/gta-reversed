@@ -41,9 +41,21 @@ inline _D3DMATRIX *GetD3DProjTransform() {
     return reinterpret_cast<_D3DMATRIX *>(0x8E2458);
 }
 
-inline void _rpMaterialSetDefaultSurfaceProperties(RwSurfaceProperties *surfProps) {
-    ((void(__cdecl *)(RwSurfaceProperties*))0x74D870)(surfProps);
+static inline auto& _rpMaterialDefaultSurfaceProperties = StaticRef<RwSurfaceProperties>(0x8D62BC);
+
+void _rpMaterialSetDefaultSurfaceProperties(RwSurfaceProperties *surfProps) {
+    RwSurfaceProperties &def = _rpMaterialDefaultSurfaceProperties;
+    if (!surfProps) {
+        def.ambient  = 1.0f; // 0x3F800000
+        def.specular = 1.0f; // 0x3F800000
+        def.diffuse  = 1.0f; // 0x3F800000
+        return;
+    }
+    def.ambient  = surfProps->ambient;  // *param_1   -> [0x8D62BC]
+    def.specular = surfProps->specular; // param_1[1] -> [0x8D62C0]
+    def.diffuse  = surfProps->diffuse;  // param_1[2] -> [0x8D62C4]
 }
+
 
 #define RWRSTATE(a) (reinterpret_cast<void *>(a))
 #define PSGLOBAL(var) (((psGlobalType *)(RsGlobal.ps))->var)
