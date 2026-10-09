@@ -68,13 +68,13 @@ void CPathFind::InjectHooks() {
     RH_ScopedInstall(SwitchPedRoadsOffInArea, 0x452F00);
     RH_ScopedInstall(SwitchRoadsOffInArea, 0x452C80);
     RH_ScopedInstall(SwitchRoadsOffInAreaForOneRegion, 0x452820);
-    RH_ScopedInstall(ComputeRoute, 0x452760, { .Reversed = false });
+    RH_ScopedInstall(ComputeRoute, 0x452760);
     //RH_ScopedInstall(CompleteNewInterior, 0x452270);
     RH_ScopedInstall(SwitchOffNodeAndNeighbours, 0x452160);
     //RH_ScopedInstall(Find2NodesForCarCreation, 0x452090);
     //RH_ScopedInstall(TestCoorsCloseness, 0x452000);
     //RH_ScopedInstall(FindNextNodeWandering, 0x451B70);
-    RH_ScopedInstall(DoPathSearch, 0x4515D0, {.Reversed = false}); // Sometimes breaks `CTaskComplexFollowNodeRoute::ComputePathNodes` - To repro just walk around in groove st. 
+    RH_ScopedInstall(DoPathSearch, 0x4515D0); // Sometimes breaks `CTaskComplexFollowNodeRoute::ComputePathNodes` - To repro just walk around in groove st. 
     //RH_ScopedInstall(FindParkingNodeInArea, 0x4513F0);
     RH_ScopedInstall(FindLinkBetweenNodes, 0x451350);
     RH_ScopedInstall(ReturnInteriorNodeIndex, 0x451300);
@@ -450,11 +450,12 @@ void CPathFind::DoPathSearch(
             break;
         }
 
-        if (numNodesToBeCleared >= std::size(aNodesToBeCleared) - 50) {
+        // 0x4519AE: original breaks when numNodesToBeCleared >= 4950 (`CMP EDX,0x1356; JGE`)
+        if (numNodesToBeCleared >= 4950) {
             break;
         }
 
-        if (!finished) { // Inverted 0x4519C0 
+        if (!finished) { // Inverted 0x4519C0
             continue;
         }
 
@@ -465,10 +466,19 @@ void CPathFind::DoPathSearch(
             outResultNodes[outNodesCount++] = origin->GetAddress();
         }
 
-        for (auto node = origin; node == target || outNodesCount < maxNodesToFind; outNodesCount++) {
+        // 0x451A40 - Walk back from origin to target, following the link that matches the recorded distances
+        // NOTE: Matches original exactly (`outNodesCount < maxNodesToFind && node != target`); the counter is
+        // incremented ONLY when a node is written (see the `outNodesCount++` below) - there is no per-iteration
+        // increment, otherwise every second slot of the route buffer is left uninitialized (garbage routes).
+        // FIXED (infinite loop): the original (0x451A34-0x451A42) indexes `m_pNodeLinks` with
+        // `linkNum + node->m_wBaseLinkId` (`LEA EAX,[EDX+EBP]`), NOT with raw `linkNum`. Using raw `linkNum`
+        // looked up the wrong linked node, the distance check below never matched, `node` never advanced and
+        // this loop spun forever (hang in CCarAI::GetCarToGoToCoors -> JoinCarWithRoadSystemGotoCoors).
+        for (auto node = origin; outNodesCount < maxNodesToFind && node != target;) {
+            bool advanced{};
             for (auto linkNum = 0u; linkNum < node->m_nNumLinks; linkNum++) {
-                const auto linkedAddr = m_pNodeLinks[node->m_wAreaId][linkNum];
                 const auto linkIdx    = node->m_wBaseLinkId + linkNum;
+                const auto linkedAddr = m_pNodeLinks[node->m_wAreaId][linkIdx];
                 if (!IsAreaNodesAvailable(linkedAddr)) {
                     continue;
                 }
@@ -476,8 +486,16 @@ void CPathFind::DoPathSearch(
                 if (const auto dist = node->m_totalDistFromOrigin - m_pLinkLengths[node->m_wAreaId][linkIdx]; dist == linked->m_totalDistFromOrigin) {
                     outResultNodes[outNodesCount++] = linkedAddr;
                     node = linked;
+                    advanced = true;
                     break;
                 }
+            }
+            // Safeguard (not in the original): 0x451B0C loops back to 0x451A10 unconditionally when
+            // `outNodesCount < maxNodesToFind && node != target` and no link matched, so the original
+            // spins forever here (e.g. if the search was aborted early by the depth/clear-list bounds
+            // leaving a broken distance chain). Bail out with an incomplete route instead of freezing.
+            if (!advanced) {
+                break;
             }
         }
         break;
@@ -489,7 +507,34 @@ void CPathFind::DoPathSearch(
 
 // 0x452760
 void CPathFind::ComputeRoute(uint8 nodeType, const CVector& vecStart, const CVector& vecEnd, const CNodeAddress& startAddress, CNodeRoute* route) {
-    plugin::CallMethod<0x452760>(this, nodeType, &vecStart, &vecEnd, &startAddress, route);
+    static auto& oneSideOnly = StaticRef<bool>(0x8A5F44); // Purpose unknown
+
+    CNodeAddress nodes[8];
+    int16 numNodes = 0;
+    DoPathSearch(
+        static_cast<ePathType>(nodeType),
+        vecStart,
+        startAddress,
+        vecEnd,
+        nodes,
+        numNodes,
+        8,
+        nullptr,
+        999999.0f,
+        nullptr,
+        999999.0f, // maxSearchDepth - original passes 999999.0f here too (0x497423fe), NOT 0.0f
+        oneSideOnly,
+        {},
+        false,
+        false
+    );
+
+    route->Clear();
+    for (auto i = 0; i < numNodes; i++) {
+        if (!route->IsFull()) {
+            route->Add(nodes[i]);
+        }
+    }
 }
 
 // 0x44D960
