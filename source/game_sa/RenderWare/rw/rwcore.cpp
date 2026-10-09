@@ -3828,6 +3828,8 @@ RwTexDictionary* RwTexDictionaryCreate() {
     // empty texture ring: texturesInDict -> self
     dict->texturesInDict.link.prev = &dict->texturesInDict.link;
     dict->texturesInDict.link.next = &dict->texturesInDict.link;
+    NOTSA_LOG_DEBUG("[TXDCREATE] dict={} globals={:#x} texDictFreeList={:#x}", (void*)dict,
+        (uintptr_t)tg, (uintptr_t)tg->texDictFreeList);
 
     _rwPluginRegistryInitObject(&rwTexDictPluginRegistry, dict);
     return dict;
@@ -3877,7 +3879,10 @@ RwTexture* RwTextureCreate(RwRaster* raster) {
 
 
 RwTexture* RwTextureRead(const char* name, const char* maskName) {
-    return plugin::CallAndReturn<RwTexture*, 0x7F3AC0, const char*, const char*>(name, maskName);
+    auto* tex = plugin::CallAndReturn<RwTexture*, 0x7F3AC0, const char*, const char*>(name, maskName);
+    if (!tex)
+        NOTSA_LOG_ERR("[TEXREAD] '{}' + '{}' -> NULL", name ? name : "?", maskName ? maskName : "-");
+    return tex;
 }
 
 RwBool RwTextureDestroy(RwTexture* texture) {
@@ -8147,8 +8152,11 @@ RwTexDictionary* RwTexDictionaryStreamRead(RwStream* stream)
 {
     RwUInt32 length;
     RwUInt32 version;
-    if (!RwStreamFindChunk(stream, rwID_STRUCT, &length, &version))
+    if (!RwStreamFindChunk(stream, rwID_STRUCT, &length, &version)) {
+        NOTSA_LOG_ERR("[TXD] STRUCT chunk NOT FOUND");
         return NULL;
+    }
+    NOTSA_LOG_DEBUG("[TXD] STRUCT len={} ver={:#x}", length, version);
 
     if (version < 0x34000 || 0x36003 < version) {
         RwError error;
@@ -8176,6 +8184,7 @@ RwTexDictionary* RwTexDictionaryStreamRead(RwStream* stream)
         return NULL;
 
     RwUInt32 remaining = structData & 0xFFFF;
+    NOTSA_LOG_DEBUG("[TXD] deviceId={:#x} streamDevId={:#x} textures={}", deviceId, streamDeviceId, remaining);
     while (remaining != 0) {
         remaining--;
 
@@ -8196,6 +8205,7 @@ RwTexDictionary* RwTexDictionaryStreamRead(RwStream* stream)
 
         RwTexture* texture = NULL;
         const RwBool readOk = RwEngineInstance->stdFunc[rwSTANDARDNATIVETEXTUREREAD](stream, &texture, (RwInt32)length);
+        NOTSA_LOG_DEBUG("[TXD] NATIVETEXTUREREAD ok={} texture={}", readOk, (void*)texture);
         if (!readOk || texture == NULL ||
             _rwPluginRegistryReadDataChunks(&StaticRef<RwPluginRegistry>(0x8E23CC), stream, texture) == NULL) {
             RwTexDictionaryForAllTextures(dict, (RwTextureCallBack)0x804E40, NULL);
