@@ -1,3 +1,4 @@
+#include <dbghelp.h>
 #include "StdInc.h"
 
 #include "rwcore.h"
@@ -3880,8 +3881,38 @@ RwTexture* RwTextureCreate(RwRaster* raster) {
 
 RwTexture* RwTextureRead(const char* name, const char* maskName) {
     auto* tex = plugin::CallAndReturn<RwTexture*, 0x7F3AC0, const char*, const char*>(name, maskName);
-    if (!tex)
-        NOTSA_LOG_ERR("[TEXREAD] '{}' + '{}' -> NULL", name ? name : "?", maskName ? maskName : "-");
+    if (!tex) {
+        auto* tg = (const uint8_t*)RwEngineInstance + *(const uint32_t*)0xC97B4C;
+        auto symName = [](void* addr) {
+            char buf[sizeof(SYMBOL_INFO) + 256] = {0};
+            auto* si = (SYMBOL_INFO*)buf;
+            si->SizeOfStruct = sizeof(SYMBOL_INFO);
+            si->MaxNameLen = 255;
+            DWORD64 disp = 0;
+            if (SymFromAddr(GetCurrentProcess(), (DWORD64)addr, &disp, si))
+                return std::format("{}+{}", si->Name, (uint32_t)disp);
+            return std::string("?");
+        };
+        NOTSA_LOG_ERR("[TEXREAD] '{}' + '{}' -> NULL  [cb+0x18={} cb+0x14={}]",
+            name ? name : "?", maskName ? maskName : "-",
+            symName(*(void**)(tg + 0x18)),
+            symName(*(void**)(tg + 0x14)));
+        {   // walk the current dict's texture list: count nodes, print first names
+            auto* dict = *(RwTexDictionary**)(tg + 0x10);
+            int n = 0;
+            if (dict) {
+                auto* link = dict->texturesInDict.link.next;
+                while (link != &dict->texturesInDict.link && n < 200) {
+                    auto* texn = reinterpret_cast<RwTexture*>(reinterpret_cast<uint8_t*>(link) - offsetof(RwTexture, lInDictionary));
+                    if (n < 3)
+                        NOTSA_LOG_ERR("[TEXREAD]   dict texture #{}: '{}'", n, texn->name);
+                    n++;
+                    link = link->next;
+                }
+            }
+            NOTSA_LOG_ERR("[TEXREAD]   curDict={} textures-in-list={}", (void*)dict, n);
+        }
+    }
     return tex;
 }
 
@@ -3950,7 +3981,7 @@ RwTexture* RwTexDictionaryFindNamedTexture(RwTexDictionary* dict, const RwChar* 
             return nullptr;
         }
         RwTexture* texture = reinterpret_cast<RwTexture*>(reinterpret_cast<RwUInt8*>(link) - offsetof(RwTexture, lInDictionary));
-        const RwChar* texName = reinterpret_cast<const RwChar*>(reinterpret_cast<RwUInt8*>(link) + offsetof(RwTexture, name));
+        const RwChar* texName = texture->name;  // FIX: name from the TEXTURE base (link + offsetof(name) double-shifted)
         if (texName != nullptr) {
             RwChar texChar = *texName;
             const RwChar* namePtr = name;
