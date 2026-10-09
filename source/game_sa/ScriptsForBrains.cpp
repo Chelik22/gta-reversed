@@ -2,11 +2,17 @@
 
 #include "ScriptsForBrains.h"
 
+#include "Entity.h"     // CEntity::AsPed / AsObject
+#include "Object.h"     // CObject (m_nStreamedScriptBrainToLoad, objectFlags)
+#include "Ped.h"        // CPed (bHasAScriptBrain, bWaitingForScriptBrainToLoad, m_StreamedScriptBrainToLoad)
+#include "Streaming.h"  // CStreaming::IsModelLoaded / RequestModel, SCMToModelId, STREAMING_MISSION_REQUIRED
+#include "TheScripts.h" // CTheScripts::AddToWaitingForScriptBrainArray
+
 void CScriptsForBrains::InjectHooks() {
     RH_ScopedClass(CScriptsForBrains);
     RH_ScopedCategory("Tasks/TaskTypes");
 
-    RH_ScopedInstall(Init, 0x46A8C0, {.Reversed = false});
+    RH_ScopedInstall(Init, 0x46A8C0);
     //RH_ScopedInstall(SwitchAllObjectBrainsWithThisID, 0x46A900, {.Reversed = false});
     //RH_ScopedInstall(AddNewScriptBrain, 0x46A930, {.Reversed = false});
     //RH_ScopedInstall(AddNewStreamedScriptBrainForCodeUse, 0x46A9C0, {.Reversed = false});
@@ -43,19 +49,67 @@ void CScriptsForBrains::StartNewStreamedScriptBrain(uint8 index, CEntity* entity
     plugin::CallMethodAndReturn<void, 0x46B270, CScriptsForBrains*, uint8, CEntity*, uint8>(this, index, entity, bHasAScriptBrain);
 }
 
+// 0x46CD80
 void CScriptsForBrains::StartOrRequestNewStreamedScriptBrain(uint8 index, CEntity* entity, int8 attachType, bool bAddToWaitingArray) {
-    NOTSA_UNREACHABLE();
-}
+    const auto& brain = m_aScriptForBrains[index];
 
-bool CScriptsForBrains::HasAttractorScriptBrainWithThisNameLoaded(const char* name) {
-    if (const auto idx = GetIndexOfScriptBrainWithThisName(name, 5); idx >= 0) {
-        return CStreaming::IsModelLoaded(SCMToModelId(m_aScriptForBrains[idx].m_StreamedScriptIndex));
+    if (bAddToWaitingArray) {
+        if (!brain.m_bBrainActive) {
+            return;
+        }
+        switch (attachType) {
+        case 0:
+        case 3: { // Peds
+            const auto ped = entity->AsPed();
+            if (ped->bHasAScriptBrain || ped->bWaitingForScriptBrainToLoad) {
+                return;
+            }
+            break;
+        }
+        case 1:
+        case 4: { // Objects
+            const auto obj = entity->AsObject();
+            if (obj->objectFlags.b0x100000_0x200000) {
+                return;
+            }
+            break;
+        }
+        }
     }
-    return false;
+
+    if (attachType == 1) { // Objects
+        const auto obj = entity->AsObject();
+        if (!bAddToWaitingArray) {
+            obj->objectFlags.b0x100000_0x200000 = 0b10; // (m_nObjectFlags & 0xFFEFFFFF) | 0x200000
+        } else {
+            obj->m_nStreamedScriptBrainToLoad = index;
+            obj->objectFlags.b0x100000_0x200000 = 0b01; // (m_nObjectFlags & 0xFFDFFFFF) | 0x100000
+            CTheScripts::AddToWaitingForScriptBrainArray(entity, index);
+        }
+    }
+
+    const auto modelId = SCMToModelId(brain.m_StreamedScriptIndex);
+    if (!CStreaming::IsModelLoaded(modelId)) {
+        CStreaming::RequestModel(modelId, STREAMING_MISSION_REQUIRED);
+        if ((attachType == 0 || (attachType > 2 && attachType < 5)) && bAddToWaitingArray) { // Peds
+            const auto ped = entity->AsPed();
+            ped->m_StreamedScriptBrainToLoad = index;
+            ped->bWaitingForScriptBrainToLoad = true;
+            CTheScripts::AddToWaitingForScriptBrainArray(entity, index);
+        }
+        return;
+    }
+
+    StartNewStreamedScriptBrain(index, entity, false);
 }
 
+// 0x46B3D0
 bool CScriptsForBrains::IsObjectWithinBrainActivationRange(CObject* entity, const CVector& point) {
-    NOTSA_UNREACHABLE();
+    const auto& brain = m_aScriptForBrains[entity->m_nStreamedScriptBrainToLoad];
+    if (brain.m_TypeOfBrain != 1) { // Radius-based activation only
+        return false;
+    }
+    return DistanceBetweenPoints(entity->GetPosition(), point) < brain.m_ObjectBrainActivationRadius;
 }
 
 int16 CScriptsForBrains::GetIndexOfScriptBrainWithThisName(const char* name, int8 type) {

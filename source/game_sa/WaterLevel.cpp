@@ -3,100 +3,66 @@
 // source/game_sa/WaterLevel.cpp). Repo was NOT modified; original:
 // D:\projects\gta_sa_reversed @ branch rw-campaign (read-only integration).
 //
-// Integrated from batch w2-12-TaskComplexSunbathe (WaterLevel part), bodies
-// verbatim from upstream PR #1499 (WaterLevel update) via batch fragments:
-//   0x6E8580 GetWaterLevelNoWaves        (redirect stub -> body; flag removed)
-//   0x6E9D70 FindNearestWaterAndItsFlow  (redirect stub -> body; flag removed)
-//   0x6E7760 RenderWaterFog              (redirect stub -> body; flag removed;
-//                                         repo stub's ZoneScoped kept - it is
-//                                         NOTSA profiling, not OG code)
-//   0x6EF650 RenderWater                 (redirect stub -> body; flag removed)
-//   0x6E81E0 AddWaveToResult             (redirect stub -> body; flag removed)
+// Batch: PR #1499 (upstream gta-reversed "WaterLevel update") = 16 functions,
+// bodies verbatim from D:\projects\keep\pr_patches\pr1499_functions.cpp
+// (Section B) + the 5 batch fragments in w2-12-TaskComplexSunbathe/
+// (0x6E7760/0x6E81E0/0x6E8580/0x6E9D70/0x6EF650 - same PR bodies).
 //
-// DEPENDENT BODIES (PR1499, NOT part of this batch but required by the 5
-// functions above, per batch STATUS.md instruction to the integrator):
-//   0x6E7210 CalculateWavesOnlyForCoordinate2 (redirect stub -> reversed body;
-//       NOTE: repo wrapper signature (x, y, float* pResultHeight, big, small)
-//       is KEPT, because the read-only WaterLevel.h declares that order
-//       (PR1499 Section A.6 would change it). Hence it is NOT hooked at
-//       0x6E7210 (the OG ABI differs) - same status quo as the repo stub;
-//       AddWaveToResult below calls it in the REPO argument order.
-//   0x6E5BB0 TestQuadToGetWaterLevel          (new, file-local static helper)
-//   0x6E5E90 TestTriangleToGetWaterLevel      (new, file-local static helper)
-//   RenderAndEmptyRenderBuffer                (new, notsa helper, file-local)
-//   0x6E6870 RenderSeaBedSegment              (new, file-local static helper)
-//   0x6E6A10 RenderDetailedSeaBedSegment      (new, file-local static helper)
-//   PushSeaBedVertex / PushSeaBedQuadIndices  (new, notsa helpers, file-local)
-//   The Test*/RenderSeaBed*/RenderAndEmpty* helpers are file-local `static`
-//   free functions instead of CWaterLevel static members because the read-only
-//   WaterLevel.h has no declarations for them (PR1499 Section A.7 adds those;
-//   not applied here). Behavior identical; they are called directly, not hooked.
+// SUPERSEDES the earlier w2-12 partial integration of this file (committed as
+// e3f9d872: file-local Test*/RenderSeaBed* helpers, CalculateWavesOnlyFor-
+// Coordinate2 kept on the repo arg order and NOT hooked, GetGroundLevel/
+// AddToQuadsAndTrianglesList missing). This version is the full upstream form:
+// all new functions are CWaterLevel static members (as in the PR) and the
+// OG-ABI arg order is used, so 0x6E7210/0x6EA8A0/0x6EA960/0x6E6870/0x6E6A10
+// are properly hooked. Drop-in replacement for the current repo file.
 //
-// FILE-SCOPE StaticRef GLOBALS (PR1499 Section A.4 members that the read-only
-// WaterLevel.h does not declare yet - hoisted here instead; addresses verbatim
-// from PR #1499):
-//   m_WaterFogCol m_WaterFogInsideCol m_fWaterFogInsideFadeSpeed
-//   m_fWaterFogInsideFade m_fWaterFogTimer
-//   m_fWaterScrollSecondU/V m_fWaterScrollFirstU/V m_fHighDetailTextureShiftAmp
-//   m_fWaterTextureShiftJitter m_fWaterFlowShiftScale m_WaterTextureAddressMode
-//   m_fSeaBedDetailedDist m_fHighDetailTextureShiftU/V m_bRandomizeWaterColor
-//   If WaterLevel.h later gains the same members (same addresses), the unqualified
-//   lookups inside member functions will resolve to the class members - both
-//   alias the same static addresses, so behavior is unchanged.
+// REQUIRES the companion header new_WaterLevel.h (PR Section A: ColData,
+// PolyInfo ctors, m_ElementsOnQuadsAndTrianglesList rename @ same address
+// 0xC215F0, 14+ new static members, CalculateWavesOnlyForCoordinate2 arg
+// order = OG ABI). Without it this file does NOT compile - the new functions
+// are CWaterLevel static members per upstream.
 //
-// NOT integrated (NOT in this batch - stubs/redirs kept untouched):
-//   0x6EA960 GetWaterDepth (redirect), 0x6E7B30 FillQuadsAndTrianglesList
-//   (redirect), 0x6EB810/0x6EDDC0 RenderHighDetail* (redirects),
-//   GetGroundLevel/AddToQuadsAndTrianglesList (PR1499 extras, not needed by the
-//   5 batch functions), WaterLevelInitialise delta (PR1499 B.0 cosmetic +
-//   m_BlockPolyInfo zero-init; not required by this batch).
+// Functions replaced (stub/redirect -> reversed body; the Reversed=false
+// hook flag removed from each of their installs):
+//   0x6E81E0 AddWaveToResult                     (B.2)
+//   0x6E9D70 FindNearestWaterAndItsFlow          (B.8)
+//   0x6E8580 GetWaterLevelNoWaves                (B.5)
+//   0x6EA960 GetWaterDepth                       (B.7)
+//   0x6E7760 RenderWaterFog                      (B.15; repo's NOTSA
+//        `ZoneScoped;` profiling line kept - same style as PreRenderWater)
+//   0x6EF650 RenderWater                         (B.16)
+//   0x6E7210 CalculateWavesOnlyForCoordinate2    (B.1; NEW arg order, now hooked)
+//   0x6E7B30 FillQuadsAndTrianglesList           (B.10)
+// Functions added (new definitions, hook installs added to InjectHooks):
+//   0x6E5750 AddToQuadsAndTrianglesList          (B.9)
+//   0x6E5BB0 TestQuadToGetWaterLevel             (B.3)
+//   0x6E5E90 TestTriangleToGetWaterLevel         (B.4)
+//   0x6EA8A0 GetGroundLevel                      (B.6)
+//   0x6E6870 RenderSeaBedSegment                 (B.13)
+//   0x6E6A10 RenderDetailedSeaBedSegment         (B.14)
+//   notsa   RenderAndEmptyRenderBuffer           (B.11)
+//   notsa   PushSeaBedVertex/PushSeaBedQuadIndices (B.12, file-local statics)
+// WaterLevelInitialise (0x6EAE80): + m_BlockPolyInfo = {}; and
+//   NumWaterZonePolys = 0 renamed to m_ElementsOnQuadsAndTrianglesList = 0
+//   (PR B.0 delta; same address 0xC215F0).
 //
-// #include added: "PostEffects.h" (CPostEffects::* is not in StdInc.h; every
-// other dependency comes via StdInc.h - verified by grep).
+// NOT touched (stubs/redirs OUTSIDE the batch):
+//   RenderHighDetailWaterRectangle 0x6EB810, RenderHighDetailWaterTriangle
+//   0x6EDDC0 (redirects kept), WaterLevelInitialise's LoadDataFile etc.
+//
+// Includes added (all verified to exist in source/game_sa/): Camera.h,
+// PostEffects.h, Weather.h - exactly the upstream PR's include delta
+// (Camera.h/Weather.h also come via StdInc.h; PostEffects.h does not).
 // ============================================================================
 
 #include "StdInc.h"
 #include "WaterLevel.h"
+#include "Camera.h"
 #include "PostEffects.h"
+#include "Weather.h"
 #include <sstream>
 
 #define TRIANGLE_ARGS_OUT X1, Y1, P1, X2, Y2, P2, X3, Y3, P3
-
-// ---------------------------------------------------------------------------
-// File-scope globals (PR1499 Section A.4; see file preamble).
-// Addresses contiguous with the existing WaterLevel.h StaticRefs:
-//   0x8D37E0 m_WaterFogDensity | 0x8D37E4 m_fWaterFogHeight | 0x8D37E8/EC/F0 below
-//   0xC228E4 gWaterFogIndex    | 0xC228E8 gbPlayerIsInsideWaterFog | 0xC228EC/F0 below
-//   0xC21168 WaterColorTriangle| 0xC2116C WaterColor | 0xC21170/74 below | 0xC21178 TextureShiftFirstV
-// ---------------------------------------------------------------------------
-static auto& m_WaterFogCol            = StaticRef<CRGBA>(0x8D37E8);  //!< Water fog color (drawn at distance)
-static auto& m_WaterFogInsideCol      = StaticRef<CRGBA>(0x8D37EC);  //!< Fog color when the player is inside the fog volume
-static auto& m_fWaterFogInsideFadeSpeed = StaticRef<float>(0x8D37F0); //!< How fast the inside-fog fades in/out
-static auto& m_fWaterFogInsideFade    = StaticRef<float>(0xC228EC);  //!< Inside-fog fade, 0..1
-static auto& m_fWaterFogTimer         = StaticRef<float>(0xC228F0);  //!< Delay before the inside-fog starts fading out
-
-//! NOTSA (Originally unnamed) - Water texture scroll accumulators (Kept in range 0..1)
-static auto& m_fWaterScrollSecondU = StaticRef<float>(0x8D3824);
-static auto& m_fWaterScrollSecondV = StaticRef<float>(0x8D3828);
-static auto& m_fWaterScrollFirstU  = StaticRef<float>(0x8D382C);
-static auto& m_fWaterScrollFirstV  = StaticRef<float>(0x8D3830);
-//! NOTSA (Originally unnamed) - Amplitude of the high detail texture shift
-static auto& m_fHighDetailTextureShiftAmp = StaticRef<float>(0x8D3834); // 0.1f
-//! NOTSA (Originally unnamed) - Jitter scale of the water texture shift
-static auto& m_fWaterTextureShiftJitter   = StaticRef<float>(0x8D3928); // 0.01f
-//! NOTSA (Originally unnamed) - Scale converting the water flow speed to a texture shift
-static auto& m_fWaterFlowShiftScale       = StaticRef<float>(0x8D392C); // 0.04f
-//! NOTSA (Originally unnamed) - Texture address mode used while rendering water (1 => rwTEXTUREADDRESSWRAP)
-static auto& m_WaterTextureAddressMode    = StaticRef<uint32>(0x8D3930);
-//! NOTSA (Originally unnamed) - Distance from the camera's block at which the sea bed is no longer rendered in detail
-static auto& m_fSeaBedDetailedDist        = StaticRef<float>(0x8D3934); // 600.0f
-
-//! NOTSA (Originally unnamed) - Only used by the high detail water renderers
-static auto& m_fHighDetailTextureShiftV = StaticRef<float>(0xC21170);
-static auto& m_fHighDetailTextureShiftU = StaticRef<float>(0xC21174);
-
-//! NOTSA (Originally unnamed) - If set, the water color is randomized (Debug)
-static auto& m_bRandomizeWaterColor = StaticRef<bool>(0xC228DC);
 
 void CWaterLevel::InjectHooks() {
     RH_ScopedClass(CWaterLevel);
@@ -141,8 +107,13 @@ void CWaterLevel::InjectHooks() {
     RH_ScopedGlobalInstall(RenderWaterFog, 0x6E7760);
     RH_ScopedGlobalInstall(CalculateWavesOnlyForCoordinate, 0x6E6EF0);
     RH_ScopedGlobalInstall(RenderWater, 0x6EF650);
+    RH_ScopedGlobalInstall(RenderSeaBedSegment, 0x6E6870);
+    RH_ScopedGlobalInstall(RenderDetailedSeaBedSegment, 0x6E6A10);
     RH_ScopedGlobalInstall(AddWaveToResult, 0x6E81E0);
     RH_ScopedGlobalInstall(SetCameraRange, 0x6E9C80);
+    RH_ScopedGlobalInstall(CalculateWavesOnlyForCoordinate2, 0x6E7210);
+    RH_ScopedGlobalInstall(GetWaterDepth, 0x6EA960);
+    RH_ScopedGlobalInstall(GetGroundLevel, 0x6EA8A0);
 }
 
 // NOTSA
@@ -243,7 +214,7 @@ bool CWaterLevel::LoadDataFile() {
 
 // NOTSA: Code @ 0x6EB5F4
 void CWaterLevel::LoadTextures() {
-    CTxdStore::PushCurrentTxd();    
+    CTxdStore::PushCurrentTxd();
     CTxdStore::SetCurrentTxd(CTxdStore::FindTxdSlot("particle"));
 
     const auto DoTex = [](auto& inOutTex, auto& outRaster, const char* name) {
@@ -261,11 +232,13 @@ void CWaterLevel::LoadTextures() {
 
 // 0x6EAE80
 void CWaterLevel::WaterLevelInitialise() {
+    m_BlockPolyInfo = {};
+
     NumWaterTriangles = 0;
     NumWaterQuads = 0;
     NumWaterVertices = 0;
-    NumWaterZonePolys = 0;
-    
+    m_ElementsOnQuadsAndTrianglesList = 0;
+
     (void)LoadDataFile();
     FillQuadsAndTrianglesList();
 
@@ -283,9 +256,7 @@ void CWaterLevel::Shutdown() {
     }
 }
 
-// 0x6E81E0 - PR1499 B.2 (batch w2-12 fragment 0x6E81E0.cpp)
-// NOTE: Calls to `CalculateWavesOnlyForCoordinate2` use the REPO argument order
-// (x, y, pResultHeight, bigAmpl, smallAmpl) - see file preamble.
+// 0x6E81E0
 void CWaterLevel::AddWaveToResult(float x, float y, float* pfWaterLevel, float fBigWavesAmpl, float fSmallWavesAmpl, CVector* pVecNormal)
 {
     // Waves are calculated on a grid from `(x / 2, y / 2)` (See below why we add 2 to get the next point)
@@ -310,13 +281,13 @@ void CWaterLevel::AddWaveToResult(float x, float y, float* pfWaterLevel, float f
     const auto isInBottomLeftTri = fFracX + fFracY < 1.0f;
 
     if (isInBottomLeftTri) {
-        CalculateWavesOnlyForCoordinate2(iX,             iY,             &h0, fBigWavesAmpl, fSmallWavesAmpl); // (0, 0)
-        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP, iY,             &hX, fBigWavesAmpl, fSmallWavesAmpl); // (1, 0)
-        CalculateWavesOnlyForCoordinate2(iX,             iY + GRID_STEP, &hY, fBigWavesAmpl, fSmallWavesAmpl); // (0, 1)
+        CalculateWavesOnlyForCoordinate2(iX,               iY,               fBigWavesAmpl, fSmallWavesAmpl, &h0); // (0, 0)
+        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP,   iY,               fBigWavesAmpl, fSmallWavesAmpl, &hX); // (1, 0)
+        CalculateWavesOnlyForCoordinate2(iX,               iY + GRID_STEP,   fBigWavesAmpl, fSmallWavesAmpl, &hY); // (0, 1)
     } else {
-        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP, iY + GRID_STEP, &h0, fBigWavesAmpl, fSmallWavesAmpl); // (1, 1)
-        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP, iY,             &hX, fBigWavesAmpl, fSmallWavesAmpl); // (1, 0)
-        CalculateWavesOnlyForCoordinate2(iX,             iY + GRID_STEP, &hY, fBigWavesAmpl, fSmallWavesAmpl); // (0, 1)
+        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP,   iY + GRID_STEP,   fBigWavesAmpl, fSmallWavesAmpl, &h0); // (1, 1)
+        CalculateWavesOnlyForCoordinate2(iX + GRID_STEP,   iY,               fBigWavesAmpl, fSmallWavesAmpl, &hX); // (1, 0)
+        CalculateWavesOnlyForCoordinate2(iX,               iY + GRID_STEP,   fBigWavesAmpl, fSmallWavesAmpl, &hY); // (0, 1)
     }
 
     // Bilinearly interpolate the wave height between the 3 (of the 4) grid points
@@ -348,7 +319,7 @@ void CWaterLevel::RenderWaterTriangle(int32 X1, int32 Y1, CRenPar P1, int32 X2, 
     const auto [minY, maxY] = std::minmax(Y1, Y3);
     if (minX >= CameraRangeMaxX || maxX <= CameraRangeMinX || minY >= CameraRangeMaxY || maxY <= CameraRangeMinY) { // Lies outside (of camera) fully
         RenderFlatWaterTriangle(TRIANGLE_ARGS_OUT);
-    } else if (minX < CameraRangeMinX || maxX > CameraRangeMaxX) { // Lies inside on X 
+    } else if (minX < CameraRangeMinX || maxX > CameraRangeMaxX) { // Lies inside on X
         SplitWaterTriangleAlongXLine(minX < CameraRangeMinX ? CameraRangeMinX : CameraRangeMaxX, TRIANGLE_ARGS_OUT);
     } else if (minY < CameraRangeMinY || maxY > CameraRangeMaxY) { // Lies inside of Y
         SplitWaterTriangleAlongYLine(minY < CameraRangeMinY ? CameraRangeMinY : CameraRangeMaxY, TRIANGLE_ARGS_OUT);
@@ -484,7 +455,7 @@ void CWaterLevel::RenderWakeSegment(
         for (auto i = 0; i < 4; i++) {
             const auto CalcAngleOfPos = [&](float p) {
                 p += 3072.f; // TODO: Magic number, but I think it's meaningless (as the integer part is discarded below)
-                p /= 32.f;   // TODO: Magic number (maybe meaningful this time) 
+                p /= 32.f;   // TODO: Magic number (maybe meaningful this time)
                 return p - std::floor(p); // Extract fractional part
             };
             const auto  z   = wakeZ + std::sin((CalcAngleOfPos(corners[i].x) + CalcAngleOfPos(corners[i].y)) * PI * 2.f + angle) * windRadius;
@@ -505,7 +476,7 @@ void CWaterLevel::RenderBoatWakes() {
 
 // 0x6ECF00
 void CWaterLevel::SplitWaterTriangleAlongXLine(int32 splitAtX, int32 X1, int32 Y1, CRenPar P1, int32 X2, int32 Y2, CRenPar P2, int32 X3, int32 Y3, CRenPar P3) {
-    assert(Y1 == Y2); 
+    assert(Y1 == Y2);
 
     // Ease of life
     const auto XS = splitAtX;
@@ -589,9 +560,9 @@ void CWaterLevel::SplitWaterTriangleAlongYLine(int32 splitAtY, int32 X1, int32 Y
     const auto [minY, maxY] = std::minmax(Y1, Y3);
     const auto height = maxY - minY;
     const auto width  = X2 - X1;
-    
+
     // Calulcate the X position where the Y line intersects the hypot
-    // and using that we split the triangle. 
+    // and using that we split the triangle.
     // Same result as original code, but much easier.
 
     SplitWaterTriangleAlongXLine(
@@ -657,7 +628,7 @@ void CWaterLevel::RenderFlatWaterRectangle_OneLayer(int32 minX, int32 maxX, int3
     PushVertex(maxX, Y1, P2, { bruv.x, 0.f    }); // Top Right
     PushVertex(maxX, Y2, P3, { bruv.x, bruv.y }); // Bottom Right
     PushVertex(minX, Y2, P4, { 0.f,    bruv.y }); // Bottom Left
-} 
+}
 
 void CWaterLevel::RenderHighDetailWaterRectangle(int32 minX, int32 maxX, int32 Y1, int32 Y2, CRenPar P1, CRenPar P2, CRenPar P3, CRenPar P4) {
     plugin::Call<0x6EB810>(minX, maxX, Y1, Y2, P1, P2, P3, P4);
@@ -747,7 +718,7 @@ bool CWaterLevel::GetWaterLevel(float x, float y, float z, float& pOutWaterLevel
     if (!GetWaterLevelNoWaves({x, y, z}, &pOutWaterLevel, &smallWaves, &bigWaves)) {
         return false;
     }
-     
+
     if ((pOutWaterLevel - z > 3.0F) && !bTouchingWater) {
         pOutWaterLevel = 0.0F;
         return false;
@@ -784,99 +755,34 @@ void CWaterLevel::SetUpWaterFog(int32 minX, int32 minY, int32 maxX, int32 maxY) 
     ms_WaterFog.z[idx]    = fogZ;
 }
 
-// ---------------------------------------------------------------------------
-// File-local helpers of `GetWaterLevelNoWaves` (PR1499 B.3 / B.4).
-// In upstream PR #1499 these are static members of `CWaterLevel` (declared in
-// WaterLevel.h Section A.7). The read-only repo header has no declarations,
-// so they live here as file-local functions. NOT hooked (direct calls only).
-// ---------------------------------------------------------------------------
+// 0x6E5750
+void CWaterLevel::AddToQuadsAndTrianglesList(int32 blockX, int32 blockY, int32 polyId, uint32 type) {
+    auto& blockInfo = m_BlockPolyInfo[blockX][blockY];
 
-// 0x6E5BB0
-static bool TestQuadToGetWaterLevel(CWaterQuad* quad, float x, float y, float z, float* pOutWaterLevel, float* pOutBigWaves, float* pOutSmallWaves) {
-    const auto v0 = quad->GetVertex(0);
-    const auto v1 = quad->GetVertex(1);
-    const auto v2 = quad->GetVertex(2);
-    const auto v3 = quad->GetVertex(3);
-
-    if (x < (float)v0.x || x > (float)v1.x || y < (float)v0.y || y > (float)v2.y) {
-        return false;
+    const auto existingType = blockInfo.Type();
+    if (existingType == PolyInfo::PType::NONE) { // Store it directly in the block
+        blockInfo = PolyInfo{ (PolyInfo::PType)type, (uint16)polyId };
+        return;
     }
 
-    const auto u = (x - (float)v0.x) / (float)(v1.x - v0.x);
-    const auto v = (y - (float)v0.y) / (float)(v2.y - v0.y);
-
-    if (u + v <= 1.0f) { // Inside the quad, in the triangle containing V0 (Uses the V0 vertex as the base)
-        *pOutWaterLevel = (v1.rp.z - v0.rp.z) * u + (v2.rp.z - v0.rp.z) * v + v0.rp.z;
-        if (pOutBigWaves) {
-            *pOutBigWaves   = (v1.rp.bigWaves   - v0.rp.bigWaves)   * u + (v2.rp.bigWaves   - v0.rp.bigWaves)   * v + v0.rp.bigWaves;
-            *pOutSmallWaves = (v1.rp.smallWaves - v0.rp.smallWaves) * u + (v2.rp.smallWaves - v0.rp.smallWaves) * v + v0.rp.smallWaves;
-        }
-    } else { // Inside the quad, in the triangle containing V3 (Uses the V3 vertex as the base)
-        const auto uu = 1.0f - u, vv = 1.0f - v; // Save ourselves some math
-        *pOutWaterLevel = (v1.rp.z - v3.rp.z) * vv + (v2.rp.z - v3.rp.z) * uu + v3.rp.z;
-        if (pOutBigWaves) {
-            *pOutBigWaves   = (v2.rp.bigWaves   - v3.rp.bigWaves)   * uu + (v1.rp.bigWaves   - v3.rp.bigWaves)   * vv + v3.rp.bigWaves;
-            *pOutSmallWaves = (v2.rp.smallWaves - v3.rp.smallWaves) * uu + (v1.rp.smallWaves - v3.rp.smallWaves) * vv + v3.rp.smallWaves;
-        }
+    const auto start = m_ElementsOnQuadsAndTrianglesList;
+    if (existingType != PolyInfo::PType::SINGLE_QUAD && existingType != PolyInfo::PType::SINGLE_TRI) { // Append to the combo we're currently building
+        m_PolyCombos[start - 1] = PolyInfo{ (PolyInfo::PType)type, (uint16)polyId }; // Overwrite the previous terminator
+        m_PolyCombos[start]     = PolyInfo{};                                        // New terminator
+        m_ElementsOnQuadsAndTrianglesList = start + 1;
+        return;
     }
 
-    if (!pOutBigWaves) {
-        return true;
-    }
+    // Block already has a single poly => Start a new combo
+    m_PolyCombos[start + 0] = blockInfo;
+    m_PolyCombos[start + 1] = PolyInfo{ (PolyInfo::PType)type, (uint16)polyId };
+    m_PolyCombos[start + 2] = PolyInfo{}; // Terminator
+    m_ElementsOnQuadsAndTrianglesList = start + 3;
 
-    if (!(*pOutWaterLevel - 6.0f <= z || !quad->bLimitedDepth)) { // 6.0f (0x858B44)
-        return false;
-    }
-
-    return *pOutWaterLevel + 20.0f >= z;
+    blockInfo = PolyInfo{ PolyInfo::PType::COMBO, (uint16)start };
 }
 
-// 0x6E5E90
-static bool TestTriangleToGetWaterLevel(CWaterTriangle* tri, float x, float y, float z, float* pOutWaterLevel, float* pOutBigWaves, float* pOutSmallWaves) {
-    const auto v0 = tri->GetVertex(0);
-    const auto v1 = tri->GetVertex(1);
-    const auto v2 = tri->GetVertex(2);
-
-    if (x < (float)v0.x || x > (float)v1.x) {
-        return false;
-    }
-
-    if (y < (float)std::min(v0.y, v2.y) || y > (float)std::max(v0.y, v2.y)) {
-        return false;
-    }
-
-    auto u = (x - (float)v0.x) / (float)(v1.x - v0.x);
-    const auto v = (y - (float)v0.y) / (float)(v2.y - v0.y);
-
-    if (v0.x == v2.x) { // Hypotenuse goes from V1 (top right) to V2 (bottom left), so the triangle is around V0 (top left)
-        if (u + v > 1.0f) {
-            return false;
-        }
-        *pOutWaterLevel = (v1.rp.z - v0.rp.z) * u + (v2.rp.z - v0.rp.z) * v + v0.rp.z;
-        if (pOutBigWaves) {
-            *pOutBigWaves   = (v2.rp.bigWaves   - v0.rp.bigWaves)   * v + (v1.rp.bigWaves   - v0.rp.bigWaves)   * u + v0.rp.bigWaves;
-            *pOutSmallWaves = (v1.rp.smallWaves - v0.rp.smallWaves) * u + (v2.rp.smallWaves - v0.rp.smallWaves) * v + v0.rp.smallWaves;
-        }
-    } else {
-        if (u < v) {
-            return false;
-        }
-        u = 1.0f - u;
-        *pOutWaterLevel = (v0.rp.z - v1.rp.z) * u + (v2.rp.z - v1.rp.z) * v + v1.rp.z;
-        if (pOutBigWaves) {
-            *pOutBigWaves   = (v2.rp.bigWaves   - v1.rp.bigWaves)   * v + (v0.rp.bigWaves   - v1.rp.bigWaves)   * u + v1.rp.bigWaves;
-            *pOutSmallWaves = (v2.rp.smallWaves - v1.rp.smallWaves) * v + (v0.rp.smallWaves - v1.rp.smallWaves) * u + v1.rp.smallWaves;
-        }
-    }
-
-    if (!(*pOutWaterLevel - 6.0f <= z || !tri->bLimitedDepth)) { // 6.0f (0x858B44)
-        return false;
-    }
-
-    return *pOutWaterLevel + 20.0f >= z;
-}
-
-// 0x6E9D70 - PR1499 B.8 (batch w2-12 fragment 0x6E9D70.cpp)
+// 0x6E9D70
 void CWaterLevel::FindNearestWaterAndItsFlow() {
     const auto camPos = TheCamera.GetPosition();
 
@@ -949,8 +855,93 @@ void CWaterLevel::FindNearestWaterAndItsFlow() {
     }
 }
 
-// 0x6E8580 - PR1499 B.5 (batch w2-12 fragment 0x6E8580.cpp)
-bool CWaterLevel::GetWaterLevelNoWaves(CVector pos, float* pOutWaterLevel, float* pOutBigWaves, float* pOutSmallWaves) {
+// 0x6E5BB0
+bool CWaterLevel::TestQuadToGetWaterLevel(CWaterQuad* quad, float x, float y, float z, float* pOutWaterLevel, float* pOutBigWaves, float* pOutSmallWaves) {
+    const auto v0 = quad->GetVertex(0);
+    const auto v1 = quad->GetVertex(1);
+    const auto v2 = quad->GetVertex(2);
+    const auto v3 = quad->GetVertex(3);
+
+    if (x < (float)v0.x || x > (float)v1.x || y < (float)v0.y || y > (float)v2.y) {
+        return false;
+    }
+
+    const auto u = (x - (float)v0.x) / (float)(v1.x - v0.x);
+    const auto v = (y - (float)v0.y) / (float)(v2.y - v0.y);
+
+    if (u + v <= 1.0f) { // Inside the quad, in the triangle containing V0 (Uses the V0 vertex as the base)
+        *pOutWaterLevel = (v1.rp.z - v0.rp.z) * u + (v2.rp.z - v0.rp.z) * v + v0.rp.z;
+        if (pOutBigWaves) {
+            *pOutBigWaves   = (v1.rp.bigWaves   - v0.rp.bigWaves)   * u + (v2.rp.bigWaves   - v0.rp.bigWaves)   * v + v0.rp.bigWaves;
+            *pOutSmallWaves = (v1.rp.smallWaves - v0.rp.smallWaves) * u + (v2.rp.smallWaves - v0.rp.smallWaves) * v + v0.rp.smallWaves;
+        }
+    } else { // Inside the quad, in the triangle containing V3 (Uses the V3 vertex as the base)
+        const auto uu = 1.0f - u, vv = 1.0f - v; // Save ourselves some math
+        *pOutWaterLevel = (v1.rp.z - v3.rp.z) * vv + (v2.rp.z - v3.rp.z) * uu + v3.rp.z;
+        if (pOutBigWaves) {
+            *pOutBigWaves   = (v2.rp.bigWaves   - v3.rp.bigWaves)   * uu + (v1.rp.bigWaves   - v3.rp.bigWaves)   * vv + v3.rp.bigWaves;
+            *pOutSmallWaves = (v2.rp.smallWaves - v3.rp.smallWaves) * uu + (v1.rp.smallWaves - v3.rp.smallWaves) * vv + v3.rp.smallWaves;
+        }
+    }
+
+    if (!pOutBigWaves) {
+        return true;
+    }
+
+    if (!(*pOutWaterLevel - 6.0f <= z || !quad->bLimitedDepth)) { // 6.0f (0x858B44)
+        return false;
+    }
+
+    return *pOutWaterLevel + 20.0f >= z;
+}
+
+// 0x6E5E90
+bool CWaterLevel::TestTriangleToGetWaterLevel(CWaterTriangle* tri, float x, float y, float z, float* pOutWaterLevel, float* pOutBigWaves, float* pOutSmallWaves) {
+    const auto v0 = tri->GetVertex(0);
+    const auto v1 = tri->GetVertex(1);
+    const auto v2 = tri->GetVertex(2);
+
+    if (x < (float)v0.x || x > (float)v1.x) {
+        return false;
+    }
+
+    if (y < (float)std::min(v0.y, v2.y) || y > (float)std::max(v0.y, v2.y)) {
+        return false;
+    }
+
+    auto u = (x - (float)v0.x) / (float)(v1.x - v0.x);
+    const auto v = (y - (float)v0.y) / (float)(v2.y - v0.y);
+
+    if (v0.x == v2.x) { // Hypotenuse goes from V1 (top right) to V2 (bottom left), so the triangle is around V0 (top left)
+        if (u + v > 1.0f) {
+            return false;
+        }
+        *pOutWaterLevel = (v1.rp.z - v0.rp.z) * u + (v2.rp.z - v0.rp.z) * v + v0.rp.z;
+        if (pOutBigWaves) {
+            *pOutBigWaves   = (v2.rp.bigWaves   - v0.rp.bigWaves)   * v + (v1.rp.bigWaves   - v0.rp.bigWaves)   * u + v0.rp.bigWaves;
+            *pOutSmallWaves = (v1.rp.smallWaves - v0.rp.smallWaves) * u + (v2.rp.smallWaves - v0.rp.smallWaves) * v + v0.rp.smallWaves;
+        }
+    } else {
+        if (u < v) {
+            return false;
+        }
+        u = 1.0f - u;
+        *pOutWaterLevel = (v0.rp.z - v1.rp.z) * u + (v2.rp.z - v1.rp.z) * v + v1.rp.z;
+        if (pOutBigWaves) {
+            *pOutBigWaves   = (v2.rp.bigWaves   - v1.rp.bigWaves)   * v + (v0.rp.bigWaves   - v1.rp.bigWaves)   * u + v1.rp.bigWaves;
+            *pOutSmallWaves = (v2.rp.smallWaves - v1.rp.smallWaves) * v + (v0.rp.smallWaves - v1.rp.smallWaves) * u + v1.rp.smallWaves;
+        }
+    }
+
+    if (!(*pOutWaterLevel - 6.0f <= z || !tri->bLimitedDepth)) { // 6.0f (0x858B44)
+        return false;
+    }
+
+    return *pOutWaterLevel + 20.0f >= z;
+}
+
+// 0x6E8580
+bool CWaterLevel::GetWaterLevelNoWaves(CVector pos, float * pOutWaterLevel, float * pOutBigWaves, float * pOutSmallWaves) {
     // Convert world coords to block index (World is 6000x6000, block size is 500)
     const auto BlockIdx = [](float c) { return (int32)std::floor(c * 0.002f + 6.0f); }; // 0.002f (0x858F44), 6.0f (0x858B44)
 
@@ -994,14 +985,62 @@ bool CWaterLevel::GetWaterLevelNoWaves(CVector pos, float* pOutWaterLevel, float
     }
 }
 
+// 0x6EA960
 bool CWaterLevel::GetWaterDepth(const CVector& vecPos, float* pOutWaterDepth, float* pOutWaterLevel, float* pOutGroundLevel)
 {
-    return plugin::CallAndReturn<bool, 0x6EA960, const CVector&, float*, float*, float*>
-        (vecPos, pOutWaterDepth, pOutWaterLevel, pOutGroundLevel);
+    float fWaterLevel;
+    if (!GetWaterLevelNoWaves(vecPos, &fWaterLevel, nullptr, nullptr)) {
+        return false;
+    }
+
+    float fGroundLevel;
+    if (!GetGroundLevel(vecPos, &fGroundLevel, nullptr, 30.0f)) {
+        fGroundLevel = -100.0f; // 0x859014
+    }
+
+    if (pOutWaterDepth) {
+        *pOutWaterDepth = fWaterLevel - fGroundLevel;
+    }
+    if (pOutWaterLevel) {
+        *pOutWaterLevel = fWaterLevel;
+    }
+    if (pOutGroundLevel) {
+        *pOutGroundLevel = fGroundLevel;
+    }
+    return true;
 }
 
-// 0x6E7760 - PR1499 B.15 (batch w2-12 fragment 0x6E7760.cpp)
-// (Repo stub had `ZoneScoped;` - kept, it is NOTSA profiling instrumentation)
+// 0x6EA8A0
+bool CWaterLevel::GetGroundLevel(const CVector& vecPos, float* pOutGroundZ, ColData* pOutColData, float fMaxDist)
+{
+    CColPoint colPoint;
+    CEntity*  entity{};
+    if (!CWorld::ProcessVerticalLine(
+        CVector{ vecPos.x, vecPos.y, vecPos.z + fMaxDist }, // Origin
+        -fMaxDist,                                          // Distance
+        colPoint,
+        entity,
+        true,   // Buildings
+        false,  // Vehicles
+        false,  // Peds
+        false,  // Objects
+        true,   // Dummies
+        false,  // See through check
+        nullptr
+    )) {
+        return false;
+    }
+
+    *pOutGroundZ = colPoint.m_vecPoint.z;
+    if (pOutColData) {
+        *pOutColData = ColData{ colPoint.m_nSurfaceTypeB, colPoint.m_nPieceTypeB };
+    }
+    return true;
+}
+
+// 0x6E7760
+// NOTE: `ZoneScoped;` below is NOTSA profiling instrumentation from the repo
+// stub - kept for consistency with PreRenderWater (upstream PR body has none).
 void CWaterLevel::RenderWaterFog() {
     ZoneScoped;
 
@@ -1170,50 +1209,12 @@ void CWaterLevel::CalculateWavesOnlyForCoordinate(
     glare = std::clamp(8.0f * glareLevel - 5.0f, 0.0f, 0.99f) * CWeather::SunGlare;
 }
 
-// 0x6E5810
-void CWaterLevel::MarkQuadsAndPolysToBeRendered(int32 blockX, int32 blockY, bool isInInterior) {
-    using PType = PolyInfo::PType;
-
-    // Horrible naming, sorry.
-    const auto ProcessPoly = [&](PolyInfo data) {
-        switch (data.Type()) {
-        case PType::SINGLE_QUAD:
-            WaterQuads[data.Id()].DoMarkToBeRendered(isInInterior);
-            break;
-        case PType::SINGLE_TRI:
-            WaterTriangles[data.Id()].DoMarkToBeRendered(isInInterior);
-            break;
-        }
-    };
-
-    auto& blockPolyInfo = m_BlockPolyInfo[blockX][blockY];
-    switch (blockPolyInfo.Type()) {
-    case PType::SINGLE_QUAD:
-    case PType::SINGLE_TRI:
-        ProcessPoly(blockPolyInfo);
-        break;
-    case PType::COMBO: {
-        for (auto& comboPoly : m_PolyCombos | rng::views::drop(blockPolyInfo.Id())) {
-            if (comboPoly.Type() == PType::NONE) {
-                break; // End of sequence
-            }
-            ProcessPoly(comboPoly);
-        }
-        break;
-    }
-    }
-}
-
-// 0x6E7210 - PR1499 B.1 (dependency of batch function 0x6E81E0 AddWaveToResult)
-// NOTE: The OG function's argument order is (x, y, bigWavesAmpl, smallWavesAmpl, float* pResultHeight);
-// this definition keeps the REPO wrapper order (x, y, float* pResultHeight, big, small) because the
-// read-only WaterLevel.h declares it that way (PR1499 Section A.6 would change the header).
-// Consequently this function is NOT installed at 0x6E7210 (unlike upstream PR) - same as the repo stub was.
+// 0x6E7210
 void CWaterLevel::CalculateWavesOnlyForCoordinate2( // TODO: Original name didn't have a 2 in it... I'm just lazy!
     int32 x, int32 y,
-    float* pResultHeight,
     float bigWavesAmpl,
-    float smallWavesAmpl
+    float smallWavesAmpl,
+    float* pResultHeight
 ) {
     x = std::abs(x);
     y = std::abs(y);
@@ -1234,52 +1235,13 @@ void CWaterLevel::CalculateWavesOnlyForCoordinate2( // TODO: Original name didn'
     CalculateWave(3000, { 0.0f,                   TWO_PI * (1.0f / 20.0f) }, 0.5f * smallWavesAmpl);
 }
 
-// 0x6E6CA0
-void CWaterLevel::BlockHit(int32 blockX, int32 blockY) {
-    if (blockX >= 0 && blockX < NUM_WATER_BLOCKS_ROWCOL && blockY >= 0 && blockY < NUM_WATER_BLOCKS_ROWCOL) {
-        MarkQuadsAndPolysToBeRendered(blockX, blockY, CGame::currArea != AREA_CODE_NORMAL_WORLD);
-    }
-
-    // Blocks at the edge of the world (index 0 and 11) need to be handled both ways, the quads and polys are to be rendered, but also the general ocean plane needs to be rendered on them
-    if (blockX <= 0 || blockX >= (NUM_WATER_BLOCKS_ROWCOL - 1) || blockY <= 0 || blockY >= (NUM_WATER_BLOCKS_ROWCOL - 1)) {
-        if (m_NumBlocksOutsideWorldToBeRendered < (uint32)m_MaxNumBlocksOutsideWorldToBeRendered) {
-            const auto idx                         = m_NumBlocksOutsideWorldToBeRendered++;
-            m_BlocksToBeRenderedOutsideWorldX[idx] = blockX;
-            m_BlocksToBeRenderedOutsideWorldY[idx] = blockY;
-        }
-    }
-}
-
-// 0x6E6D10
-void CWaterLevel::ScanThroughBlocks() {
-    m_NumBlocksOutsideWorldToBeRendered = 0;
-
-    const auto frustumPts = TheCamera.GetFrustumPoints();
-    CVector2D scanPts[5]{};
-    for (auto i = 0; i < 5; i++) {
-        scanPts[i] = CVector2D{ frustumPts[i] } / (float)WATER_BLOCK_SIZE + CVector2D{6.f, 6.f};
-    }
-    CWorldScan::ScanWorld(scanPts, 5, BlockHit);
-}
-
-void CWaterLevel::RenderHighDetailWaterTriangle(int32 X1, int32 Y1, CRenPar P1, int32 X2, int32 Y2, CRenPar P2, int32 X3, int32 Y3, CRenPar P3) {
-    plugin::CallAndReturn<void, 0x6EDDC0, int32, int32, CRenPar, int32, int32, CRenPar, int32, int32, CRenPar>(X1, Y1, P1, X2, Y2, P2, X3, Y3, P3);
-}
-
-// ---------------------------------------------------------------------------
-// File-local helpers of `RenderWater` (PR1499 B.11-B.14).
-// Upstream declares them in WaterLevel.h (Section A.7) and hooks the two sea
-// bed renderers; the read-only repo header has no declarations, so they live
-// here as file-local functions and are called directly (no hooks added).
-// ---------------------------------------------------------------------------
-
 /*!
 * @addr notsa
 * @brief Draw the vertices/indices that were pushed into the temporary Im3D buffers up until now
 *
 * @note The caller is responsible for clearing `uiTempBufferVerticesStored`/`uiTempBufferIndicesStored`
 */
-static void RenderAndEmptyRenderBuffer() {
+void CWaterLevel::RenderAndEmptyRenderBuffer() {
     if (uiTempBufferVerticesStored) {
         LittleTest();
         if (RwIm3DTransform(TempBufferVertices.m_3d, uiTempBufferVerticesStored, nullptr, rwIM3D_VERTEXUV)) {
@@ -1320,13 +1282,12 @@ static void PushSeaBedQuadIndices(RxVertexIndex firstVertex) {
 }
 
 // 0x6E6870
-static void RenderSeaBedSegment(int32 blockX, int32 blockY, float x1, float x2, float y1, float y2) {
+void CWaterLevel::RenderSeaBedSegment(int32 blockX, int32 blockY, float x1, float x2, float y1, float y2) {
     // World space coordinates of the rectangle's corners
-    // (NOTSA integration: qualified - this is a file-local function, not a member)
-    const auto posX1 = ((float)blockX + x1) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-    const auto posX2 = ((float)blockX + x2) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-    const auto posY1 = ((float)blockY + y1) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-    const auto posY2 = ((float)blockY + y2) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
+    const auto posX1 = ((float)blockX + x1) * (float)WATER_BLOCK_SIZE - 3000.f;
+    const auto posX2 = ((float)blockX + x2) * (float)WATER_BLOCK_SIZE - 3000.f;
+    const auto posY1 = ((float)blockY + y1) * (float)WATER_BLOCK_SIZE - 3000.f;
+    const auto posY2 = ((float)blockY + y2) * (float)WATER_BLOCK_SIZE - 3000.f;
 
     // Texture coordinates (8 repeats per block - 0x859000 is `8.0f`)
     const auto u1 = x1 * 8.f, u2 = x2 * 8.f;
@@ -1341,7 +1302,7 @@ static void RenderSeaBedSegment(int32 blockX, int32 blockY, float x1, float x2, 
 }
 
 // 0x6E6A10
-static void RenderDetailedSeaBedSegment(int32 blockX, int32 blockY, float x1, float x2, float y1, float y2) {
+void CWaterLevel::RenderDetailedSeaBedSegment(int32 blockX, int32 blockY, float x1, float x2, float y1, float y2) {
     // Number of cells the rectangle is subdivided into (4 => At most 125 units per cell)
     const auto numCellsX = std::max(1, (int32)((x2 - x1) * 4.f)); // 0x858B90 is `4.0f`
     const auto numCellsY = std::max(1, (int32)((y2 - y1) * 4.f));
@@ -1353,10 +1314,10 @@ static void RenderDetailedSeaBedSegment(int32 blockX, int32 blockY, float x1, fl
             const auto cellY1 = ((float)iy * (y2 - y1)) / (float)numCellsY + y1;
             const auto cellY2 = ((float)(iy + 1) * (y2 - y1)) / (float)numCellsY + y1;
 
-            const auto posX1 = ((float)blockX + cellX1) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-            const auto posX2 = ((float)blockX + cellX2) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-            const auto posY1 = ((float)blockY + cellY1) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
-            const auto posY2 = ((float)blockY + cellY2) * (float)CWaterLevel::WATER_BLOCK_SIZE - 3000.f;
+            const auto posX1 = ((float)blockX + cellX1) * (float)WATER_BLOCK_SIZE - 3000.f;
+            const auto posX2 = ((float)blockX + cellX2) * (float)WATER_BLOCK_SIZE - 3000.f;
+            const auto posY1 = ((float)blockY + cellY1) * (float)WATER_BLOCK_SIZE - 3000.f;
+            const auto posY2 = ((float)blockY + cellY2) * (float)WATER_BLOCK_SIZE - 3000.f;
 
             const auto u1 = cellX1 * 8.f, u2 = cellX2 * 8.f;
             const auto v1 = cellY1 * 8.f, v2 = cellY2 * 8.f;
@@ -1371,7 +1332,73 @@ static void RenderDetailedSeaBedSegment(int32 blockX, int32 blockY, float x1, fl
     }
 }
 
-// 0x6EF650 - PR1499 B.16 (batch w2-12 fragment 0x6EF650.cpp)
+// 0x6E5810
+void CWaterLevel::MarkQuadsAndPolysToBeRendered(int32 blockX, int32 blockY, bool isInInterior) {
+    using PType = PolyInfo::PType;
+
+    // Horrible naming, sorry.
+    const auto ProcessPoly = [&](PolyInfo data) {
+        switch (data.Type()) {
+        case PType::SINGLE_QUAD:
+            WaterQuads[data.Id()].DoMarkToBeRendered(isInInterior);
+            break;
+        case PType::SINGLE_TRI:
+            WaterTriangles[data.Id()].DoMarkToBeRendered(isInInterior);
+            break;
+        }
+    };
+
+    auto& blockPolyInfo = m_BlockPolyInfo[blockX][blockY];
+    switch (blockPolyInfo.Type()) {
+    case PType::SINGLE_QUAD:
+    case PType::SINGLE_TRI:
+        ProcessPoly(blockPolyInfo);
+        break;
+    case PType::COMBO: {
+        for (auto& comboPoly : m_PolyCombos | rng::views::drop(blockPolyInfo.Id())) {
+            if (comboPoly.Type() == PType::NONE) {
+                break; // End of sequence
+            }
+            ProcessPoly(comboPoly);
+        }
+        break;
+    }
+    }
+}
+
+// 0x6E6CA0
+void CWaterLevel::BlockHit(int32 blockX, int32 blockY) {
+    if (blockX >= 0 && blockX < NUM_WATER_BLOCKS_ROWCOL && blockY >= 0 && blockY < NUM_WATER_BLOCKS_ROWCOL) {
+        MarkQuadsAndPolysToBeRendered(blockX, blockY, CGame::currArea != AREA_CODE_NORMAL_WORLD);
+    }
+
+    // Blocks at the edge of the world (index 0 and 11) need to be handled both ways, the quads and polys are to be rendered, but also the general ocean plane needs to be rendered on them
+    if (blockX <= 0 || blockX >= (NUM_WATER_BLOCKS_ROWCOL - 1) || blockY <= 0 || blockY >= (NUM_WATER_BLOCKS_ROWCOL - 1)) {
+        if (m_NumBlocksOutsideWorldToBeRendered < (uint32)m_MaxNumBlocksOutsideWorldToBeRendered) {
+            const auto idx                         = m_NumBlocksOutsideWorldToBeRendered++;
+            m_BlocksToBeRenderedOutsideWorldX[idx] = blockX;
+            m_BlocksToBeRenderedOutsideWorldY[idx] = blockY;
+        }
+    }
+}
+
+// 0x6E6D10
+void CWaterLevel::ScanThroughBlocks() {
+    m_NumBlocksOutsideWorldToBeRendered = 0;
+
+    const auto frustumPts = TheCamera.GetFrustumPoints();
+    CVector2D scanPts[5]{};
+    for (auto i = 0; i < 5; i++) {
+        scanPts[i] = CVector2D{ frustumPts[i] } / (float)WATER_BLOCK_SIZE + CVector2D{6.f, 6.f};
+    }
+    CWorldScan::ScanWorld(scanPts, 5, BlockHit);
+}
+
+void CWaterLevel::RenderHighDetailWaterTriangle(int32 X1, int32 Y1, CRenPar P1, int32 X2, int32 Y2, CRenPar P2, int32 X3, int32 Y3, CRenPar P3) {
+    plugin::CallAndReturn<void, 0x6EDDC0, int32, int32, CRenPar, int32, int32, CRenPar, int32, int32, CRenPar>(X1, Y1, P1, X2, Y2, P2, X3, Y3, P3);
+}
+
+// 0x6EF650
 void CWaterLevel::RenderWater() {
     if (!CGame::CanSeeWaterFromCurrArea()) {
         return;
@@ -1702,8 +1729,39 @@ void CWaterLevel::AddWaterLevelTriangle(int32 X1, int32 Y1, CRenPar P1, int32 X2
     };
 }
 
+// 0x6E7B30
 void CWaterLevel::FillQuadsAndTrianglesList() {
-    plugin::Call<0x6E7B30>();
+    for (int32 blockX = 0; blockX < NUM_WATER_BLOCKS_ROWCOL; blockX++) {
+        const auto minX = (float)(blockX * WATER_BLOCK_SIZE) - 3000.0f; // Left edge of this block
+        const auto maxX = minX + (float)WATER_BLOCK_SIZE;
+
+        for (int32 blockY = 0; blockY < NUM_WATER_BLOCKS_ROWCOL; blockY++) {
+            const auto minY = (float)(blockY * WATER_BLOCK_SIZE) - 3000.0f; // Bottom edge of this block
+            const auto maxY = minY + (float)WATER_BLOCK_SIZE;
+
+            // Quads
+            for (auto i = 0u; i < NumWaterQuads; i++) {
+                const auto& quad = WaterQuads[i];
+                if (minX < (float)m_aVertices[quad.verts[1]].x && (float)m_aVertices[quad.verts[0]].x < maxX
+                 && minY < (float)m_aVertices[quad.verts[2]].y && (float)m_aVertices[quad.verts[0]].y < maxY
+                ) {
+                    AddToQuadsAndTrianglesList(blockX, blockY, (int32)i, 1);
+                }
+            }
+
+            // Triangles
+            for (auto i = 0u; i < NumWaterTriangles; i++) {
+                const auto& tri = WaterTriangles[i];
+                const auto  y0  = m_aVertices[tri.verts[0]].y;
+                const auto  y1  = m_aVertices[tri.verts[1]].y;
+                if (minX < (float)m_aVertices[tri.verts[1]].x && (float)m_aVertices[tri.verts[0]].x < maxX
+                 && minY < (float)std::max(y0, y1) && (float)std::min(y0, y1) < maxY
+                ) {
+                    AddToQuadsAndTrianglesList(blockX, blockY, (int32)i, 2);
+                }
+            }
+        }
+    }
 }
 
 // 0x6E9C80

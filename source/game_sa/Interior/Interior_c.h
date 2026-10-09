@@ -1,5 +1,13 @@
 #pragma once
 
+// ИНТЕГРАЦИЯ interior-1/2/3/4: единственное отличие от source/game_sa/Interior/Interior_c.h —
+// PlaceFurniture / PlaceFurnitureOnWall / PlaceFurnitureInCorner возвращают CEntity* (по декомпилу
+// 0x592AA0/0x593120/0x593340 возвращают entity из слота FurnitureEntity_c либо nullptr; результат
+// используют Kitchen_FurnishEdges, FurnishLounge, Office_PlaceDesk).
+// Остальные сигнатуры не тронуты: GetRandomTile оставлен int32 (оригинал void; тело возвращает 0),
+// Kitchen_FurnishEdges / Lounge_AddTV / Lounge_AddHifi оставлены CObject* (оригинал void; тела
+// возвращают nullptr) — см. шапку new_Interior_Interior_c.cpp.
+
 #include "Base.h"
 
 #include "rwplcore.h" // RwMatrix
@@ -106,11 +114,11 @@ public:
     void FindBoundingBox(int32, int32, int32*, int32*, int32*, int32*, int32*);
     void CalcExitPts();
     bool IsVisible();
-    void PlaceFurniture(Furniture_c* a1, int32 a2, int32 a3, float a4, int32 a5, int32 a6, int32* a7, int32* a8, uint8 a9);
-    void PlaceFurnitureOnWall(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 furnitureId, float a5, int32 a6, int32 a7, int32 a8, int32 a9, int32* a10, int32* a11,
-                              int32* a12, int32* a13, int32* a14, int32* a15);
-    void PlaceFurnitureInCorner(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 id, float a4, int32 a5, int32 a6, int32 a2, int32* a9, int32* a10, int32* a11, int32* a12,
-                                int32* a13);
+    CEntity* PlaceFurniture(Furniture_c* a1, int32 a2, int32 a3, float a4, int32 a5, int32 a6, int32* a7, int32* a8, uint8 a9);
+    CEntity* PlaceFurnitureOnWall(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 furnitureId, float a5, int32 a6, int32 a7, int32 a8, int32 a9, int32* a10, int32* a11,
+                                  int32* a12, int32* a13, int32* a14, int32* a15);
+    CEntity* PlaceFurnitureInCorner(int32 furnitureGroupId, int32 furnitureSubgroupId, int32 id, float a4, int32 a5, int32 a6, int32 a2, int32* a9, int32* a10, int32* a11, int32* a12,
+                                    int32* a13);
     bool FindEmptyTiles(int32 a3, int32 a4, int32* arg8, int32* a5);
     void FurnishShop(int32 a2);
 
