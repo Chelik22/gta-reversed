@@ -6,12 +6,22 @@
 */
 
 // ---------------------------------------------------------------------------
-// INTEGRATION BUILD (w2-01-Bike + w2-02-Bike -> source/game_sa/Entity/Vehicle/Bike.cpp)
+// INTEGRATION BUILD — FINAL (w2-01-Bike + w2-02-Bike -> source/game_sa/Entity/Vehicle/Bike.cpp)
 //
-// Батч: 13 функций CBike (w2-01; w2-02 — подмножество тех же адресов).
-// Источник тел: w2-01-Bike\0x*.cpp; для SetRemoveAnimFlags — тело w2-02 (см. PORT-ADAPT #1).
-// 0x6B9250 ProcessControl в батч НЕ входит (не переведена, w2-01 STATUS) — редирект-стаб сохранён,
-// {.Reversed = false} НЕ снят. Остальные стабы (вне батча) не тронуты.
+// Батч w2-01-Bike: 18 функций CBike = 13 переведено (тела ниже; w2-02 — подмножество
+// тех же адресов; для SetRemoveAnimFlags взято тело w2-02, см. PORT-ADAPT #1) + 4 готово
+// в апстриме PR 1366 (BlowUpCar 0x6BEA10, BurstTyre 0x6BEB20, PlayCarHorn 0x6B7080,
+// VehicleDamage 0x6B8EC0) + 1 НЕ переведена (см. ниже).
+//
+// ФИНАЛЬНЫЙ РАЗБОР ФЛАГОВ (7 x {.Reversed = false} на снапшоте 83c7c61c):
+//  - 6 сняты, тела интегрированы: ProcessAI 0x6BC930, ProcessRiderAnims 0x6B7280,
+//    ProcessControlInputs 0x6BE310, PreRender 0x6BD090, DoBurstAndSoftGroundRatios 0x6B6950,
+//    SetUpWheelColModel 0x6B67E0 (фрагменты: batch_out/w2-01-Bike, w2-02-Bike).
+//  - 1 — ProcessControl 0x6B9250: STUB_BLOCKED. НЕ переведена (w2-01 STATUS: 1491 строк
+//    декомпила, вынесена в отдельное задание) — редирект-стаб plugin::CallMethod сохранён,
+//    VMT-инсталл включён (хонк перенаправляет на оригинальный код). НЕ ПЕРЕВОДИТЬ ЗДЕСЬ.
+//  В файле не осталось ни одного {.Reversed = false}; проверено: 40 инсталлов = 40 тел,
+//  адреса инсталлов совпадают с адресами в комментариях перед телами.
 //
 // PORT-ADAPT фиксы (адаптация фрагментов к лейауту/именам этого репо):
 //  #1  SetRemoveAnimFlags: w2-01 ставил ANIMATION_DONT_ADD_TO_PARTIAL_BLEND (0x400), а оригинал —

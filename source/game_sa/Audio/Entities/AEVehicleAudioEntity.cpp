@@ -4319,14 +4319,110 @@ float CAEVehicleAudioEntity::GetBaseVolumeForBicycleTyre(float ratio) const noex
         }, ratio);
 }
 
+// Statics used by the bicycle sound processing below (original .data/.bss addresses)
+static inline auto& flt_B6BA6C = StaticRef<float>(0xB6BA6C);  // Chain speed/volume multiplier
+static inline auto& flt_B6BA70 = StaticRef<float>(0xB6BA70);  // Tyre speed multiplier
+static inline auto& bB6BAC8   = StaticRef<uint8>(0xB6BAC8);   // "Freewheeling" last frame (dummy path)
+static inline auto& bB6BAC9   = StaticRef<uint8>(0xB6BAC9);   // "Freewheeling" last frame (player path)
+static inline auto& flt_B6BACC = StaticRef<float>(0xB6BACC);  // BMX chain clang timer
+static inline auto& flt_B6BAD0 = StaticRef<float>(0xB6BAD0);  // Crank angle last frame
+
+// NB (integration): The original binary adds `m_EventVolume` to the volumes passed to
+// `PlayBicycleSound` (see the 0x4FFDC0/0x500040 disasm). In this codebase that addition
+// is done inside `PlayBicycleSound` itself when `CAEVehicleAudioEntity_PlayBicycleSound_VolumeFix`
+// is enabled (it is by default), hence it is NOT added at these call sites
+// (same convention as the `PlayAircraftSound` call sites).
+
 // 0x4FFDC0
 void CAEVehicleAudioEntity::ProcessDummyBicycle(tVehicleParams& params) {
-    plugin::CallMethod<0x4FFDC0, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
+    if (m_DummySlot == SND_BANK_SLOT_NONE) {
+        m_DummySlot = RequestBankSlot(m_DummyEngineBank);
+        if (m_DummySlot == SND_BANK_SLOT_NONE) {
+            return;
+        }
+    }
+
+    if (!AEAudioHardware.IsSoundBankLoaded(m_DummyEngineBank, m_DummySlot)) {
+        // Dummy slots 7..16: if the slot is still reserved for our bank - just wait for it to load
+        const auto slotIdx = m_DummySlot - SND_BANK_SLOT_DUMMY_FIRST;
+        if (slotIdx >= 0 && slotIdx < SND_BANK_SLOT_DUMMY_END - SND_BANK_SLOT_DUMMY_FIRST && s_DummyEngineSlots[slotIdx].BankID == m_DummyEngineBank) {
+            return;
+        }
+        // Slot got evicted by another bank - request a new one
+        m_DummySlot = RequestBankSlot(m_DummyEngineBank);
+        reinterpret_cast<uint8*>(&m_AuSettings)[1] = 0; // Byte @ entity+0xA9 (padding in the current `tVehicleAudioSettings`) - same as in the original
+        return;
+    }
+
+    const auto* const bike = params.Vehicle->AsBike();
+
+    // Speed normalized by max. speed and clamped to [0, 1]
+    auto speed = std::fabs(params.Speed / params.Transmission->m_MaxVelocity);
+    speed = std::min(speed, 1.0f);
+
+    const auto contactWheels = (float)bike->m_nNoOfContactWheels;
+
+    // Chain: volume from speed/contact wheels, "speed" from handlebar lean
+    const auto chainVolume = CAEAudioUtility::AudioLog10(contactWheels * 0.25f * speed) * 20.0f - 8.0f;
+    const auto chainSpeed  = (std::fabs(std::sin(bike->m_RideAnimData.DesiredLeanAngle)) * 0.2f + 1.0f)
+                           * (flt_B6BA6C * speed + contactWheels * flt_B6BA6C * 0.125f + 1.05f);
+
+    // Tyre: volume from the base curve (or 0 when freewheeling), speed is linear in the bike's speed
+    const auto isFreewheeling = params.Vehicle->AsBmx()->m_bIsFreewheeling;
+    const auto tyreVolume = CAEAudioUtility::AudioLog10(isFreewheeling ? 0.0f : GetBaseVolumeForBicycleTyre(speed)) * 20.0f - 15.0f;
+    const auto tyreSpeed  = flt_B6BA70 * speed + 0.4f;
+
+    PlayBicycleSound(AE_SOUND_BICYCLE_TYRE,       m_DummySlot, SND_GENRL_BICYCLE_D_BICYCLE_TYRE_LOOP,  chainVolume, chainSpeed); // sfx 0
+    PlayBicycleSound(AE_SOUND_BICYCLE_SPROCKET_1, m_DummySlot, SND_GENRL_BICYCLE_D_SPROCKET_LOOP_SLOW, tyreVolume,  tyreSpeed);  // sfx 1
+
+    // Chain clang: stopped pedaling (freewheel ended) and were freewheeling in the previous frame
+    if (!isFreewheeling && bB6BAC8 != 0) {
+        PlayBicycleSound(AE_SOUND_BICYCLE_CHAIN_CLANG, m_DummySlot, (eSoundID)2, chainVolume, 1.0f); // sfx 2 - no name for it in SoundIDs
+    }
+
+    bB6BAC8 = isFreewheeling;
 }
 
 // 0x500040
 void CAEVehicleAudioEntity::ProcessPlayerBicycle(tVehicleParams& params) {
-    plugin::CallMethod<0x500040, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
+    if (!AEAudioHardware.IsSoundBankLoaded(m_DummyEngineBank, m_DummySlot)) {
+        return;
+    }
+
+    const auto* const bmx = params.Vehicle->AsBmx();
+
+    // Pedaling backwards after a stop => delayed chain clang (6 sec.)
+    if (5.0f < bmx->m_fControlPedaling && flt_B6BAD0 * bmx->m_fCrankAngle < 0.0f && flt_B6BACC == 0.0f) {
+        flt_B6BACC = 6.0f;
+    }
+    flt_B6BACC -= 0.7f;
+    if (flt_B6BACC < 0.0f) {
+        flt_B6BACC = 0.0f;
+    }
+
+    // Speed normalized by max. speed and clamped to [0, 1]
+    auto speed = std::fabs(params.Speed / params.Transmission->m_MaxVelocity);
+    speed = std::min(speed, 1.0f);
+
+    const auto contactWheels = (float)bmx->m_nNoOfContactWheels; // byte @ CBike+0x804
+
+    const auto chainVolume = CAEAudioUtility::AudioLog10(contactWheels * 0.25f * speed) * 20.0f - 8.0f;
+    const auto chainSpeed  = (std::fabs(std::sin(bmx->m_RideAnimData.DesiredLeanAngle)) * 0.2f + 1.0f)
+                           * (flt_B6BA6C * speed + contactWheels * flt_B6BA6C * 0.125f + 1.05f);
+
+    const auto isFreewheeling = bmx->m_bIsFreewheeling; // bool @ CBmx+0x834
+    const auto tyreVolume = CAEAudioUtility::AudioLog10(isFreewheeling ? 0.0f : GetBaseVolumeForBicycleTyre(speed)) * 20.0f - 15.0f;
+    const auto tyreSpeed  = flt_B6BA70 * speed + 0.4f;
+
+    PlayBicycleSound(AE_SOUND_BICYCLE_TYRE,       m_DummySlot, SND_GENRL_BICYCLE_D_BICYCLE_TYRE_LOOP,  chainVolume, chainSpeed); // sfx 0
+    PlayBicycleSound(AE_SOUND_BICYCLE_SPROCKET_1, m_DummySlot, SND_GENRL_BICYCLE_D_SPROCKET_LOOP_SLOW, tyreVolume,  tyreSpeed);  // sfx 1
+
+    if (!isFreewheeling && bB6BAC9 != 0) {
+        PlayBicycleSound(AE_SOUND_BICYCLE_CHAIN_CLANG, m_DummySlot, (eSoundID)2, chainVolume, 1.0f); // sfx 2 - no name for it in SoundIDs
+    }
+
+    flt_B6BAD0 = bmx->m_fCrankAngle;
+    bB6BAC9    = isFreewheeling;
 }
 #pragma endregion
 
@@ -4842,8 +4938,8 @@ void CAEVehicleAudioEntity::InjectHooks() {
     // Bicycle
     RH_ScopedInstall(PlayBicycleSound, 0x4F9710);
     RH_ScopedInstall(GetBaseVolumeForBicycleTyre, 0x4F60B0);
-    RH_ScopedInstall(ProcessDummyBicycle, 0x4FFDC0, { .Reversed = false });
-    RH_ScopedInstall(ProcessPlayerBicycle, 0x500040, { .Reversed = false });
+    RH_ScopedInstall(ProcessDummyBicycle, 0x4FFDC0);
+    RH_ScopedInstall(ProcessPlayerBicycle, 0x500040);
 
     RH_ScopedInstall(ProcessPlayerCombine, 0x500CE0);
     RH_ScopedInstall(ProcessDummyRCCar, 0x500DC0);
