@@ -1029,6 +1029,7 @@ bool CStreaming::Save() {
 // streaming channel within CStreaming::ms_channel which is 1 (second streaming channel).
 // 0x40EA10
 void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests) {
+    NOTSA_LOG_DEBUG("[STREAM] LoadAllRequestedModels enter (priority={})", bOnlyPriorityRequests);
     ZoneScoped;
 
     if (m_bLoadingAllRequestedModels) {
@@ -1072,6 +1073,13 @@ void CStreaming::LoadAllRequestedModels(bool bOnlyPriorityRequests) {
 
         if (bOnlyPriorityRequests && ms_numPriorityRequests == 0)
             break;
+
+        static int spin = 0;
+        if (++spin % 10000 == 1) {
+            NOTSA_LOG_ERR("[STREAM] SPIN #{}: reqList={} ch0={} ch1={} big={} toLoad={}",
+                spin, !IsRequestListEmpty(), ms_channel[0].IsIdle(), ms_channel[0].IsReading(), ms_channel[1].IsIdle(), ms_channel[1].IsReading(),
+                ms_bLoadingBigModel, numModelsToLoad);
+        }
 
         if (!ms_bLoadingBigModel) {
             const auto other = 1 - chIdx;

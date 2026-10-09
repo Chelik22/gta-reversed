@@ -105,6 +105,10 @@ CdStreamHandle CdStreamOpen(const char* lpFileName) {
 //    continue executing code and continue the gameplay.
 // 0x406460
 eCdStreamStatus CdStreamSync(int32 streamId) {
+    static int syncSpin = 0;
+    if (++syncSpin % 1000 == 1)
+        NOTSA_LOG_DEBUG("[CDSTREAM] CdStreamSync call #{} (stream {})", syncSpin, streamId);
+
     CdStream& stream = gCdStreams[streamId];
 #ifdef APPLY_CD_STREAM_DEADLOCK_FIX
     CLockGuard lockGuard(cdStreamThreadSync);
