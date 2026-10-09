@@ -1625,11 +1625,13 @@ RxPipeline* RxLockedPipeUnlock(RxLockedPipe* pipeline) {
         }
     }
 
-    // ---- topological sort + cluster slot allocation (internal helper, outside floor).
-    // Verified via disasm (0080614E lea eax,[esp+0x10]; push eax; push edx; call 0x8067b0):
-    // the first argument is the ADDRESS of the pipeline pointer cell (RxPipeline**).
-    RxPipeline* pipeCell = ppl;
-    ((RwBool(__cdecl*)(RxPipeline**, RwUInt32))0x8067B0)(&pipeCell, entryPoint);
+    // ---- entry-node relocation (internal helper 0x8067B0, outside floor).
+    // Decompile of 0x8067B0: param_1 = { RxPipeline* pipeline, RwUInt32 oldNodeIndex } PAIR,
+    // param_2 = target index. It swaps nodes[old] <-> nodes[target] (0x28-byte nodes with a
+    // 8-dword rotate) and their topSortData (3 dwords) when old != target.
+    // Unlock relocates the entry node to slot 0 (ppl->entryPoint = 0 afterwards).
+    void* rwTopSortCell[2] = { ppl, (void*)(uintptr_t)entryPoint };
+    ((void(__cdecl*)(void**, RwUInt32))0x8067B0)(rwTopSortCell, 0);
     // ---- verify: every node fully visited
     for (RwUInt32 n = 0; n < numNodes; n++) {
         if (ppl->nodes[n].topSortData->numIns != ppl->nodes[n].topSortData->numInsVisited) {

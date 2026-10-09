@@ -2140,9 +2140,12 @@ RwBool RwEngineOpen(RwEngineOpenParams* initParams) {
     memcpy(newEngine, &rwGlobalsStatic, sizeof(RwGlobalsSA) /* 0x158 = 0x56 dwords */);
     RwEngineInstance = reinterpret_cast<RwGlobals*>(newEngine);
 
-    engineSystem(&newEngine->dOpenDevice, rwDEVICESYSTEMREGISTER, &newEngine->dOpenDevice, &newEngine->memoryFuncs, 0);
-    if (engineSystem(&newEngine->dOpenDevice, rwDEVICESYSTEMOPEN, nullptr, initParams, 0)) {
-        engineSystem(&newEngine->dOpenDevice, rwDEVICESYSTEMSTANDARDS, &newEngine->stdFunc[0], nullptr, 0x1d);
+    // ORIGINAL 0x7F2F70: dispatch arg1 is the DEVICE STRUCT (0x7F9C20 -> &0x8E2498), NOT &engine->dOpenDevice.
+    // engine->dOpenDevice (arg3) is merely the registration DESTINATION.
+    void* rwDevice = reinterpret_cast<void*>(systemFn);
+    engineSystem(rwDevice, rwDEVICESYSTEMREGISTER, &newEngine->dOpenDevice, &newEngine->memoryFuncs, 0);
+    if (engineSystem(rwDevice, rwDEVICESYSTEMOPEN, nullptr, initParams, 0)) {
+        engineSystem(rwDevice, rwDEVICESYSTEMSTANDARDS, &newEngine->stdFunc[0], nullptr, 0x1d);
         rwEngineOpenCount++;
         newEngine->engineStatus = rwENGINESTATUSOPENED;
         return TRUE;
@@ -2159,15 +2162,16 @@ RwBool RwEngineOpen(RwEngineOpenParams* initParams) {
 RwBool RwEngineStart() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
     RwBool(__cdecl* engineSystem)(void*, RwInt32, void*, void*, RwInt32) = (RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0;
+    void* rwDevice = ((void*(__cdecl*)(void))0x7F9C20)();   // device struct &0x8E2498 (original dispatch arg1)
 
-    if (engineSystem(&engine->dOpenDevice, rwDEVICESYSTEMSTART, nullptr, nullptr, 0)) {
+    if (engineSystem(rwDevice, rwDEVICESYSTEMSTART, nullptr, nullptr, 0)) {
         if (_rwPluginRegistryInitObject(&rwCorePluginRegistry, RwEngineInstance)) {
             RwImageSetGamma(engine->dOpenDevice.gammaCorrection);
-            engineSystem(&engine->dOpenDevice, rwDEVICESYSTEMFINALIZESTART, nullptr, nullptr, 0);
+            engineSystem(rwDevice, rwDEVICESYSTEMFINALIZESTART, nullptr, nullptr, 0);
             engine->engineStatus = rwENGINESTATUSSTARTED;
             return TRUE;
         }
-        engineSystem(&engine->dOpenDevice, rwDEVICESYSTEMSTOP, nullptr, nullptr, 0);
+        engineSystem(rwDevice, rwDEVICESYSTEMSTOP, nullptr, nullptr, 0);
     }
     return FALSE;
 }
@@ -2176,10 +2180,11 @@ RwBool RwEngineStart() {
 RwBool RwEngineStop() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
     RwBool(__cdecl* engineSystem)(void*, RwInt32, void*, void*, RwInt32) = (RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0;
+    void* rwDevice = ((void*(__cdecl*)(void))0x7F9C20)();   // device struct &0x8E2498
 
-    engineSystem(&engine->dOpenDevice, rwDEVICESYSTEMINITIATESTOP, nullptr, nullptr, 0);
+    engineSystem(rwDevice, rwDEVICESYSTEMINITIATESTOP, nullptr, nullptr, 0);
     _rwPluginRegistryDeInitObject(&rwCorePluginRegistry, RwEngineInstance);
-    RwBool stopped = engineSystem(&engine->dOpenDevice, rwDEVICESYSTEMSTOP, nullptr, nullptr, 0);
+    RwBool stopped = engineSystem(rwDevice, rwDEVICESYSTEMSTOP, nullptr, nullptr, 0);
     if (stopped) {
         engine->engineStatus = rwENGINESTATUSOPENED;
     }
@@ -2189,7 +2194,7 @@ RwBool RwEngineStop() {
 
 RwBool RwEngineClose() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
-    RwBool closed = ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMCLOSE, nullptr, nullptr, 0);
+    RwBool closed = ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(((void*(__cdecl*)(void))0x7F9C20)(), rwDEVICESYSTEMCLOSE, nullptr, nullptr, 0);
     if (closed) {
         RwGlobalsSA* oldEngine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
         RwEngineInstance = reinterpret_cast<RwGlobals*>(&rwGlobalsStatic);
@@ -2217,7 +2222,7 @@ RwBool RwEngineTerm() {
 RwInt32 RwEngineGetNumSubSystems() {
     RwInt32 numSubSystems = 1;   // original default
     ((void(__cdecl*)(void*, RwInt32, RwInt32*, RwUInt32, RwInt32))0x7F2AB0)(
-        &RwEngineInstance->dOpenDevice,   // RwEngineInstance + 0x10
+        ((void*(__cdecl*)(void))0x7F9C20)(),   // device struct &0x8E2498 (original dispatch arg1)
         0xD,
         &numSubSystems,
         0,

@@ -2982,6 +2982,26 @@ extern RwInt32      RwFreeListPurgeAllFreeLists(void);
     RWSRCGLOBAL(memoryFree)(_f, _p)
 #endif /* (!defined(RwFreeListFree)) */
 
+/* GTA SA (RW 3.6 custom) binary RwGlobals layout differs from this header:
+   the binary inserts RwFileFunctions at +0xC4, so the memory slots sit at
+   rwmalloc@+0x134 rwfree@+0x138 rwrealloc@+0x13C rwcalloc@+0x140
+   freelistAlloc@+0x144 freelistFree@+0x148 (header places them ~0x1C lower).
+   All allocator macros are re-based to the REAL binary offsets. */
+#undef RwMalloc
+#undef RwFree
+#undef RwCalloc
+#undef RwRealloc
+#undef RwFreeListAlloc
+#undef RwFreeListFree
+#define RWGTAMEMSLOT(OFF, SIG) ((SIG)(*(void**)((char*)(RwEngineInstance) + (OFF))))
+#define RwMalloc(_s, _h)            RWGTAMEMSLOT(0x134, void*(__cdecl*)(size_t, RwUInt32))((_s), (_h))
+#define RwFree(_p)                  RWGTAMEMSLOT(0x138, void(__cdecl*)(void*))(_p)
+#define RwCalloc(_n, _s, _h)        RWGTAMEMSLOT(0x140, void*(__cdecl*)(size_t, size_t, RwUInt32))((_n), (_s), (_h))
+#define RwRealloc(_p, _s, _h)       RWGTAMEMSLOT(0x13C, void*(__cdecl*)(void*, size_t, RwUInt32))((_p), (_s), (_h))
+#define RwFreeListAlloc(_f, _h)     RWGTAMEMSLOT(0x144, void*(__cdecl*)(RwFreeList*, RwUInt32))((_f), (_h))
+#define RwFreeListFree(_f, _p)      RWGTAMEMSLOT(0x148, void(__cdecl*)(RwFreeList*, void*))((_f), (_p))
+
+
 
 /*--- Automatically derived from: C:/daily/rwsdk/src/plcore/bastream.h ---*/
 
