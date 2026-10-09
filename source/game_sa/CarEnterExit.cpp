@@ -1,3 +1,24 @@
+// ============================================================================
+// new_CarEnterExit.cpp — staging output интегратора (батч: w2-16-mixed)
+//
+// ВНИМАНИЕ: ИНТЕГРАЦИЯ НЕ ВЫПОЛНЕНА — в батче D:\projects\keep\batch_out\w2-16-mixed\
+// НЕТ ни одного фрагмента для source/game_sa/CarEnterExit.cpp. Все 19 фрагментов
+// (0x61B2F0, 0x61B460, 0x61B4F0, 0x61B570, 0x61B580, 0x61BA00, 0x626FC0, 0x62C190,
+// 0x634740, 0x639530, 0x654370, 0x6544F0, 0x656BB0, 0x658200, 0x660B30, 0x660CC0,
+// 0x660D80, 0x66DDB0, 0x68DC60) по своим "// target:" заголовкам целятся в
+// Tasks/TaskTypes/*.cpp (PlayHandSignalAnim, KillPedOnFootArmed,
+// UseClosestFreeScriptedAttractor, WalkRoundCar, SignalAtPed, GoToPointAiming,
+// KillCriminal) — подтверждено STATUS.md того же батча.
+//
+// Ниже — content of source/game_sa/CarEnterExit.cpp БЕЗ ИЗМЕНЕНИЙ:
+// все 5 redirect-стабов и их {.Reversed = false} СОХРАНЕНЫ (правило 7 брифинга):
+//   0x650BB0 GetNearestCarPassengerDoor, 0x64E740 GetPositionToOpenCarDoor,
+//   0x64F240 IsPlayerToQuitCarEnter,     0x6504C0 IsRoomForPedToLeaveCar,
+//   0x64F540 MakeUndraggedPassengerPedsLeaveCar
+// Каталог w2-18-CarEnterExit существует, но ПУСТ. Готовые декомпилы этих 5 адресов
+// есть в D:\projects\keep\decompiles\0x64E740.c / 0x64F240.c / 0x64F540.c /
+// 0x6504C0.c / 0x650BB0.c, но переведённых фрагментов 0x*.cpp для них не существует.
+// ============================================================================
 #include "StdInc.h"
 
 #include "PedStats.h"
