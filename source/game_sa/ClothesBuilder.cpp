@@ -21,10 +21,10 @@ void CClothesBuilder::InjectHooks() {
     RH_ScopedInstall(LoadCdDirectory, 0x5A4190);
     RH_ScopedInstall(RequestGeometry, 0x5A41C0);
     RH_ScopedInstall(RequestTexture, 0x5A4220);
-    //RH_ScopedInstall(nullptr, 0x5A42B0, { .Reversed = false }); 
-    //RH_ScopedInstall(nullptr, 0x5A4380, { .Reversed = false }); AtomicInstanceCB
-    //RH_ScopedInstall(nullptr, 0x5A43A0, { .Reversed = false });
-    //RH_ScopedInstall(nullptr, 0x5A44A0, { .Reversed = false }); DestroyTextureCB
+    //RH_ScopedInstall(nullptr, 0x5A42B0); 
+    //RH_ScopedInstall(nullptr, 0x5A4380); AtomicInstanceCB
+    //RH_ScopedInstall(nullptr, 0x5A43A0);
+    //RH_ScopedInstall(nullptr, 0x5A44A0); DestroyTextureCB
     RH_ScopedInstall(PreprocessClothesDesc, 0x5A44C0);
     RH_ScopedInstall(ReleaseGeometry, 0x5A47B0);
     RH_ScopedGlobalInstall(GetAtomicWithName, 0x5A4810);

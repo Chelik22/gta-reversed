@@ -60,7 +60,7 @@ void CWeapon::InjectHooks() {
     RH_ScopedInstall(FireAreaEffect, 0x73E800);
     RH_ScopedInstall(FireInstantHitFromCar, 0x73EC40);
     RH_ScopedInstall(FireFromCar, 0x73FA20);
-    RH_ScopedInstall(FireInstantHit, 0x73FB10, { .Reversed = false });
+    RH_ScopedInstall(FireInstantHit, 0x73FB10);
     RH_ScopedInstall(FireProjectile, 0x741360);
     RH_ScopedInstall(DoBulletImpact, 0x73B550);
     RH_ScopedInstall(LaserScopeDot, 0x73A8D0);

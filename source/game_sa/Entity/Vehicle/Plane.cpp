@@ -32,7 +32,7 @@ void CPlane::InjectHooks() {
     RH_ScopedInstall(InitPlaneGenerationAndRemoval, 0x6CAD90);
     RH_ScopedVMTInstall(SetUpWheelColModel, 0x6C9140);
     RH_ScopedVMTInstall(BurstTyre, 0x6C9150);
-    RH_ScopedVMTInstall(PreRender, 0x6C94A0);                  // FIX(int-plane) [I-0]: снят {.Reversed = false}
+    RH_ScopedVMTInstall(PreRender, 0x6C94A0);                  // FIX(int-plane) [I-0]: снят
     RH_ScopedVMTInstall(Render, 0x6CAB70);
     RH_ScopedInstall(IsAlreadyFlying, 0x6CAB90);
     RH_ScopedVMTInstall(Fix, 0x6CABB0);
@@ -40,17 +40,17 @@ void CPlane::InjectHooks() {
     RH_ScopedInstall(SetGearUp, 0x6CAC20);
     RH_ScopedInstall(SetGearDown, 0x6CAC70);
     RH_ScopedVMTInstall(OpenDoor, 0x6CACB0);
-    RH_ScopedVMTInstall(ProcessControl, 0x6C9260);             // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedVMTInstall(ProcessControlInputs, 0x6CADD0);       // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedVMTInstall(ProcessFlyingCarStuff, 0x6CB7C0);      // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedVMTInstall(VehicleDamage, 0x6CC4B0);              // FIX(int-plane) [I-0]: снят {.Reversed = false}
+    RH_ScopedVMTInstall(ProcessControl, 0x6C9260);             // FIX(int-plane) [I-0]: снят
+    RH_ScopedVMTInstall(ProcessControlInputs, 0x6CADD0);       // FIX(int-plane) [I-0]: снят
+    RH_ScopedVMTInstall(ProcessFlyingCarStuff, 0x6CB7C0);      // FIX(int-plane) [I-0]: снят
+    RH_ScopedVMTInstall(VehicleDamage, 0x6CC4B0);              // FIX(int-plane) [I-0]: снят
     RH_ScopedInstall(CountPlanesAndHelis, 0x6CCA50);
     RH_ScopedInstall(AreWeInNoPlaneZone, 0x6CCAA0);
     RH_ScopedInstall(AreWeInNoBigPlaneZone, 0x6CCBB0);
-    RH_ScopedInstall(SwitchAmbientPlanes, 0x6CCC50);           // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedVMTInstall(BlowUpCar, 0x6CCCF0);                  // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedInstall(FindPlaneCreationCoors, 0x6CD090);        // FIX(int-plane) [I-0]: снят {.Reversed = false}
-    RH_ScopedInstall(DoPlaneGenerationAndRemoval, 0x6CD2F0);   // FIX(int-plane) [I-0]: снят {.Reversed = false}
+    RH_ScopedInstall(SwitchAmbientPlanes, 0x6CCC50);           // FIX(int-plane) [I-0]: снят
+    RH_ScopedVMTInstall(BlowUpCar, 0x6CCCF0);                  // FIX(int-plane) [I-0]: снят
+    RH_ScopedInstall(FindPlaneCreationCoors, 0x6CD090);        // FIX(int-plane) [I-0]: снят
+    RH_ScopedInstall(DoPlaneGenerationAndRemoval, 0x6CD2F0);   // FIX(int-plane) [I-0]: снят
 }
 
 // 0x6C8E20

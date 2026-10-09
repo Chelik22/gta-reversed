@@ -29,7 +29,7 @@ void CGangWars::InjectHooks() {
     RH_ScopedInstall(CheerVictory, 0x444040);
     RH_ScopedInstall(ClearSpecificZonesToTriggerGangWar, 0x443FF0);
     RH_ScopedInstall(ClearTheStreets, 0x4444B0);
-    RH_ScopedInstall(CreateAttackWave, 0x444810, { .Reversed = false });                   // STUB_BLOCKED (w2-06): decompile needs ~8 unnamed helpers/globals (0x406E80, 0x4241C0, 0x4442D0, 0x44DD10, 0x6217D0, 0x8D2618, ...) - redirect kept
+    RH_ScopedInstall(CreateAttackWave, 0x444810);                   // STUB_BLOCKED (w2-06): decompile needs ~8 unnamed helpers/globals (0x406E80, 0x4241C0, 0x4442D0, 0x44DD10, 0x6217D0, 0x8D2618, ...) - redirect kept
     RH_ScopedInstall(CreateDefendingGroup, 0x4453D0);
     RH_ScopedInstall(DoesPlayerControlThisZone, 0x443AE0);
     RH_ScopedInstall(DoStuffWhenPlayerVictorious, 0x446400);

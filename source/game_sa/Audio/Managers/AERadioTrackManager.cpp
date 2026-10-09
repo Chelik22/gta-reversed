@@ -57,11 +57,11 @@ void CAERadioTrackManager::InjectHooks() {
     RH_ScopedInstall(Load, 0x5D40E0);
     RH_ScopedInstall(Save, 0x5D3EE0);
     RH_ScopedInstall(Initialise, 0x5B9390);
-    RH_ScopedInstall(Service, 0x4EB9A0);                                     // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(Service, 0x4EB9A0);                                     // (int-radio) снят
     RH_ScopedInstall(DisplayRadioStationName, 0x4E9E50);
     RH_ScopedInstall(CheckForStationRetune, 0x4EB660);
     RH_ScopedInstall(CheckForPause, 0x4EA590);
-    RH_ScopedInstall(IsVehicleRadioActive, 0x4E9800);                        // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(IsVehicleRadioActive, 0x4E9800);                        // (int-radio) снят
     RH_ScopedInstall(AddDJBanterIndexToHistory, 0x4E97B0);
     RH_ScopedInstall(AddAdvertIndexToHistory, 0x4E9760);
     RH_ScopedInstall(AddIdentIndexToHistory, 0x4E9720);
@@ -69,26 +69,26 @@ void CAERadioTrackManager::InjectHooks() {
     RH_ScopedOverloadedInstall(StartRadio, "manual", 0x4EB3C0, void (CAERadioTrackManager::*)(eRadioID, eBassSetting, float, bool));
     RH_ScopedOverloadedInstall(StartRadio, "with-settings", 0x4EB550, void (CAERadioTrackManager::*)(const tVehicleAudioSettings&));
     RH_ScopedInstall(CheckForStationRetuneDuringPause, 0x4EB890);
-    RH_ScopedInstall(TrackRadioStation, 0x4EAC30);                           // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(TrackRadioStation, 0x4EAC30);                           // (int-radio) снят
     RH_ScopedInstall(ChooseTracksForStation, 0x4EB180);
-    RH_ScopedInstall(CheckForTrackConcatenation, 0x4EA930);                  // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(QueueUpTracksForStation, 0x4EA670);                     // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseDJBanterIndex, 0x4EA2D0);                         // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseDJBanterIndexFromList, 0x4E95E0);                 // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseAdvertIndex, 0x4E9570);                           // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseIdentIndex, 0x4E94C0);                            // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseMusicTrackIndex, 0x4EA270);                       // (int-radio) снят {.Reversed = false}
-    RH_ScopedInstall(ChooseTalkRadioShow, 0x4E8E40);                         // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(CheckForTrackConcatenation, 0x4EA930);                  // (int-radio) снят
+    RH_ScopedInstall(QueueUpTracksForStation, 0x4EA670);                     // (int-radio) снят
+    RH_ScopedInstall(ChooseDJBanterIndex, 0x4EA2D0);                         // (int-radio) снят
+    RH_ScopedInstall(ChooseDJBanterIndexFromList, 0x4E95E0);                 // (int-radio) снят
+    RH_ScopedInstall(ChooseAdvertIndex, 0x4E9570);                           // (int-radio) снят
+    RH_ScopedInstall(ChooseIdentIndex, 0x4E94C0);                            // (int-radio) снят
+    RH_ScopedInstall(ChooseMusicTrackIndex, 0x4EA270);                       // (int-radio) снят
+    RH_ScopedInstall(ChooseTalkRadioShow, 0x4E8E40);                         // (int-radio) снят
     RH_ScopedInstall(CheckForMissionStatsChanges, 0x4E8410);
     RH_ScopedInstall(StartTrackPlayback, 0x4EA640);
-    RH_ScopedInstall(UpdateRadioVolumes, 0x4EA010);                          // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(UpdateRadioVolumes, 0x4EA010);                          // (int-radio) снят
     RH_ScopedInstall(PlayRadioAnnouncement, 0x4E8400);
     RH_ScopedInstall(GetCurrentRadioStationID, 0x4E83F0);
     RH_ScopedInstall(GetRadioStationListenTimes, 0x4E83E0);
     RH_ScopedInstall(GetRadioStationName, 0x4E9E10);
     RH_ScopedInstall(GetRadioStationNameKey, 0x4E8380);
     RH_ScopedInstall(HasRadioRetuneJustStarted, 0x4E8370);
-    RH_ScopedInstall(StopRadio, 0x4E9820);                                   // (int-radio) снят {.Reversed = false}
+    RH_ScopedInstall(StopRadio, 0x4E9820);                                   // (int-radio) снят
     RH_ScopedInstall(IsRadioOn, 0x4E8350, { .Reversed = true });
     RH_ScopedInstall(InitialiseRadioStationID, 0x4E8330);
     RH_ScopedInstall(SetBassEnhanceOnOff, 0x4E9DB0);
@@ -827,7 +827,7 @@ bool CAERadioTrackManager::TrackRadioStation(eRadioID id, bool skipTrack) {
     if (pos < 0x1B59 /* 7001 */) {
         pos = 7000;
     }
-    if (skipTrack && state.m_aElapsed[0] + 1 >= pos) {
+    if (skipTrack && (uint32)(state.m_aElapsed[0] + 1) >= (uint32)pos) {
         pos = state.m_aElapsed[0] + 1;
     }
 

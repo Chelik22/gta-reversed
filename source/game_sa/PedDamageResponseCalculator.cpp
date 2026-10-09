@@ -17,8 +17,8 @@ void CPedDamageResponseCalculator::InjectHooks() {
     // KEEP {.Reversed = false}: 0x4B5C2A is INSIDE ComputeDamageResponse (0x4B5AC0) in the original -
     // IsBleedingWeapon was inlined there. Enabling this hook would write a JMP into the middle of the
     // (still unreversed) ComputeDamageResponse and corrupt it. Body already present and correct.
-    RH_ScopedInstall(IsBleedingWeapon, 0x4B5C2A, { .Reversed = false });
-    RH_ScopedInstall(ComputeDamageResponse, 0x4B5AC0, { .Reversed = false }); // not in batch w2-06 - kept unreversed
+    RH_ScopedInstall(IsBleedingWeapon, 0x4B5C2A);
+    RH_ScopedInstall(ComputeDamageResponse, 0x4B5AC0); // not in batch w2-06 - kept unreversed
 }
 
 // 0x4AD3F0

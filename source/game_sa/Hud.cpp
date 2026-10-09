@@ -83,22 +83,22 @@ void CHud::InjectHooks() {
     RH_ScopedInstall(DrawAfterFade, 0x58D490);
     RH_ScopedInstall(DrawAreaName, 0x58AA50);
     RH_ScopedInstall(DrawBustedWastedMessage, 0x58CA50);
-    RH_ScopedInstall(DrawCrossHairs, 0x58E020); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawCrossHairs, 0x58E020); // int-hud: removed
     RH_ScopedInstall(DrawFadeState, 0x58D580);
-    RH_ScopedInstall(DrawHelpText, 0x58B6E0); // int-hud: removed { .Reversed = false }
-    RH_ScopedInstall(DrawMissionTimers, 0x58B180); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawHelpText, 0x58B6E0); // int-hud: removed
+    RH_ScopedInstall(DrawMissionTimers, 0x58B180); // int-hud: removed
     RH_ScopedInstall(DrawMissionTitle, 0x58D240);
     RH_ScopedInstall(DrawOddJobMessage, 0x58CC80);
     RH_ScopedInstall(DrawRadar, 0x58A330);
     RH_ScopedInstall(DrawScriptText, 0x58C080);
-    RH_ScopedInstall(DrawSubtitles, 0x58C250); // int-hud: removed { .Reversed = false }
-    RH_ScopedInstall(DrawSuccessFailedMessage, 0x58C6A0); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawSubtitles, 0x58C250); // int-hud: removed
+    RH_ScopedInstall(DrawSuccessFailedMessage, 0x58C6A0); // int-hud: removed
     RH_ScopedInstall(DrawVehicleName, 0x58AEA0);
-    RH_ScopedInstall(DrawVitalStats, 0x589650); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawVitalStats, 0x589650); // int-hud: removed
     RH_ScopedInstall(DrawAmmo, 0x5893B0);
-    RH_ScopedInstall(DrawPlayerInfo, 0x58EAF0); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawPlayerInfo, 0x58EAF0); // int-hud: removed
     RH_ScopedInstall(DrawTripSkip, 0x58A160);
-    RH_ScopedInstall(DrawWanted, 0x58D9A0); // int-hud: removed { .Reversed = false }
+    RH_ScopedInstall(DrawWanted, 0x58D9A0); // int-hud: removed
     RH_ScopedInstall(DrawWeaponIcon, 0x58D7D0);
     RH_ScopedInstall(RenderArmorBar, 0x5890A0);
     RH_ScopedInstall(RenderBreathBar, 0x589190);
