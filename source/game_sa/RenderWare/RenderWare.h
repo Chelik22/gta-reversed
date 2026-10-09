@@ -43,7 +43,7 @@ inline _D3DMATRIX *GetD3DProjTransform() {
 
 static inline auto& _rpMaterialDefaultSurfaceProperties = StaticRef<RwSurfaceProperties>(0x8D62BC);
 
-void _rpMaterialSetDefaultSurfaceProperties(RwSurfaceProperties *surfProps) {
+inline void _rpMaterialSetDefaultSurfaceProperties(RwSurfaceProperties *surfProps) { // inline: header body (PCH ODR)
     RwSurfaceProperties &def = _rpMaterialDefaultSurfaceProperties;
     if (!surfProps) {
         def.ambient  = 1.0f; // 0x3F800000

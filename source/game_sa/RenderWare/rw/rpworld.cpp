@@ -29,7 +29,7 @@ struct RpWorldSectorGta
     RwBBox       tightBoundingBox;           // +0x60
     RpMeshHeader* mesh;                      // +0x78
     void*        pipeline;                   // +0x7C
-    RwUInt16     field_80;                   // +0x80
+    RwUInt16     matListWindowBase;         // +0x80 (материальное окно сектора; 0x74F210: *(ushort*)(sec+0x80))
     RwUInt16     numVertices;                // +0x82
     RwUInt16     numTriangles;               // +0x84
     RwUInt16     field_86;                   // +0x86
@@ -241,73 +241,13 @@ struct RpSectorBSP
     RwReal       rightValue;   // 0x14
 };
 
-// GTA SA RpWorldSector = tagged union (BSP node / leaf), 0x88 байт. Комбинированная
-// раскладка из декомпилов батчей rpworld-4/5/11; type@0: -1 = лист, 0..0x14 = ось плоскости.
-struct RpWorldSectorGta
-{
-    RwInt32      type;                       // +0x00
-    union {
-        RpTriangle*     triangles;           // +0x04 (leaf)
-        RwReal          value;               // +0x04 (node: позиция плоскости)
-    };
-    union {
-        RwV3d*          vertices;            // +0x08 (leaf)
-        void*           leftSubTree;         // +0x08 (node)
-    };
-    union {
-        RpVertexNormal* normals;             // +0x0C (leaf)
-        void*           rightSubTree;        // +0x0C (node)
-    };
-    void*        field_10[8];                // +0x10..0x2F (9 вендорских слотов; Create обнуляет, Destroy фрит по отдельности)
-    void*        field_30;                   // +0x30
-    void*        repEntry;                   // +0x34 (RwResEntry*)
-    RwLinkList   collAtomicsInWorldSector;   // +0x38
-    RwLinkList   lightsInWorldSector;        // +0x40
-    RwBBox       boundingBox;                // +0x48
-    RwBBox       tightBoundingBox;           // +0x60
-    RpMeshHeader* mesh;                      // +0x78
-    void*        pipeline;                   // +0x7C
-    RwUInt16     field_80;                   // +0x80
-    RwUInt16     numVertices;                // +0x82
-    RwUInt16     numTriangles;               // +0x84
-    RwUInt16     field_86;                   // +0x86
-};
-static_assert(sizeof(RpWorldSectorGta) == 0x88, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, repEntry)                 == 0x34, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, collAtomicsInWorldSector) == 0x38, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, lightsInWorldSector)      == 0x40, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, tightBoundingBox)         == 0x60, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, mesh)                     == 0x78, "RpWorldSectorGta layout");
-static_assert(offsetof(RpWorldSectorGta, numTriangles)             == 0x84, "RpWorldSectorGta layout");
-
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
-struct RxD3D9AllInOneCallBacksSA
-{
-    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
-    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
-    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
-    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
-};
 
 // world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
-struct RxD3D9AllInOneCallBacksSA
-{
-    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
-    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
-    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
-    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
-};
 
 // world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
-struct RxD3D9AllInOneCallBacksSA
-{
-    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
-    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
-    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
-    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
-};
 
 // world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
@@ -1293,7 +1233,7 @@ void _rpD3D9VertexShaderSetEnvMatrix(RwFrame* frame, const _rpD3D9VertexShaderDe
     if (effect != 2 && effect != 3) {
         // plain environment mapping: camera position + world-normal matrix
         const RwMatrix* camLTM = RwFrameGetLTM(
-            reinterpret_cast<RwFrame*>(reinterpret_cast<RwCamera*>(RwEngineInstance->curCamera)->object.parent));
+            reinterpret_cast<RwFrame*>(reinterpret_cast<RwCamera*>(RwEngineInstance->curCamera)->object.object.parent));
         float camPos[4] = { camLTM->pos.x, camLTM->pos.y, camLTM->pos.z, 0.0f };
         _rwD3D9VSGetPointInLocalSpace(&camLTM->pos, reinterpret_cast<RwV3d*>(camPos));
 
@@ -1341,7 +1281,7 @@ void _rpD3D9VertexShaderSetEnvMatrix(RwFrame* frame, const _rpD3D9VertexShaderDe
 void _rpD3D9VertexShaderSetBumpMatrix(RwFrame* frame, RwReal factor,
                                       const _rpD3D9VertexShaderDispatchDescriptor* dispatch) {
     if (frame == nullptr)
-        frame = reinterpret_cast<RwFrame*>(reinterpret_cast<RwCamera*>(RwEngineInstance->curCamera)->object.parent);
+        frame = reinterpret_cast<RwFrame*>(reinterpret_cast<RwCamera*>(RwEngineInstance->curCamera)->object.object.parent);
 
     RwMatrix inverse;
     RwMatrixInvert(&inverse, RwFrameGetLTM(frame));
@@ -2646,13 +2586,13 @@ RpTriStripMesh* RpTriStripMeshQuick(RpTriStripMesh* mesh, void* data) {
     (void)data;
     RwLLLink classLists[4];   // appppuStack_20 — 4 сигнала-класса по числу соседей 0..3
     classLists[0].next = &classLists[0];
-    classLists[0].prev = &classLists[0].next;
+    classLists[0].prev = reinterpret_cast<RwLLLink*>(&classLists[0].next);
     classLists[1].next = &classLists[1];
-    classLists[1].prev = &classLists[1].next;
+    classLists[1].prev = reinterpret_cast<RwLLLink*>(&classLists[1].next);
     classLists[2].next = &classLists[2];
-    classLists[2].prev = &classLists[2].next;
+    classLists[2].prev = reinterpret_cast<RwLLLink*>(&classLists[2].next);
     classLists[3].next = &classLists[3];
-    classLists[3].prev = &classLists[3].next;
+    classLists[3].prev = reinterpret_cast<RwLLLink*>(&classLists[3].next);
 
     RwLLLink* node;
     RpTriStripPolygon* polygon;
@@ -2682,7 +2622,7 @@ RpTriStripMesh* RpTriStripMeshQuick(RpTriStripMesh* mesh, void* data) {
                 j++;
             }
         }
-        polygon->inFreeLink.prev = &classLists[j];
+        polygon->inFreeLink.prev = reinterpret_cast<RwLLLink*>(&classLists[j]);
         polygon->inFreeLink.next = classLists[j].next;
         classLists[j].next->prev = &polygon->inFreeLink;
         classLists[j].next = &polygon->inFreeLink;
@@ -2818,7 +2758,7 @@ RpTriStripMesh* RpTriStripMeshQuick(RpTriStripMesh* mesh, void* data) {
                         }
                     }
                     neighbor->inFreeLink.next = classLists[j].next;
-                    neighbor->inFreeLink.prev = &classLists[j];
+                    neighbor->inFreeLink.prev = reinterpret_cast<RwLLLink*>(&classLists[j]);
                     classLists[j].next->prev = &neighbor->inFreeLink;
                     classLists[j].next = &neighbor->inFreeLink;
                 }
@@ -2879,14 +2819,14 @@ RpMeshHeader* RpBuildMeshGenerateTriStrip(RpBuildMesh* buildMesh, void* data) {
         for (i = 1; i < count; i++) {
             if (tris[i - 1]->material != tris[i]->material) {
                 strips[numStrips2] = reinterpret_cast<RwUInt32* (__cdecl*)(RpBuildMeshTriangle**, RwUInt32)>(0x75C660)(tris + runStart, i - runStart);
-                tsData->stripCB(strips[numStrips2], tsData->data);
+                tsData->stripCB(reinterpret_cast<RpTriStripMesh*>(strips[numStrips2]), tsData->data);
                 numStrips2++;
                 runStart = i;
             }
         }
     }
     strips[numStrips2] = reinterpret_cast<RwUInt32* (__cdecl*)(RpBuildMeshTriangle**, RwUInt32)>(0x75C660)(tris + runStart, i - runStart);
-    tsData->stripCB(strips[numStrips2], tsData->data);
+    tsData->stripCB(reinterpret_cast<RpTriStripMesh*>(strips[numStrips2]), tsData->data);
 
     // итоговый RpMeshHeader (строки 80-116)
     RpMeshHeader* meshHeader = reinterpret_cast<RpMeshHeader*>(
@@ -3602,14 +3542,14 @@ RpGeometry* RpGeometryCreate(RwInt32 numVert, RwInt32 numTriangles, RwUInt32 for
     // Field init (order as in decompile)
     geometry->morphTarget         = nullptr;               // +0x5C
     geometry->numMorphTargets     = 0;                     // +0x18
-    geometry->object.object.parent       = nullptr;               // +0x04
+    geometry->object.parent       = nullptr;               // +0x04
     geometry->repEntry            = nullptr;               // +0x58
     geometry->lockedSinceLastInst = 0;                     // +0x0C
     geometry->mesh                = nullptr;               // +0x54
-    geometry->object.object.type         = rpGEOMETRY /*8*/;      // +0x00
-    geometry->object.object.subType      = 0;
-    geometry->object.object.flags        = 0;
-    geometry->object.object.privateFlags = 0;
+    geometry->object.type         = rpGEOMETRY /*8*/;      // +0x00
+    geometry->object.subType      = 0;
+    geometry->object.flags        = 0;
+    geometry->object.privateFlags = 0;
     geometry->refCount            = 1;                     // +0x0E (u16)
     geometry->numTexCoordSets     = numTexSets;            // +0x1C
     for (RwInt32 i = 0; i < rwMAXTEXTURECOORDS /*8*/; i++)
@@ -3667,7 +3607,7 @@ RwBool RpGeometryDestroy(RpGeometry* geometry) {
     const RwInt16 refCount = geometry->refCount;           // i16 @ +0x0E
     if (refCount == 1 || refCount - 1 < 0) {
         if (geometry->repEntry != nullptr) {               // +0x58
-            RwResourcesFreeResEntry(geometry->repEntry);
+            RwResourcesFreeResEntry(static_cast<RwResEntry*>(geometry->repEntry));
         }
         geometry->lockedSinceLastInst |= 0xFFF;            // u16 @ +0x0C (decompile: direct OR, not RpGeometryLock)
         // decompile has a self-assignment no-op on refCount here (omitted)
@@ -3931,7 +3871,7 @@ RpGeometry* RpGeometryStreamRead(RwStream* stream) {
             RwInt16 refCount = geometry->refCount;
             if (refCount == 1 || refCount - 1 < 0) {
                 if (geometry->repEntry != nullptr)
-                    RwResourcesFreeResEntry(geometry->repEntry);
+                    RwResourcesFreeResEntry(static_cast<RwResEntry*>(geometry->repEntry));
                 RpGeometryLock(geometry, 0xFFF);
                 _rwPluginRegistryDeInitObject(&geometryTKList, geometry);
                 if (geometry->morphTarget != nullptr) {
@@ -3971,7 +3911,7 @@ failDestroyA:                                              // decompile LAB_0074
         RwInt16 refCount = geometry->refCount;
         if (refCount == 1 || refCount - 1 < 0) {
             if (geometry->repEntry != nullptr)
-                RwResourcesFreeResEntry(geometry->repEntry);
+                RwResourcesFreeResEntry(static_cast<RwResEntry*>(geometry->repEntry));
             RpGeometryLock(geometry, 0xFFF);
             _rwPluginRegistryDeInitObject(&geometryTKList, geometry);
             if (geometry->morphTarget != nullptr) {
@@ -3992,7 +3932,7 @@ failDestroyC:                                              // decompile LAB_0074
         RwInt16 refCount = geometry->refCount;
         if (refCount == 1 || refCount - 1 < 0) {
             if (geometry->repEntry != nullptr)
-                RwResourcesFreeResEntry(geometry->repEntry);
+                RwResourcesFreeResEntry(static_cast<RwResEntry*>(geometry->repEntry));
             geometry->refCount--;
             ((void(__cdecl*)(RpGeometry*))0x74D6D0)(geometry);   // internal lighter destroy (not in rw_addr_map)
             return nullptr;
@@ -4961,7 +4901,7 @@ RpClump* RpClumpCreateSpace(const RwV3d* position, RwReal radius) {
         RwFreeList* atomicFreeList = *(RwFreeList**)((RwUInt8*)engine + rpWorldFreeListGlobalsOffset);
         _rwPluginRegistryDeInitObject(&atomicTKList, atomic);
         if (atomic->repEntry != nullptr) {
-            RwResourcesFreeResEntry(atomic->repEntry);
+            RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
         }
         if (atomic->geometry != nullptr) {
             RpGeometryDestroy(atomic->geometry);
@@ -5148,7 +5088,7 @@ RwBool RpClumpDestroy(RpClump* clump) {
         RpAtomic* atomic = (RpAtomic*)((RwUInt8*)link - offsetof(RpAtomic, inClumpLink));
         _rwPluginRegistryDeInitObject(&atomicTKList, atomic);
         if (atomic->repEntry != nullptr) {
-            RwResourcesFreeResEntry(atomic->repEntry);
+            RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
         }
         if (atomic->geometry != nullptr) {
             RpGeometryDestroy(atomic->geometry);
@@ -5215,7 +5155,7 @@ RpClump* RpClumpCreate(void) {
     clump->object.flags        = 0;
     clump->object.privateFlags = 0;
     clump->object.parent       = nullptr;
-    rwLinkListInitialize(&clump->inWorldLink);
+    rwLinkListInitialize(reinterpret_cast<RwLinkList*>(&clump->inWorldLink)); // GTA: clump+0x08 link slot
     clump->callback = reinterpret_cast<RpClumpCallBack>(0x74A260); // default clump callback (LAB_74A260, outside floor)
     _rwPluginRegistryInitObject(&clumpTKList, clump);
     return clump;
@@ -5232,7 +5172,7 @@ RpClump* RpClumpClone(RpClump* clump) {
         return nullptr;
     }
     RwFrame* clonedRoot = _rwFrameCloneAndLinkClones((RwFrame*)clump->object.parent);
-    newClump->object.object.parent = clonedRoot;
+    newClump->object.parent = clonedRoot;
     RwBool allCloned = FALSE;
     if (clonedRoot != nullptr) {
         allCloned = TRUE;
@@ -5249,7 +5189,7 @@ RpClump* RpClumpClone(RpClump* clump) {
                 RwFreeList* atomicFreeList = *(RwFreeList**)((RwUInt8*)engine + rpWorldFreeListGlobalsOffset);
                 _rwPluginRegistryDeInitObject(&atomicTKList, atomic);
                 if (atomic->repEntry != nullptr) {
-                    RwResourcesFreeResEntry(atomic->repEntry);
+                    RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
                 }
                 RpAtomicSetGeometry(atomic, nullptr, 0);
                 (*(void(__cdecl**)(void*, void*))((RwUInt8*)engine + 0x148))(atomicFreeList, atomic);
@@ -5287,8 +5227,8 @@ RpClump* RpClumpClone(RpClump* clump) {
             link = next;
         }
         RpClumpForAllCameras(newClump, (RwCamera * (__cdecl*)(RwCamera*, void*))0x74A200, nullptr);
-        if (newClump->object.object.parent != nullptr) {
-            RwFrameDestroyHierarchy((RwFrame*)newClump->object.object.parent);
+        if (newClump->object.parent != nullptr) {
+            RwFrameDestroyHierarchy((RwFrame*)newClump->object.parent);
         }
         (*(void(__cdecl**)(void*, void*))((RwUInt8*)engine + 0x148))(clumpFreeList, newClump);
         return nullptr;
@@ -5311,8 +5251,8 @@ RpClump* RpClumpClone(RpClump* clump) {
         link = next;
     }
     RpClumpForAllCameras(newClump, (RwCamera * (__cdecl*)(RwCamera*, void*))0x74A200, nullptr);
-    if (newClump->object.object.parent != nullptr) {
-        RwFrameDestroyHierarchy((RwFrame*)newClump->object.object.parent);
+    if (newClump->object.parent != nullptr) {
+        RwFrameDestroyHierarchy((RwFrame*)newClump->object.parent);
     }
     (*(void(__cdecl**)(void*, void*))((RwUInt8*)engine + 0x148))(clumpFreeList, newClump);
     return nullptr;
@@ -5324,7 +5264,7 @@ RwBool RpAtomicDestroy(RpAtomic* atomic) {
     static auto& rpWorldFreeListGlobalsOffset = StaticRef<RwInt32>(0xC924AC);
     _rwPluginRegistryDeInitObject(&atomicTKList, atomic);
     if (atomic->repEntry != nullptr) {
-        RwResourcesFreeResEntry(atomic->repEntry);
+        RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
     }
     if (atomic->geometry != nullptr) {
         RpGeometryDestroy(atomic->geometry);
@@ -5987,7 +5927,7 @@ RpClump* RpClumpStreamWrite(RpClump* clump, RwStream* stream)
     ((void(__cdecl *)(GeomList *))0x74AE50)(&geomList);
     _rwFrameListDeinitialize(&frameList);
     if (ctx.ok) {
-        RwInt32 ok = _rwPluginRegistryWriteDataChunks(&clumpTKList, stream, clump);
+        RwBool ok = _rwPluginRegistryWriteDataChunks(&clumpTKList, stream, clump) != nullptr;
         return ok ? clump : NULL;
     }
     return NULL;
@@ -6122,7 +6062,7 @@ RwBool RpAtomicInstance(RpAtomic* atomic)
 
     if ((geometry->flags & rpGEOMETRYNATIVE) == 0) {
         if (geometry->repEntry != NULL)
-            RwResourcesFreeResEntry(geometry->repEntry);
+            RwResourcesFreeResEntry(static_cast<RwResEntry*>(geometry->repEntry));
 
         geometry->flags |= rpGEOMETRYNATIVEINSTANCE;                    // |= 0x02000000
         atomic->renderCallBack(atomic);                                 // (**(atomic+0x48))(atomic)
@@ -6231,7 +6171,7 @@ void _rpWorldSectorDeinstanceAll(RpSector* sector) {
         while (true) {
             if (type == -1 /* RpWorldSector leaf */) {
                 if (sect->repEntry != nullptr) {
-                    RwResourcesFreeResEntry(sect->repEntry);
+                    RwResourcesFreeResEntry(static_cast<RwResEntry*>(sect->repEntry));
                 }
                 // collAtomicsInWorldSector: walk + destroy nodes (vendor helper 0x74FFF0,
                 // outside the translated floor -> raw call)
@@ -6287,7 +6227,7 @@ void _rpWorldSectorDestroyRecurse(RpSector* sector) {
         // Лист (RpWorldSector): полная зачистка.
         RpWorldSectorGta* ws = reinterpret_cast<RpWorldSectorGta*>(sector);
         if (ws->repEntry != nullptr) {
-            RwResourcesFreeResEntry(ws->repEntry);
+            RwResourcesFreeResEntry(static_cast<RwResEntry*>(ws->repEntry));
         }
         for (RwLLLink* link = ws->collAtomicsInWorldSector.link.next;
              link != &ws->collAtomicsInWorldSector.link;) {
@@ -6387,7 +6327,7 @@ RpWorldSector* _rpSectorDefaultRenderCallBack(RpWorldSector* sector) {
     if (ws->numTriangles == 0) {
         return sector;
     }
-    RxPipeline* pipeline = ws->pipeline;
+    RxPipeline* pipeline = static_cast<RxPipeline*>(ws->pipeline);
     if (pipeline == nullptr) {
         RpWorldGta* world = static_cast<RpWorldGta*>(RwEngineInstance->curWorld);
         pipeline = world->pipeline;
@@ -6703,7 +6643,7 @@ RpWorld* RpWorldRender(RpWorld* world) {
 RwBool RpWorldDestroy(RpWorld* world) {
     // 1) Выйти из глобального списка миров (в декомпиле тело _rpWorldUnregisterWorld инлайнено,
     //    поведение идентично вызову обёртки 0x74F140).
-    _rpWorldUnregisterWorld(world);
+    _rpWorldUnregisterWorld(reinterpret_cast<RpWorld*>(world));
 
     // 2) Деинстансить меши всех секторов (в декомпиле инлайнено тело обхода RpWorldLock 0x74F1A0).
     {
@@ -6734,7 +6674,7 @@ RwBool RpWorldDestroy(RpWorld* world) {
 
     // 4) rpWORLDSINGLEMALLOC (object.privateFlags bit0): сектора вырезаны из единого блока
     //    аллокации мира - только деинстанс; иначе рекурсивно уничтожить каждый сектор.
-    if ((w->object.object.privateFlags & rpWORLDSINGLEMALLOC) != 0) {
+    if ((w->object.privateFlags & rpWORLDSINGLEMALLOC) != 0) {
         if (w->rootSector != nullptr) {
             _rpWorldSectorDeinstanceAll(w->rootSector);
         }
@@ -6761,11 +6701,11 @@ RpWorld* RpWorldCreate(RwBBox* boundingBox) {
         RwErrorSet(&rwError);
         return nullptr;
     }
-    world->object.object.type = rpWORLD;
-    world->object.object.subType = 0;
-    world->object.object.flags = 0;
-    world->object.object.privateFlags = 0;
-    world->object.object.parent = nullptr;
+    world->object.type = rpWORLD;
+    world->object.subType = 0;
+    world->object.flags = 0;
+    world->object.privateFlags = 0;
+    world->object.parent = nullptr;
     _rpMaterialListInitialize(reinterpret_cast<RpMaterialList*>(&world->matList));
     world->flags = 0;
     world->renderOrder = static_cast<RpWorldRenderOrder>(2);
@@ -6814,16 +6754,16 @@ RpWorld* RpWorldCreate(RwBBox* boundingBox) {
     world->pipeline = nullptr;
 
     // Регистрация мира (в декомпиле тело _rpWorldRegisterWorld инлайнено; memorySize = sizeOfStruct реестра).
-    _rpWorldRegisterWorld(world, worldTKList.sizeOfStruct);
+    _rpWorldRegisterWorld(reinterpret_cast<RpWorld*>(world), worldTKList.sizeOfStruct);
     _rwPluginRegistryInitObject(&worldTKList, world);
     _rwPluginRegistryInitObject(&worldSectorTKList, rootSector);
 
-    if (RpWorldUnlock(world) != nullptr) {
-        return world;
+    if (RpWorldUnlock(reinterpret_cast<RpWorld*>(world)) != nullptr) {
+        return reinterpret_cast<RpWorld*>(world);
     }
     // Неудача Unlock: unregister + зачистка (в декомпиле инлайнены тела _rpWorldUnregisterWorld,
     // обхода деинстанса из RpWorldLock и ветки RpWorldDestroy).
-    _rpWorldUnregisterWorld(world);
+    _rpWorldUnregisterWorld(reinterpret_cast<RpWorld*>(world));
     {
         RpSectorBSP* stack[64];
         RwInt32      depth = 0;
@@ -6846,7 +6786,7 @@ RpWorld* RpWorldCreate(RwBBox* boundingBox) {
         }
     }
     _rpMaterialListDeinitialize(reinterpret_cast<RpMaterialList*>(&world->matList));
-    if ((world->object.object.privateFlags & rpWORLDSINGLEMALLOC) != 0) {
+    if ((world->object.privateFlags & rpWORLDSINGLEMALLOC) != 0) {
         if (world->rootSector != nullptr) {
             _rpWorldSectorDeinstanceAll(world->rootSector);
         }
@@ -6888,7 +6828,7 @@ RpWorld* RpWorldSectorGetWorld(const RpWorldSector* sector) {
     RwLinkList* list = reinterpret_cast<RwLinkList*>(globals + 4);
     for (RwLLLink* link = list->link.next; link != &list->link; link = link->next) {
         RwWorldListNodeGta* node = rwLLLinkGetData(link, RwWorldListNodeGta, list);
-        RpWorldGta* world = node->world;
+        RpWorldGta* world = reinterpret_cast<RpWorldGta*>(node->world);
         RpSectorBSP* root = reinterpret_cast<RpSectorBSP*>(world->rootSector);
         if ((*reinterpret_cast<RwUInt32*>(&world->object) & 0x1000000) == 0) {
             RpSectorBSP* stack[64];
@@ -6897,7 +6837,7 @@ RpWorld* RpWorldSectorGetWorld(const RpWorldSector* sector) {
             do {
                 if (cur->type < 0) {
                     if (cur == reinterpret_cast<const RpSectorBSP*>(sector)) {
-                        return world;
+                        return reinterpret_cast<RpWorld*>(world);
                     }
                     cur = stack[depth--];
                 } else {
@@ -6909,7 +6849,7 @@ RpWorld* RpWorldSectorGetWorld(const RpWorldSector* sector) {
         } else if (root <= reinterpret_cast<const RpSectorBSP*>(sector)
                    && reinterpret_cast<const RpSectorBSP*>(sector)
                       < reinterpret_cast<RpSectorBSP*>(reinterpret_cast<RwUInt8*>(root) + node->memorySize)) {
-            return world;
+            return reinterpret_cast<RpWorld*>(world);
         }
     }
     return nullptr;
@@ -8113,7 +8053,7 @@ RwUInt32 _rpD3D9VertexDeclarationInstWeights(RwUInt32 type, RwUInt8* mem, const 
                 packed = ((p2 << 10) | p1) << 10 | ((0x1FF - p2) - p1);
             } else {
                 RwUInt32 p0 = (RwUInt32)lrintf(w->x * 511.0f) & 0x3FF;
-                packed = (p0 * -0x400u + 0x7FC00u) | p0;
+                packed = (p0 * (0u - 0x400u) + 0x7FC00u) | p0;  // DEC-10-10-10 packing (unsigned negate)
             }
             *(RwUInt32*)dst = packed;
             dst += stride;
@@ -8807,7 +8747,7 @@ RpWorld* RwCameraGetWorld(const RwCamera* camera)
 RpWorld* RpWorldRemoveAtomic(RpWorld* world, RpAtomic* atomic)
 {
     if (atomic->repEntry != NULL) {
-        RwResourcesFreeResEntry(atomic->repEntry);
+        RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
     }
 
     RwLLLink* head = &atomic->llWorldSectorsInAtomic.link;
@@ -8987,13 +8927,6 @@ RpWorld* RpLightGetWorld(const RpLight* light)
 }
 
 
-struct RpWorldCameraChunkGta
-{
-    RpWorldSector** frustumSectors;    /* +0x00 */
-    RwUInt32        pad04;             /* +0x04 (not accessed here) */
-    RwInt32         numFrustumSectors; /* +0x08 */
-    RpWorld*        world;             /* +0x0C */
-};
 
 RwCamera* RwCameraForAllClumpsInFrustum(RwCamera* camera, void* data)
 {
@@ -9047,13 +8980,6 @@ RwCamera* RwCameraForAllClumpsInFrustum(RwCamera* camera, void* data)
 }
 
 
-struct RpWorldCameraChunkGta
-{
-    RpWorldSector** frustumSectors;    /* +0x00 */
-    RwUInt32        pad04;             /* +0x04 (not accessed here) */
-    RwInt32         numFrustumSectors; /* +0x08 */
-    RpWorld*        world;             /* +0x0C */
-};
 
 RwCamera* RwCameraForAllAtomicsInFrustum(RwCamera* camera, RpAtomicCallBack callback, void* data)
 {
@@ -9106,13 +9032,6 @@ RwCamera* RwCameraForAllAtomicsInFrustum(RwCamera* camera, RpAtomicCallBack call
 }
 
 
-struct RpWorldCameraChunkGta
-{
-    RpWorldSector** frustumSectors;    /* +0x00 */
-    RwUInt32        pad04;             /* +0x04 (not accessed here) */
-    RwInt32         numFrustumSectors; /* +0x08 */
-    RpWorld*        world;             /* +0x0C */
-};
 
 RwCamera* RwCameraForAllSectorsInFrustum(RwCamera* camera, RpWorldSectorCallBack callBack, void* data)
 {
@@ -9477,11 +9396,11 @@ RpWorld* RpWorldStreamRead(RwStream* stream) {
         memset(world, 0, totalSize);                       // декомпил: dword-цикл + хвост байтами
 
         // RW-объект: type=rpWORLD(7), privateFlags=rpWORLDSINGLEMALLOC(1), parent=NULL
-        world->object.object.type         = rpWORLD /*7*/;
-        world->object.object.subType      = 0;
-        world->object.object.flags        = 0;
-        world->object.object.privateFlags = rpWORLDSINGLEMALLOC /*0x01*/;
-        world->object.object.parent       = nullptr;
+        world->object.type         = rpWORLD /*7*/;
+        world->object.subType      = 0;
+        world->object.flags        = 0;
+        world->object.privateFlags = rpWORLDSINGLEMALLOC /*0x01*/;
+        world->object.parent       = nullptr;
         _rpWorldRegisterWorld(reinterpret_cast<RpWorld*>(world), totalSize);           // 0x74F0C0: узел в глобальный список миров
         world->renderOrder      = rpWORLDRENDERBACK2FRONT /*2*/;
         world->flags            = chunk.format;
