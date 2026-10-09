@@ -140,7 +140,9 @@ static RwGlobalsMemFuncsGta *RwGetMemFuncsGta() {
 static RwInt32 &g_rwResourcesGlobalsOffset     = StaticRef<RwInt32>(0xC9BC58);
 static RwInt32 &g_rwResourcesModuleNumInstances = StaticRef<RwInt32>(0xC9BC5C);
 static rwResources *RwGetResourcesGta() {
-    return reinterpret_cast<rwResources *>(reinterpret_cast<RwUInt8 *>(RwEngineInstance) + g_rwResourcesGlobalsOffset + 0x24);
+    // ORIGINAL 0x807E50: resources block = engine + *0xC9BC58 (the +0x24 there is
+    // the usedEntries FIELD INSIDE the block, already provided by the struct layout).
+    return reinterpret_cast<rwResources *>(reinterpret_cast<RwUInt8 *>(RwEngineInstance) + g_rwResourcesGlobalsOffset);
 }
 
 // error module globalsOffset (0xC9A6F0); last RwError lives at RwEngineInstance + offset.
