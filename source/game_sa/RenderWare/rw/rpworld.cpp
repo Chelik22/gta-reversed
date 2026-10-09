@@ -3,7 +3,7 @@
 #include "rpworld.h"
 #include <rpdbgerr.h>
 
-// ==== RW-CAMPAIGN wave-D shared decls (canonical rebuild) ====
+// ==== RW-CAMPAIGN wave-D canonical decls ====
 // GTA SA RpWorldSector = tagged union (BSP node / leaf), 0x88 байт (rpworld-4/5/11).
 struct RpWorldSectorGta
 {
@@ -104,6 +104,48 @@ static RwInt32*& rwD3D9ChangedRenderStates     = StaticRef<RwInt32*>(0xC980F8);
 static RwBool&   rwD3D9LightingEnabledState    = StaticRef<RwBool>(0xC9A5F4);
 static RwBool&   rwD3D9LightingForceResend     = StaticRef<RwBool>(0xC9A5F8);
 
+// ==== RW-CAMPAIGN rpworld-9 SHARED BLOCK — ИНТЕГРАТОРУ: вставить ОДИН раз в rpworld.cpp ====
+// GTA SA RwGlobals, хвост с функциями памяти (офсеты сверены декомпилами; зеркало RwGlobalsSA из rwplcore.cpp):
+//   +0x134 rwmalloc(size,hint)  +0x138 rwfree(ptr)  +0x13C rwrealloc(ptr,newSize,hint)
+//   +0x140 rwcalloc  +0x144 memoryAlloc(RwFreeList*,hint)  +0x148 memoryFree(RwFreeList*,ptr)
+struct RwGlobalsMemFuncsGta
+{
+    RwUInt8     pad[0x134];                                                // 0x000..0x133
+    void*       (*rwmalloc)(size_t size, RwUInt32 hint);                   // +0x134
+    void        (*rwfree)(void* mem);                                      // +0x138
+    void*       (*rwrealloc)(void* mem, size_t newSize, RwUInt32 hint);    // +0x13C
+    void*       (*rwcalloc)(size_t numObj, size_t sizeObj, RwUInt32 hint); // +0x140
+    void*       (*memoryAlloc)(RwFreeList* fl, RwUInt32 hint);             // +0x144 (impl по умолчанию 0x801C30)
+    RwFreeList* (*memoryFree)(RwFreeList* fl, void* pData);                // +0x148
+};
+
+// глобалы rpmesh-модуля (декомпилы 0x758970/0x758940/0x758EC0/0x75D530)
+static RwFreeList*& rpMeshFreeListGta      = StaticRef<RwFreeList*>(0xC926F0); // DAT_00c926f0 (freelist модуля)
+static RwInt32&     rpMeshGlobalsOffsetGta = StaticRef<RwInt32>(0xC9B8C0);     // DAT_00c9b8c0 (globalsOffset)
+static RwInt32&     rpMeshOpenCountGta     = StaticRef<RwInt32>(0xC9B8C4);     // DAT_00c9b8c4 (refcount)
+
+// глобалы tristrip-метода (0x75D4C0/0x75D500; используются и в _rpMeshOptimise 0x75D970 — батч rpworld-10!)
+static RpTriStripMeshCallBack& rpMeshTriStripMethodGta     = StaticRef<RpTriStripMeshCallBack>(0x8D6388); // PTR_FUN_008d6388
+static void*&                  rpMeshTriStripMethodDataGta = StaticRef<void*>(0x8D638C);                  // DAT_008d638c
+// NOTE: 0x8D6390 = RwUInt32 счётчик testFrame туннельного стриппера; читается/пишется только
+// внутренним хелпером 0x75BC80 (вне этажа, вызывается raw-кастом) — здесь не объявлен.
+//
+// ВНУТРЕННИЕ ХЕЛПЕРЫ tristrip-модуля ВНЕ ЭТАЖА (нет в rw_addr_map.json) — вызываются raw-кастами:
+//   RwBool           __cdecl CheckStripWinding(RwUInt32* work)                                    @0x75BB80
+//   void             __cdecl FlipStripEdges(RwUInt32* work)                                       @0x75BB20
+//   RwInt32          __cdecl CountStripEdges(RpTriStripPolygon* poly)                             @0x75BB50
+//   RwUInt32         __cdecl TunnelStripCost(RwUInt32* work, RpTriStripTunnelData* td)            @0x75BC80
+//   RpTriStripEdge*  __cdecl FollowStrip(RpTriStripEdge*, RpTriStripPolygon*, RwUInt16, RwUInt32) @0x75C290
+//   RwUInt32*        __cdecl BuildTriStrip(RpBuildMeshTriangle**, RwUInt32)                       @0x75C660
+//   void             __cdecl FillMeshFromStrip(RwUInt32* strip, RpMesh* mesh, RpBuildMesh* bm)    @0x75C9D0
+//   int              __cdecl CompareTriByMaterial(const void*, const void*)                       @0x759640
+//   void             __cdecl crt_qsort(void*, RwUInt32 n, RwUInt32 sz, cmp)                       @0x8247E0 (msvcrt)
+//   RwInt32          __cdecl RwErrorCodeMake(RwInt32 code, ...)                                   @0x8088D0 (identity 1-го арг.)
+// ==== КОНЕЦ SHARED BLOCK ====
+
+// ==== rpworld-11 COMMON BLOCK (D3D9 vertex-shader state) — вставить ОДИН раз в rpworld.cpp ====
+
+
 // ==== RW-CAMPAIGN wave-D shared decls (consolidated) ====
 // ==== rpworld-5 COMMON BLOCK — ВСТАВИТЬ ОДИН РАЗ в rpworld.cpp (например выше _rpWorldFindBBox) ====
 // Все фрагменты батча rpworld-5 ссылаются на эти объявления. Защищено #ifndef, повторная вставка безопасна.
@@ -199,6 +241,15 @@ struct RpSectorBSP
     RwReal       rightValue;   // 0x14
 };
 
+// GTA SA RpWorldSector = tagged union (BSP node / leaf), 0x88 байт. Комбинированная
+// раскладка из декомпилов батчей rpworld-4/5/11; type@0: -1 = лист, 0..0x14 = ось плоскости.
+struct RpWorldSectorGta
+{
+    RwInt32      type;                       // +0x00
+    union {
+        RpTriangle*     triangles;           // +0x04 (leaf)
+        RwReal          value;               // +0x04 (node: позиция плоскости)
+    };
     union {
         RwV3d*          vertices;            // +0x08 (leaf)
         void*           leftSubTree;         // +0x08 (node)
@@ -229,12 +280,42 @@ static_assert(offsetof(RpWorldSectorGta, tightBoundingBox)         == 0x60, "RpW
 static_assert(offsetof(RpWorldSectorGta, mesh)                     == 0x78, "RpWorldSectorGta layout");
 static_assert(offsetof(RpWorldSectorGta, numTriangles)             == 0x84, "RpWorldSectorGta layout");
 
+// privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
+struct RxD3D9AllInOneCallBacksSA
+{
+    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
+    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
+    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
+    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
+};
 
+// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
+// privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
+struct RxD3D9AllInOneCallBacksSA
+{
+    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
+    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
+    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
+    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
+};
 
+// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
+// privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
+struct RxD3D9AllInOneCallBacksSA
+{
+    RxD3D9AllInOneInstanceCallBack   instanceCB;   // +0x00
+    RxD3D9AllInOneReinstanceCallBack reinstanceCB; // +0x04
+    RxD3D9AllInOneLightingCallBack   lightingCB;   // +0x08
+    RxD3D9AllInOneRenderCallBack     renderCB;     // +0x0C
+};
+
+// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
 
+// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // privateData D3D9 all-in-one нода (RxPipelineNode.privateData @+0x14): 4 колбэка подряд
 
+// world-module offsets (rpworld-6): block/chunk offsets set by init 0x750050
 // Сырые хелперы вне вендорского этажа (нет в rw_addr_map.json) - оставить кастами:
 //   void      __cdecl sub_74FFF0(RwLLLink*) - teardown звена collAtomicsInWorldSector
 //   void      __cdecl sub_74FFA0(RwLLLink*) - teardown узла lightsInWorldSector (освобождает {link,light})
@@ -242,46 +323,7 @@ static_assert(offsetof(RpWorldSectorGta, numTriangles)             == 0x84, "RpW
 //   RwInt32   __cdecl _rwerror(RwInt32 code, ...) @ 0x8088D0 (волна-B rwcore.cpp тоже кастует)
 
 #endif // RPWORLD5_COMMON_BLOCK
-// ==== КОНЕЦ COMMON BLOCK ====
 
-// ==== RW-CAMPAIGN rpworld-9 SHARED BLOCK — ИНТЕГРАТОРУ: вставить ОДИН раз в rpworld.cpp ====
-// GTA SA RwGlobals, хвост с функциями памяти (офсеты сверены декомпилами; зеркало RwGlobalsSA из rwplcore.cpp):
-//   +0x134 rwmalloc(size,hint)  +0x138 rwfree(ptr)  +0x13C rwrealloc(ptr,newSize,hint)
-//   +0x140 rwcalloc  +0x144 memoryAlloc(RwFreeList*,hint)  +0x148 memoryFree(RwFreeList*,ptr)
-struct RwGlobalsMemFuncsGta
-{
-    RwUInt8     pad[0x134];                                                // 0x000..0x133
-    void*       (*rwmalloc)(size_t size, RwUInt32 hint);                   // +0x134
-    void        (*rwfree)(void* mem);                                      // +0x138
-    void*       (*rwrealloc)(void* mem, size_t newSize, RwUInt32 hint);    // +0x13C
-    void*       (*rwcalloc)(size_t numObj, size_t sizeObj, RwUInt32 hint); // +0x140
-    void*       (*memoryAlloc)(RwFreeList* fl, RwUInt32 hint);             // +0x144 (impl по умолчанию 0x801C30)
-    RwFreeList* (*memoryFree)(RwFreeList* fl, void* pData);                // +0x148
-};
-
-// глобалы rpmesh-модуля (декомпилы 0x758970/0x758940/0x758EC0/0x75D530)
-static RwFreeList*& rpMeshFreeListGta      = StaticRef<RwFreeList*>(0xC926F0); // DAT_00c926f0 (freelist модуля)
-static RwInt32&     rpMeshGlobalsOffsetGta = StaticRef<RwInt32>(0xC9B8C0);     // DAT_00c9b8c0 (globalsOffset)
-static RwInt32&     rpMeshOpenCountGta     = StaticRef<RwInt32>(0xC9B8C4);     // DAT_00c9b8c4 (refcount)
-
-// глобалы tristrip-метода (0x75D4C0/0x75D500; используются и в _rpMeshOptimise 0x75D970 — батч rpworld-10!)
-static RpTriStripMeshCallBack& rpMeshTriStripMethodGta     = StaticRef<RpTriStripMeshCallBack>(0x8D6388); // PTR_FUN_008d6388
-static void*&                  rpMeshTriStripMethodDataGta = StaticRef<void*>(0x8D638C);                  // DAT_008d638c
-// NOTE: 0x8D6390 = RwUInt32 счётчик testFrame туннельного стриппера; читается/пишется только
-// внутренним хелпером 0x75BC80 (вне этажа, вызывается raw-кастом) — здесь не объявлен.
-//
-// ВНУТРЕННИЕ ХЕЛПЕРЫ tristrip-модуля ВНЕ ЭТАЖА (нет в rw_addr_map.json) — вызываются raw-кастами:
-//   RwBool           __cdecl CheckStripWinding(RwUInt32* work)                                    @0x75BB80
-//   void             __cdecl FlipStripEdges(RwUInt32* work)                                       @0x75BB20
-//   RwInt32          __cdecl CountStripEdges(RpTriStripPolygon* poly)                             @0x75BB50
-//   RwUInt32         __cdecl TunnelStripCost(RwUInt32* work, RpTriStripTunnelData* td)            @0x75BC80
-//   RpTriStripEdge*  __cdecl FollowStrip(RpTriStripEdge*, RpTriStripPolygon*, RwUInt16, RwUInt32) @0x75C290
-//   RwUInt32*        __cdecl BuildTriStrip(RpBuildMeshTriangle**, RwUInt32)                       @0x75C660
-//   void             __cdecl FillMeshFromStrip(RwUInt32* strip, RpMesh* mesh, RpBuildMesh* bm)    @0x75C9D0
-//   int              __cdecl CompareTriByMaterial(const void*, const void*)                       @0x759640
-//   void             __cdecl crt_qsort(void*, RwUInt32 n, RwUInt32 sz, cmp)                       @0x8247E0 (msvcrt)
-//   RwInt32          __cdecl RwErrorCodeMake(RwInt32 code, ...)                                   @0x8088D0 (identity 1-го арг.)
-// ==== КОНЕЦ SHARED BLOCK ====
 
 // ==== rpworld-11 COMMON BLOCK (D3D9 vertex-shader state) — вставить ОДИН раз в rpworld.cpp ====
 #ifndef RPWORLD11_D3D9VS_COMMON_BLOCK
@@ -303,13 +345,7 @@ static RwMatrix&  g_rwD3D9VSViewMatrix     = StaticRef<RwMatrix>(0xC9BC80);    /
 static RwMatrix&  g_rwD3D9VSProjMatrix     = StaticRef<RwMatrix>(0x8E2458);    // матрица проекции (GetD3DProjTransform)
 
 #endif // RPWORLD11_D3D9VS_COMMON_BLOCK
-// ==== КОНЕЦ COMMON BLOCK ====
 
-// ==== rwD3D9/rpworld lights module globals (0xC925E0..0xC926F0; reconstructed from
-// rpworld-8 commented spec; layout decompile-verified across 0x755D20..0x758900) ====
-
-// ==== END wave-D shared decls ====
-// ==== END wave-D shared decls ====
 
 void _rwD3D9VSSetActiveWorldMatrix(const RwMatrix* worldMatrix) {
     g_rwD3D9VSActiveWorld = const_cast<RwMatrix*>(worldMatrix);
