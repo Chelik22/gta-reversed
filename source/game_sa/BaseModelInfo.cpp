@@ -225,7 +225,4 @@ void CBaseModelInfo::SetBaseModelInfoFlags(uint32 flags) {
 // Decompile: return (m_nFlags & 0x7800) == 0x800 || (m_nFlags & 0x7800) == 0x1000;
 // bits 11-14 of m_nFlags == nSpecialType (4 bits): TREE(1)=0x800, PALM(2)=0x1000 - i.e. IsSwayInWind1() || IsSwayInWind2().
 // NOTE: the inline body in BaseModelInfo.h was removed, so this is now the single definition (batch w2-06-Ped).
-bool CBaseModelInfo::SwaysInWind() const {
-    return nSpecialType == eModelInfoSpecialType::TREE
-        || nSpecialType == eModelInfoSpecialType::PALM;
-}
+
