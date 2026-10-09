@@ -124,7 +124,7 @@ static void WINAPI LoggedExitProcess(UINT code) {
             GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
         if (hFile != INVALID_HANDLE_VALUE) {
             MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile,
-                (MINIDUMP_TYPE)(MiniDumpWithFullMemory | MiniDumpWithHandleData | MiniDumpWithUnloadedModules | MiniDumpWithProcessThreadData),
+                (MINIDUMP_TYPE)(MiniDumpWithIndirectlyReferencedMemory | MiniDumpWithHandleData | MiniDumpWithUnloadedModules | MiniDumpWithDataSegs),
                 NULL, NULL, NULL);
             CloseHandle(hFile);
         }
