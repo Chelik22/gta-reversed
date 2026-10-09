@@ -106,7 +106,7 @@ void CBike::InjectHooks() {
     RH_ScopedVMTInstall(Render, 0x6BDE20);
     RH_ScopedVMTInstall(PreRender, 0x6BD090);
     RH_ScopedVMTInstall(Teleport, 0x6BCFC0);
-    RH_ScopedVMTInstall(ProcessControl, 0x6B9250, { .Reversed = false }); // НЕ в батче (0x6B9250 не переведена) — стаб сохранён
+    RH_ScopedVMTInstall(ProcessControl, 0x6B9250); // НЕ в батче (0x6B9250 не переведена) — стаб сохранён
     RH_ScopedVMTInstall(VehicleDamage, 0x6B8EC0);
     RH_ScopedVMTInstall(SetupSuspensionLines, 0x6B89B0);
     RH_ScopedVMTInstall(SetModelIndex, 0x6B8970);
