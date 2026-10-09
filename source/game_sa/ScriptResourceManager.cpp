@@ -10,8 +10,8 @@ void CScriptResourceManager::InjectHooks() {
     RH_ScopedInstall(AddToResourceManager, 0x4704B0, { .Reversed = false });
     RH_ScopedInstall(RemoveFromResourceManager, 0x470510, { .Reversed = false });
     RH_ScopedInstall(HasResourceBeenRequested, 0x470620, { .Reversed = false });
-    //RH_ScopedInstall(Load, 0x0, { .Reversed = false });
-    //RH_ScopedInstall(Save, 0x0, { .Reversed = false });
+    //RH_ScopedInstall(Load, 0x0);
+    //RH_ScopedInstall(Save, 0x0);
 }
 
 // 0x470480

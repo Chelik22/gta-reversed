@@ -11,7 +11,7 @@ void CTaskComplexGoToAttractor::InjectHooks() {
     RH_ScopedInstall(Destructor, 0x66B6A0);
 
     RH_ScopedVMTInstall(Clone, 0x66D130, { .Reversed = false });
-    RH_ScopedVMTInstall(CreateNextSubTask, 0x66B6C0, { .Reversed = false });
+    RH_ScopedVMTInstall(CreateNextSubTask, 0x66B6C0);
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x670420, { .Reversed = false });
 }
 

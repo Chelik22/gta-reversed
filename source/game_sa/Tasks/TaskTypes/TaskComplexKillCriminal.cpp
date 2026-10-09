@@ -28,7 +28,7 @@ void CTaskComplexKillCriminal::InjectHooks() {
     RH_ScopedVMTInstall(MakeAbortable, 0x68DAD0);
     RH_ScopedVMTInstall(CreateNextSubTask, 0x68E4F0);
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x68DC60, {.Reversed = false});
-    RH_ScopedVMTInstall(ControlSubTask, 0x68E950, {.Reversed = false});
+    RH_ScopedVMTInstall(ControlSubTask, 0x68E950);
 }
 
 bool NoPedOrNoHp(CPed* ped) {

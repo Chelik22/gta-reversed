@@ -11,7 +11,7 @@ void CTaskComplexGoToPointAnyMeans::InjectHooks() {
     RH_ScopedInstall(Destructor, 0x66B830);
     RH_ScopedInstall(CreateSubTask, 0x6705D0, { .Reversed = false });
     RH_ScopedInstall(CreateNextSubTask, 0x6728A0, { .Reversed = false });
-    RH_ScopedInstall(CreateFirstSubTask, 0x6729C0, { .Reversed = false });
+    RH_ScopedInstall(CreateFirstSubTask, 0x6729C0);
     RH_ScopedInstall(ControlSubTask, 0x672A50, { .Reversed = false });
 }
 

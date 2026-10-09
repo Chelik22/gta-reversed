@@ -16,7 +16,7 @@ void CStencilShadows::InjectHooks() {
     RH_ScopedInstall(Process, 0x711D90);
     RH_ScopedInstall(GraphicsHighQuality, 0x70F9B0);
     RH_ScopedInstall(UpdateHierarchy, 0x710BC0);
-    RH_ScopedInstall(RegisterStencilShadows, 0x711760, {.Reversed = false});
+    RH_ScopedInstall(RegisterStencilShadows, 0x711760);
     RH_ScopedInstall(RenderStencilShadows, 0x7113B0);
     RH_ScopedInstall(RenderForVehicle, 0x70FAE0, {.Reversed = false});
     RH_ScopedInstall(RenderForObject, 0x710310, {.Reversed = false});

@@ -15,7 +15,7 @@ void C_PcSave::InjectHooks() {
 
     // `GenerateGameFilename` stays off: it passes `sprintf_s` a size larger than its callers' buffers
     RH_ScopedInstall(SetSaveDirectory, 0x619040);
-    RH_ScopedInstall(GenerateGameFilename, 0x6190A0, { .Reversed = false }); // bad
+    RH_ScopedInstall(GenerateGameFilename, 0x6190A0); // bad
     RH_ScopedInstall(PopulateSlotInfo, 0x619140);
     RH_ScopedInstall(SaveSlot, 0x619060);
     RH_ScopedInstall(DeleteSlot, 0x6190D0);

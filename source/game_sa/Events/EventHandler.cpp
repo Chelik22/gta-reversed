@@ -238,13 +238,13 @@ void CEventHandler::InjectHooks() {
     RH_ScopedInstall(HandleEvents, 0x4C3F10);
     RH_ScopedInstall(IsKillTaskAppropriate, 0x4BC3E0);
     RH_ScopedInstall(IsTemporaryEvent, 0x4BC370);
-    // RH_ScopedInstall(RecordActiveEvent, 0x0, { .Reversed = false });
-    // RH_ScopedInstall(RecordPassiveEvent, 0x0, { .Reversed = false });
+    // RH_ScopedInstall(RecordActiveEvent, 0x0);
+    // RH_ScopedInstall(RecordPassiveEvent, 0x0);
     RH_ScopedInstall(RegisterKill, 0x4B9340);
     RH_ScopedInstall(SetEventResponseTask, 0x4BC600);
     RH_ScopedInstall(ComputeAreaCodesResponse, 0x4BBF50);
     RH_ScopedInstall(ComputeAttractorResponse, 0x4B9BE0);
-    // RH_ScopedInstall(ComputeBuildingCollisionPassiveResponse, 0x0, { .Reversed = false });
+    // RH_ScopedInstall(ComputeBuildingCollisionPassiveResponse, 0x0);
     RH_ScopedInstall(ComputeBuildingCollisionResponse, 0x4BF2B0);
     RH_ScopedInstall(ComputeCarUpsideDownResponse, 0x4BBC30);
     RH_ScopedInstall(ComputeChatPartnerResponse, 0x4B98E0);
@@ -298,7 +298,7 @@ void CEventHandler::InjectHooks() {
     RH_ScopedInstall(ComputeVehicleCollisionResponse, 0x4BD6A0);
     RH_ScopedInstall(ComputeVehicleDamageResponse, 0x4C2FC0);
     RH_ScopedInstall(ComputeVehicleDiedResponse, 0x4BA8B0);
-    // RH_ScopedInstall(ComputeVehicleHitAndRunResponse, 0x0, { .Reversed = false });
+    // RH_ScopedInstall(ComputeVehicleHitAndRunResponse, 0x0);
     RH_ScopedInstall(ComputeVehicleOnFireResponse, 0x4BB2E0);
     RH_ScopedInstall(ComputeVehiclePotentialCollisionResponse, 0x4C0BD0);
     RH_ScopedInstall(ComputeVehiclePotentialPassiveCollisionResponse, 0x4B96D0);
