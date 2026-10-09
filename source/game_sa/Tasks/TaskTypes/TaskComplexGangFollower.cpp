@@ -293,7 +293,7 @@ CTask* CTaskComplexGangFollower::ControlSubTask(CPed* ped) {
             if (!goToPoint || nodeRoute || !bLeaderIsMoving) {
                 bSpeedSetByUs = bTooManyPedsAround;
             } else {
-                auto target = leaderPos + dword20; // Sum, 0x40FE30
+                auto target = leaderPos + dword20; // Sum, 0x40FE30 (мутируется ниже - target += fwd * 2.0f)
                 auto delta        = target - pedPos;     // Difference, 0x40FE60
                 delta.z = 0.f;                           // *(delta+8) = 0
 
