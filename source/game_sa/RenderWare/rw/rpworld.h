@@ -2345,17 +2345,17 @@ struct rpWorldChunkInfo34000
 #endif /* (!defined(DOXYGEN)) */
 
 void _rwD3D9VSSetActiveWorldMatrix(const RwMatrix* worldMatrix); // 0x764650
-void _rwD3D9VSGetComposedTransformMatrix(void* transformMatrix); // 0x7646E0
-void _rwD3D9VSGetWorldViewTransposedMatrix(void* worldViewMatrix); // 0x764730
-void _rwD3D9VSGetWorldViewMatrix(void* worldViewMatrix); // 0x764760
-void _rwD3D9VSGetInverseWorldMatrix(void* inverseWorldMatrix); // 0x7647B0
+void _rwD3D9VSGetComposedTransformMatrix(); // 0x7646E0
+void _rwD3D9VSGetWorldViewTransposedMatrix(); // 0x764730
+void _rwD3D9VSGetWorldViewMatrix(); // 0x764760
+void _rwD3D9VSGetInverseWorldMatrix(); // 0x7647B0
 void _rwD3D9VSGetWorldMultiplyMatrix(RwMatrix* worldMultiplyMatrix, const RwMatrix* matrix); // 0x764920
 void _rwD3D9VSGetWorldMultiplyTransposeMatrix(void* worldMultiplyMatrix, const RwMatrix* matrix); // 0x764960
 void _rwD3D9VSGetWorldViewMultiplyTransposeMatrix(void* worldViewMultiplyMatrix, const RwMatrix* matrix); // 0x7649D0
 void _rwD3D9VSGetWorldNormalizedMultiplyTransposeMatrix(void* worldMultiplyMatrix, const RwMatrix* matrix); // 0x764A70
 void _rwD3D9VSGetWorldNormalizedViewMultiplyTransposeMatrix(void* worldViewMultiplyMatrix, const RwMatrix* matrix); // 0x764B50
-void _rwD3D9VSGetWorldNormalizedTransposeMatrix(void* worldMatrix); // 0x764C60
-void _rwD3D9VSGetProjectionTransposedMatrix(void* projectionMatrix); // 0x764D20
+void _rwD3D9VSGetWorldNormalizedTransposeMatrix(); // 0x764C60
+void _rwD3D9VSGetProjectionTransposedMatrix(); // 0x764D20
 void _rwD3D9VSGetNormalInLocalSpace(const RwV3d* normalWorldSpace, RwV3d* normalLocalSpace); // 0x764D30
 void _rwD3D9VSGetPointInLocalSpace(const RwV3d* pointWorldSpace, RwV3d* pointLocalSpace); // 0x764E70
 void _rwD3D9VSGetRadiusInLocalSpace(RwReal radiusWorldSpace, RwReal* radiusLocalSpace); // 0x764F60
