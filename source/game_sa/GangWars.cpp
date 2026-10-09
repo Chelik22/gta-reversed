@@ -22,14 +22,14 @@ void CGangWars::InjectHooks() {
     RH_ScopedCategoryGlobal();
 
     RH_ScopedInstall(InitAtStartOfGame, 0x443920);
-    RH_ScopedInstall(AddKillToProvocation, 0x443950, { .Reversed = false });                  // ?
+    RH_ScopedInstall(AddKillToProvocation, 0x443950);                                          // ?
     RH_ScopedInstall(AttackWaveOvercome, 0x445B30);
     RH_ScopedInstall(CalculateTimeTillNextAttack, 0x443DB0);
     RH_ScopedInstall(CanPlayerStartAGangWarHere, 0x443F80);
     RH_ScopedInstall(CheerVictory, 0x444040);
     RH_ScopedInstall(ClearSpecificZonesToTriggerGangWar, 0x443FF0);
     RH_ScopedInstall(ClearTheStreets, 0x4444B0);
-    RH_ScopedInstall(CreateAttackWave, 0x444810, { .Reversed = false });                   //
+    RH_ScopedInstall(CreateAttackWave, 0x444810, { .Reversed = false });                   // STUB_BLOCKED (w2-06): decompile needs ~8 unnamed helpers/globals (0x406E80, 0x4241C0, 0x4442D0, 0x44DD10, 0x6217D0, 0x8D2618, ...) - redirect kept
     RH_ScopedInstall(CreateDefendingGroup, 0x4453D0);
     RH_ScopedInstall(DoesPlayerControlThisZone, 0x443AE0);
     RH_ScopedInstall(DoStuffWhenPlayerVictorious, 0x446400);
@@ -52,7 +52,7 @@ void CGangWars::InjectHooks() {
     RH_ScopedInstall(SwitchGangWarsActive, 0x4465F0);
     RH_ScopedInstall(TellGangMembersTo, 0x444530);                     // ?
     RH_ScopedInstall(TellStreamingWhichGangsAreNeeded, 0x443D50);
-    RH_ScopedInstall(Update, 0x446610, { .Reversed = false });                             //
+    RH_ScopedInstall(Update, 0x446610);                                                      //
     RH_ScopedInstall(UpdateTerritoryUnderControlPercentage, 0x443DE0); //
     RH_ScopedInstall(Load, 0x5D3EB0);
     RH_ScopedInstall(Save, 0x5D5530);
@@ -725,201 +725,153 @@ void CGangWars::TellStreamingWhichGangsAreNeeded(uint32& gangsBitFlags) {
 void CGangWars::Update() {
     ZoneScoped;
 
-    return plugin::Call<0x446610>();
-
     if (CTheScripts::IsPlayerOnAMission() && !bIsPlayerOnAMission && NumSpecificZones == 0)
         EndGangWar(true);
 
     bIsPlayerOnAMission = CTheScripts::IsPlayerOnAMission();
-    if (CCutsceneMgr::IsCutsceneProcessing())
+    if (CCutsceneMgr::ms_cutsceneProcessing)
         return;
 
-    if (CTimer::m_FrameCounter == 56u)
+    if ((CTimer::m_FrameCounter & 0xFF) == 56u)
         UpdateTerritoryUnderControlPercentage();
 
-    if (!CGangWars::bGangWarsActive || CGameLogic::IsCoopGameGoingOn())
+    if (!bGangWarsActive)
+        return;
+
+    if (CGameLogic::IsCoopGameGoingOn())
         return;
 
     Provocation = std::max(Provocation - CTimer::GetTimeStep() / 2000.0f, 0.0f);
 
     switch (State) {
     case NOT_IN_WAR:
-        if (Provocation > 2.1f)
+        if (Provocation > 2.1f) // 0x859974
             StartOffensiveGangWar();
-
-        break; // goto label_34;
+        break;
 
     case PRE_FIRST_WAVE:
-        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity, 0), 0)) {
-            // goto label_34;
-        }
+        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity, 0), 0))
+            break;
         State = FIRST_WAVE;
         TimeStarted = CTimer::GetTimeInMS();
-        break; // goto label_35;
+        goto LabelWarTime;
 
-    case FIRST_WAVE: {
-        if (!AttackWaveOvercome()) {
-            // goto label_34;
+    case FIRST_WAVE:
+        if (AttackWaveOvercome()) {
+            ReleasePedsInAttackWave(false, false);
+            ReleaseCarsInAttackWave();
+            if (MakePlayerGainInfluenceInZone(0.3f)) {
+                DoStuffWhenPlayerVictorious();
+                break;
+            }
+            const auto clr1 = TheText.Get("GW_CLR1");
+            CMessages::AddMessageQ(clr1, 4500, 1, true);
+            CMessages::AddToPreviousBriefArray(clr1);
+            State = PRE_SECOND_WAVE;
+            TimeStarted = CTimer::GetTimeInMS();
+            goto LabelWarTime;
         }
-        ReleasePedsInAttackWave(false, false);
-        ReleaseCarsInAttackWave();
+        break;
 
-        if (MakePlayerGainInfluenceInZone(0.3f)) {
-            // goto label_33;
-        }
-        auto clr1 = TheText.Get("GW_CLR1");
-        CMessages::AddMessageQ(clr1, 4500, 1, true);
-        CMessages::AddToPreviousBriefArray(clr1);
-        State = PRE_SECOND_WAVE;
-        TimeStarted = CTimer::GetTimeInMS();
-        break; // goto label_35;
-    }
     case PRE_SECOND_WAVE:
-        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity, 0) + 1, 0)) {
-            // goto label_34;
-        }
+        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity + 1, 0), 1))
+            break;
         State = SECOND_WAVE;
         TimeStarted = CTimer::GetTimeInMS();
-        break; // goto label_35;
+        goto LabelWarTime;
 
-    case SECOND_WAVE: {
-        if (!AttackWaveOvercome()) {
-            // goto label_34;
+    case SECOND_WAVE:
+        if (AttackWaveOvercome()) {
+            ReleasePedsInAttackWave(false, false);
+            ReleaseCarsInAttackWave();
+            if (MakePlayerGainInfluenceInZone(0.3f)) {
+                DoStuffWhenPlayerVictorious();
+                break;
+            }
+            const auto clr2 = TheText.Get("GW_CLR2");
+            CMessages::AddMessageQ(clr2, 4500, 1, true);
+            CMessages::AddToPreviousBriefArray(clr2);
+            State = PRE_THIRD_WAVE;
+            TimeStarted = CTimer::GetTimeInMS();
+            goto LabelWarTime;
         }
-        ReleasePedsInAttackWave(false, false);
-        ReleaseCarsInAttackWave();
+        break;
 
-        if (MakePlayerGainInfluenceInZone(0.3f)) {
-            // goto label_33;
-        }
-        auto clr2 = TheText.Get("GW_CLR2");
-        CMessages::AddMessageQ(clr2, 4500, 1, true);
-        CMessages::AddToPreviousBriefArray(clr2);
-        State = PRE_THIRD_WAVE;
-        TimeStarted = CTimer::GetTimeInMS();
-        break; // goto label_35;
-    }
     case PRE_THIRD_WAVE:
-        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity, 0) + 2, 0)) {
-            // goto label_34;
-        }
+        if (CTimer::GetTimeInMS() <= TimeStarted + 10'000 || !CreateAttackWave(std::max(WarFerocity + 2, 0), 2))
+            break;
         State = THIRD_WAVE;
         TimeStarted = CTimer::GetTimeInMS();
-        break; // goto label_35;
+        goto LabelWarTime;
 
-    case THIRD_WAVE: {
-        if (!AttackWaveOvercome()) {
-            // goto label_34;
+    case THIRD_WAVE:
+        if (AttackWaveOvercome()) {
+            MakePlayerGainInfluenceInZone(1.0f);
+            DoStuffWhenPlayerVictorious();
         }
-        MakePlayerGainInfluenceInZone(1.0f);
+        break;
+    }
 
-        // label_33:
-        DoStuffWhenPlayerVictorious();
+LabelWarTime: // LAB_0044691C - entered by wave states after switching to the next wave
+    if (State != NOT_IN_WAR) {
+        // label_34: while a war is ongoing, keep track if the player stays in the war zone
+        const auto playerPos = FindPlayerCoors();
+        const auto zone      = pZoneToFightOver;
 
-        // label_34:
-        if (State == NOT_IN_WAR) {
-            // goto label_51;
-        }
-
-        // label_35:
-        auto playerPos = FindPlayerCoors();
-        auto zone = pZoneToFightOver;
-
-        bool inArea = zone->m_fX1 - 50 <= playerPos.x &&
-                      zone->m_fX2 + 50 >= playerPos.x &&
-                      zone->m_fY1 - 50 <= playerPos.y &&
-                      zone->m_fY2 + 50 >= playerPos.y;
+        const bool inArea = (float)zone->m_fX1 - 50.0f <= playerPos.x
+            && playerPos.x <= (float)zone->m_fX2 + 50.0f
+            && (float)zone->m_fY1 - 50.0f <= playerPos.y
+            && playerPos.y <= (float)zone->m_fY2 + 50.0f;
 
         if (CGame::currArea || inArea) {
             LastTimeInArea = CTimer::GetTimeInMS();
-            // goto label_50;
-        }
-
-        if (CTimer::GetTimeInMS() - LastTimeInArea > 30'000) {
-            State = NOT_IN_WAR;
-            Provocation = 0.0f;
-            ReleasePedsInAttackWave(true, false);
-            ReleaseCarsInAttackWave();
-            CTheZones::FillZonesWithGangColours(false);
-
-            // label_49:
-            CMessages::AddMessageQ(TheText.Get("GW_FLEE"), 4500, 1, true);
-            CMessages::AddToPreviousBriefArray(TheText.Get("GW_WARN"));
-            // goto label_50;
-        }
-
-        if (CTimer::GetTimeInMS() - LastTimeInArea > 10'000 && CTimer::GetPreviousTimeInMS() - LastTimeInArea <= 10'000) {
-            // goto label_49;
-        }
-
-        // label_50:
-        if (State != NOT_IN_WAR) {
-            // goto label_53;
-        }
-
-        // label_51:
-        if (CTheScripts::IsPlayerOnAMission() || playerPos.z > 950.0f) {
-            // label_53:
-            TimeTillNextAttack = std::min(TimeTillNextAttack, 30'000.0f);
-        }
-
-        auto veh = FindPlayerVehicle();
-        if (State2 != NO_ATTACK) {
-            switch (State2) {
-            case WAR_NOTIFIED:
-                if (DistanceBetweenPoints2D(PointOfAttack, playerPos) >= 70.0f) {
-                    FightTimer -= (uint32)CTimer::GetTimeStepInMS();
-
-                    if (FightTimer < 0) {
-                        auto nosh = TheText.Get("GW_NOSH");
-                        CMessages::AddMessageQ(nosh, 4500, 1, true);
-                        CMessages::AddToPreviousBriefArray(nosh);
-
-                        State2 = NO_ATTACK;
-                        MakeEnemyGainInfluenceInZone(Gang1, 30);
-                        CTheZones::FillZonesWithGangColours(false);
-                        TimeTillNextAttack = CalculateTimeTillNextAttack();
-                        CStats::DecrementStat(STAT_RESPECT, 30.0f);
-                    }
-                } else if (CreateDefendingGroup(0)) {
-                    FightTimer += 30'000;
-                    State2 = PLAYER_CAME_TO_WAR;
-                }
-                break;
-
-            case PLAYER_CAME_TO_WAR:
-                if (AttackWaveOvercome()) {
-                    auto won = TheText.Get("GW_WON");
-                    CMessages::AddMessageQ(won, 4500, 1, true);
-                    CMessages::AddToPreviousBriefArray(won);
-
-                    State2 = NO_ATTACK;
-                    StrengthenPlayerInfluenceInZone(10);
-                    CTheZones::FillZonesWithGangColours(false);
-                    TimeTillNextAttack = CalculateTimeTillNextAttack();
-                    ReleasePedsInAttackWave(true, false);
-                } else {
-                    FightTimer -= (uint32)CTimer::GetTimeStepInMS();
-
-                    if (FightTimer < 0) {
-                        auto slow = TheText.Get("GW_SLOW");
-                        CMessages::AddMessageQ(slow, 4500, 1, true);
-                        CMessages::AddToPreviousBriefArray(slow);
-
-                        State2 = NO_ATTACK;
-                        MakeEnemyGainInfluenceInZone(Gang1, 3 * ReleasePedsInAttackWave(true, false));
-                        CTheZones::FillZonesWithGangColours(false);
-                        TimeTillNextAttack = CalculateTimeTillNextAttack();
-                        CStats::DecrementStat(STAT_RESPECT, 30.0f);
-                    }
-                }
+        } else {
+            const char* msg = "GW_WARN";
+            if (CTimer::GetTimeInMS() - LastTimeInArea > 30'000) {
+                // Player fled the war zone
+                State       = NOT_IN_WAR;
+                Provocation = 0.0f;
+                ReleasePedsInAttackWave(true, false);
+                ReleaseCarsInAttackWave();
+                CTheZones::FillZonesWithGangColours(false);
+                msg = "GW_FLEE";
+            } else if (!(CTimer::GetTimeInMS() - LastTimeInArea > 10'000
+                      && CTimer::GetPreviousTimeInMS() - LastTimeInArea <= 10'000)) {
+                goto LabelAfterClamp; // not yet time for the warning
             }
-        } else if (!CTheScripts::IsPlayerOnAMission() && !bTrainingMission && (!veh || !veh->IsSubFlyingVehicle())) {
+
+            CMessages::AddMessageQ(TheText.Get(msg), 4500, 1, true);
+            CMessages::AddToPreviousBriefArray(TheText.Get("GW_WARN")); // NB: brief is always GW_WARN
+        }
+
+        if (State == NOT_IN_WAR) {
+            goto LabelTimeClamp; // war just ended above -> mission/z check below
+        }
+        if (TimeTillNextAttack <= 30'000.0f) { // unconditional clamp while at war
+            TimeTillNextAttack = 30'000.0f;
+        }
+        goto LabelAfterClamp;
+    }
+
+LabelTimeClamp: // LAB_00446AB2
+    if (!CTheScripts::IsPlayerOnAMission() && FindPlayerCoors().z <= 950.0f) // 0x858F4C
+        goto LabelAfterClamp;
+    if (TimeTillNextAttack <= 30'000.0f) {
+        TimeTillNextAttack = 30'000.0f;
+    }
+
+LabelAfterClamp: // LAB_00446AF7
+    switch (State2) {
+    case NO_ATTACK:
+        if (CTheScripts::IsPlayerOnAMission() || bTrainingMission)
+            break;
+
+        if (const auto veh = FindPlayerVehicle(-1, false); !veh || (veh->m_nVehicleSubType != VEHICLE_TYPE_HELI && veh->m_nVehicleSubType != VEHICLE_TYPE_PLANE)) {
             if (State == NOT_IN_WAR) {
                 if (CWeather::WeatherRegion == WEATHER_REGION_LA) {
                     TimeTillNextAttack -= CTimer::GetTimeStepInMS();
                 } else {
-                    TimeTillNextAttack -= CTimer::GetTimeStepInMS() * 0.6f;
+                    TimeTillNextAttack -= CTimer::GetTimeStepInMS() * 0.06f; // 0x859934
                 }
             }
 
@@ -927,43 +879,92 @@ void CGangWars::Update() {
                 StartDefensiveGangWar();
             }
         }
+        break;
 
-        if (RadarBlip) {
-            if (State2 == NO_ATTACK || State2 == PLAYER_CAME_TO_WAR) {
-                CRadar::ClearBlip(RadarBlip);
-                RadarBlip = 0;
-            } else {
-                auto blinkPeriod = 7;
-                if (FightTimer > 120'000) {
-                    blinkPeriod = 10;
-                } else if (FightTimer > 60'000) {
-                    blinkPeriod = 9;
-                } else if (FightTimer > 30'000) {
-                    blinkPeriod = 8;
-                }
+    case WAR_NOTIFIED:
+        if (DistanceBetweenPoints2D(PointOfAttack, FindPlayerCoors()) >= 70.0f) { // 0x858CE0
+            FightTimer -= (uint32)CTimer::GetTimeStepInMS();
 
-                if ((CTimer::GetTimeInMS() >> blinkPeriod) % 2) {
-                    CRadar::ChangeBlipDisplay(RadarBlip, BLIP_DISPLAY_NEITHER);
-                } else {
-                    CRadar::ChangeBlipDisplay(RadarBlip, BLIP_DISPLAY_BLIPONLY);
-                }
+            if ((int)FightTimer < 0) {
+                const auto nosh = TheText.Get("GW_NOSH");
+                CMessages::AddMessageQ(nosh, 4500, 1, true);
+                CMessages::AddToPreviousBriefArray(nosh);
+
+                State2 = NO_ATTACK;
+                MakeEnemyGainInfluenceInZone(Gang1, 30);
+                CTheZones::FillZonesWithGangColours(false);
+                TimeTillNextAttack = CalculateTimeTillNextAttack();
+                CStats::DecrementStat(STAT_RESPECT, 30.0f);
             }
+        } else if (CreateDefendingGroup(0)) {
+            FightTimer += 30'000;
+            State2 = PLAYER_CAME_TO_WAR;
         }
+        break;
 
-        if (State2 != NO_ATTACK) {
-            if (DistanceBetweenPoints2D(PointOfAttack, playerPos) >= 150.0f) {
-                bPlayerIsCloseby = false;
-            } else if (!bPlayerIsCloseby) {
-                CVector unused{};
-                CStreaming::StreamZoneModels_Gangs(unused);
-                bPlayerIsCloseby = true;
+    case PLAYER_CAME_TO_WAR:
+        if (AttackWaveOvercome()) {
+            const auto won = TheText.Get("GW_WON");
+            CMessages::AddMessageQ(won, 4500, 1, true);
+            CMessages::AddToPreviousBriefArray(won);
+
+            State2 = NO_ATTACK;
+            TimeTillNextAttack = CalculateTimeTillNextAttack();
+            StrengthenPlayerInfluenceInZone(10);
+            CTheZones::FillZonesWithGangColours(false);
+            ReleasePedsInAttackWave(true, false);
+        } else {
+            FightTimer -= (uint32)CTimer::GetTimeStepInMS();
+
+            if ((int)FightTimer < 0) {
+                State2 = NO_ATTACK;
+                TimeTillNextAttack = CalculateTimeTillNextAttack();
+
+                const auto slow = TheText.Get("GW_SLOW");
+                CMessages::AddMessageQ(slow, 4500, 1, true);
+                CMessages::AddToPreviousBriefArray(slow);
+
+                const auto released = ReleasePedsInAttackWave(true, false);
+                MakeEnemyGainInfluenceInZone(Gang1, 3 * released);
+                CTheZones::FillZonesWithGangColours(false);
+                CStats::DecrementStat(STAT_RESPECT, 30.0f);
             }
         }
         break;
-    }
+
     default:
-        ;
-        // goto label_34;
+        break;
+    }
+
+    if (RadarBlip) {
+        if (State2 == NO_ATTACK || State2 == PLAYER_CAME_TO_WAR) {
+            CRadar::ClearBlip(RadarBlip);
+            RadarBlip = 0;
+        } else {
+            auto blinkPeriod = 7;
+            if (FightTimer > 120'000) {
+                blinkPeriod = 10;
+            } else if (FightTimer > 60'000) {
+                blinkPeriod = 9;
+            } else if (FightTimer > 30'000) {
+                blinkPeriod = 8;
+            }
+
+            if ((CTimer::GetTimeInMS() >> blinkPeriod) % 2) {
+                CRadar::ChangeBlipDisplay(RadarBlip, BLIP_DISPLAY_NEITHER);
+            } else {
+                CRadar::ChangeBlipDisplay(RadarBlip, BLIP_DISPLAY_BLIPONLY);
+            }
+        }
+    }
+
+    if (State2 != NO_ATTACK) {
+        if (DistanceBetweenPoints2D(PointOfAttack, FindPlayerCoors()) >= 150.0f) { // 0x858A28
+            bPlayerIsCloseby = false;
+        } else if (!bPlayerIsCloseby) {
+            CStreaming::StreamZoneModels_Gangs(FindPlayerCoors());
+            bPlayerIsCloseby = true;
+        }
     }
 }
 

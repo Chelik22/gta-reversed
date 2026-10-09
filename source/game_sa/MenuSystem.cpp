@@ -2,6 +2,10 @@
 
 #include "MenuSystem.h"
 
+// -- begin: includes required by the reversed bodies below (batch w2-06-Ped)
+#include "Models/VehicleModelInfo.h" // CVehicleModelInfo::ms_vehicleColourTable (0x5820E0 FillGridWithCarColours)
+// -- end
+
 auto& MenuNumber = StaticRef<std::array<CMenuSystem::Menu*, 2>>(0xBA82D8);
 
 void CMenuSystem::InjectHooks() {
@@ -26,7 +30,7 @@ void CMenuSystem::InjectHooks() {
     RH_ScopedInstall(CreateNewMenu, 0x582300);
     RH_ScopedInstall(ActivateItems, 0x581990);
     RH_ScopedInstall(ActivateOneItem, 0x581B30);
-    RH_ScopedInstall(FillGridWithCarColours, 0x5820E0, { .Reversed = false });
+    RH_ScopedInstall(FillGridWithCarColours, 0x5820E0);
     RH_ScopedInstall(InsertMenu, 0x581E00);
     RH_ScopedInstall(SwitchOffMenu, 0x580750);
 }
@@ -603,7 +607,39 @@ void CMenuSystem::ActivateOneItem(MenuId id, uint8 row, bool enable) {
 
 // 0x5820E0
 void CMenuSystem::FillGridWithCarColours(MenuId id) {
-    plugin::Call<0x5820E0, MenuId>(id);
+    CRGBA gridColours[MENU_CAR_COLOR_COUNT];
+    for (auto& c : gridColours) {
+        c = CRGBA{ 0, 0, 0, 255 };
+    }
+
+    uint8 candidateIdx = 0;
+    uint8 numFilled    = 0;
+    for (uint8 row = 1; row < MENU_CAR_COLOR_COUNT + 1; row++) {
+        const auto& tableColour = CVehicleModelInfo::ms_vehicleColourTable[candidateIdx];
+        const CRGBA  colour{ tableColour.r, tableColour.g, tableColour.b, 0xFF };
+
+        bool tooClose = false;
+        for (auto i = 0; i < row; i++) {
+            if (row > 1
+                && (gridColours[i].r - 15) < colour.r
+                && (gridColours[i].g - 15) < colour.g
+                && (gridColours[i].b - 15) < colour.b
+                && colour.r < gridColours[i].r + 15
+                && colour.g < gridColours[i].g + 15
+                && colour.b < gridColours[i].b + 15) {
+                tooClose = true;
+            }
+        }
+
+        if (!tooClose || (uint8)(candidateIdx + 1) > 0x7F) {
+            gridColours[numFilled]                       = colour;
+            MenuNumber[id]->m_anUsedCarColors[numFilled] = candidateIdx;
+            numFilled++;
+            candidateIdx = 0;
+        } else {
+            candidateIdx++;
+        }
+    }
 }
 
 // Insert menu column
