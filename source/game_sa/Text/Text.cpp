@@ -176,6 +176,7 @@ void CText::Load(bool keepMissionPack) {
     ChunkHeader header{};
     while (!bTKEY || !bTDAT) {
         ReadChunkHeader(&header, file, &offset, false);
+        NOTSA_LOG_DEBUG("[GXT] chunk '{}' size={} offset={}", std::string_view(header.magic, 4), header.size, offset);
         if (header.size == 0)
             continue;
 
@@ -201,8 +202,10 @@ void CText::Load(bool keepMissionPack) {
         offset += header.size;
     }
 
+    NOTSA_LOG_DEBUG("[GXT] loop done (bTKEY={} bTDAT={})", bTKEY, bTDAT);
     m_MainKeyArray.Update(m_MainText.m_data);
     CFileMgr::CloseFile(file);
+    NOTSA_LOG_DEBUG("[GXT] CText::Load finished");
 
     static char gxtErrText[255]{};
     strcpy_s(m_szCdErrorText, GxtCharToUTF8(gxtErrText, Get("CDERROR")));

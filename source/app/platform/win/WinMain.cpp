@@ -248,8 +248,11 @@ bool ProcessGameLogic(INT nCmdShow) {
         if (!CGame::InitialiseEssentialsAfterRW()) {
             RsGlobal.quit = true; SPDLOG_WARN("!!! RsGlobal.quit SET at {}:{} - silent exit hunt", __FILE__, __LINE__);
         }
+        NOTSA_LOG_DEBUG("[INIT] InitialiseCoreDataAfterRW: begin");
         CGame::InitialiseCoreDataAfterRW();
+        NOTSA_LOG_DEBUG("[INIT] InitialiseCoreDataAfterRW: done");
         ChangeGameStateTo(GAME_STATE_FRONTEND_LOADED);
+        NOTSA_LOG_DEBUG("[INIT] state -> FRONTEND_LOADED");
         anisotropySupportedByGFX = (((const D3DCAPS9*)RwD3D9GetCaps())->RasterCaps & D3DPRASTERCAPS_ANISOTROPY) != 0; // todo: func
 
 #ifdef NOTSA_WINDOWED_MODE

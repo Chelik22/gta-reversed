@@ -249,6 +249,7 @@ FILESTREAM CFileMgr::OpenFile(const char *path, const char *mode) {
     ZoneScoped;
 
     FILESTREAM fs{nullptr};
+    NOTSA_LOG_TRACE("[FileMgr] OpenFile('{}', '{}')", path, mode);
     if (WindowsCharset == CP_UTF8) {
         fopen_s(&fs, path, mode);
     } else {
@@ -258,6 +259,8 @@ FILESTREAM CFileMgr::OpenFile(const char *path, const char *mode) {
         std::wstring modeWide = UTF8ToUnicode(mode);
         _wfopen_s(&fs, pathWide.c_str(), modeWide.c_str());
     }
+    if (!fs)
+        NOTSA_LOG_ERR("[FileMgr] OpenFile('{}') FAILED", path);
     return fs;
 }
 

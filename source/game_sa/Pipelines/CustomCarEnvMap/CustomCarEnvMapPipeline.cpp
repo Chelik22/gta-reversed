@@ -168,25 +168,37 @@ RpAtomic* CCustomCarEnvMapPipeline::CustomPipeAtomicSetup(RpAtomic* atomic) {
 // 0x5D9F80
 RxPipeline* CCustomCarEnvMapPipeline::CreateCustomObjPipe() {
     auto* const pipe = RxPipelineCreate();
+    NOTSA_LOG_DEBUG("[PIPE] RxPipelineCreate -> {}", (void*)pipe);
     if (!pipe) {
         return nullptr;
     }
 
     auto* const lpipe = RxPipelineLock(pipe);
+    NOTSA_LOG_DEBUG("[PIPE] RxPipelineLock -> {}", (void*)lpipe);
     if (lpipe) {
         auto* const nodeDef = RxNodeDefinitionGetD3D9AtomicAllInOne();
+        NOTSA_LOG_DEBUG("[PIPE] nodeDef {}", (void*)nodeDef);
         RxLockedPipeAddFragment(lpipe, nullptr, nodeDef);
+        NOTSA_LOG_DEBUG("[PIPE] AddFragment done");
         if (RxLockedPipeUnlock(lpipe)) {
+            NOTSA_LOG_DEBUG("[PIPE] Unlock OK");
+            NOTSA_LOG_DEBUG("[PIPE] FindNodeByName('{}') begin", nodeDef->name);
             auto* const node = RxPipelineFindNodeByName(pipe, nodeDef->name, nullptr, nullptr);
+            NOTSA_LOG_DEBUG("[PIPE] FindNodeByName -> {}", (void*)node);
+            if (!node) { NOTSA_LOG_ERR("[PIPE] node NOT FOUND - about to crash on SetInstanceCallBack(nullptr)"); }
             RxD3D9AllInOneSetInstanceCallBack(node, RxD3D9AllInOneGetInstanceCallBack(node));
+            NOTSA_LOG_DEBUG("[PIPE] SetInstance done");
             RxD3D9AllInOneSetReinstanceCallBack(node, CustomPipeInstanceCB);
+            NOTSA_LOG_DEBUG("[PIPE] SetReinstance done");
             RxD3D9AllInOneSetRenderCallBack(node, CustomPipeRenderCB);
+            NOTSA_LOG_DEBUG("[PIPE] SetRender done");
             pipe->pluginId = CUSTOM_CAR_ENV_MAP_PIPELINE_PLUGIN_ID;
             pipe->pluginData = CUSTOM_CAR_ENV_MAP_PIPELINE_PLUGIN_ID;
             return pipe;
         }
     }
 
+    NOTSA_LOG_ERR("[PIPE] pipeline creation FAILED path (unlock/lock fail)");
     RxPipelineDestroy(pipe);
 
     return nullptr;

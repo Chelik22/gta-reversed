@@ -576,14 +576,20 @@ bool CGame::InitialiseCoreDataAfterRW() {
 
 // 0x5BA160
 bool CGame::InitialiseEssentialsAfterRW() {
+    NOTSA_LOG_DEBUG("[INIT] InitialiseEssentialsAfterRW: begin");
     CMemoryMgr::PushMemId(MEM_30);
     TheText.Load(false);
-    if (!CCarFXRenderer::Initialise() || !CGrassRenderer::Initialise() || !CCustomBuildingRenderer::Initialise()) {
-        return false;
-    }
+    NOTSA_LOG_DEBUG("[INIT] TheText.Load done");
+    if (!CCarFXRenderer::Initialise()) { NOTSA_LOG_ERR("[INIT] CCarFXRenderer::Initialise FAILED"); return false; }
+    NOTSA_LOG_DEBUG("[INIT] CCarFXRenderer done");
+    if (!CGrassRenderer::Initialise()) { NOTSA_LOG_ERR("[INIT] CGrassRenderer::Initialise FAILED"); return false; }
+    NOTSA_LOG_DEBUG("[INIT] CGrassRenderer done");
+    if (!CCustomBuildingRenderer::Initialise()) { NOTSA_LOG_ERR("[INIT] CCustomBuildingRenderer::Initialise FAILED"); return false; }
+    NOTSA_LOG_DEBUG("[INIT] CCustomBuildingRenderer done");
     CMemoryMgr::PopMemId();
 
     CTimer::Initialise();
+    NOTSA_LOG_DEBUG("[INIT] InitialiseEssentialsAfterRW: done OK");
     return true;
 }
 

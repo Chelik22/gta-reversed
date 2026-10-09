@@ -3240,6 +3240,47 @@ RwStreamSkip(RwStream * stream,
 #define rwstrtok    RWSRCGLOBAL(stringFuncs).vecStrtok
 #define rwsscanf    RWSRCGLOBAL(stringFuncs).vecSscanf
 
+/* GTA SA binary stringFuncs base is +0xF0 (17 slots; the header places stringFuncs
+   lower - macro slots below were off). Re-based to the REAL binary slots, mirroring
+   _rwStringOpen (0x80A240) which fills: sprintf@F0 vsprintf@F4 strcpy@F8 strncpy@FC
+   strcat@100 strncat@104 strrchr@108 strchr@10C strstr@110 strcmp@114 strncmp@118
+   stricmp@11C strlen@120 strupr@124 strlwr@128 strtok@12C sscanf@130. */
+#undef rwsprintf
+#undef rwvsprintf
+#undef rwstrcpy
+#undef rwstrncpy
+#undef rwstrcat
+#undef rwstrncat
+#undef rwstrrchr
+#undef rwstrchr
+#undef rwstrstr
+#undef rwstrcmp
+#undef rwstrncmp
+#undef rwstricmp
+#undef rwstrlen
+#undef rwstrupr
+#undef rwstrlwr
+#undef rwstrtok
+#undef rwsscanf
+#define RWGTASTRSLOT(OFF, SIG) ((SIG)(*(void**)((char*)(RwEngineInstance) + (OFF))))
+#define rwsprintf(_b, ...)   RWGTASTRSLOT(0x0F0, int(__cdecl*)(char*, const char*, ...))((_b), __VA_ARGS__)
+#define rwvsprintf(_b, _f, ...) RWGTASTRSLOT(0x0F4, int(__cdecl*)(char*, const char*, va_list))((_b), (_f), (__VA_ARGS__))
+#define rwstrcpy(_d, _s)     RWGTASTRSLOT(0x0F8, char*(__cdecl*)(char*, const char*))((_d), (_s))
+#define rwstrncpy(_d, _s, _n) RWGTASTRSLOT(0x0FC, char*(__cdecl*)(char*, const char*, size_t))((_d), (_s), (_n))
+#define rwstrcat(_d, _s)     RWGTASTRSLOT(0x100, char*(__cdecl*)(char*, const char*))((_d), (_s))
+#define rwstrncat(_d, _s, _n) RWGTASTRSLOT(0x104, char*(__cdecl*)(char*, const char*, size_t))((_d), (_s), (_n))
+#define rwstrrchr(_s, _c)    RWGTASTRSLOT(0x108, char*(__cdecl*)(const char*, int))((_s), (_c))
+#define rwstrchr(_s, _c)     RWGTASTRSLOT(0x10C, char*(__cdecl*)(const char*, int))((_s), (_c))
+#define rwstrstr(_s, _n)     RWGTASTRSLOT(0x110, char*(__cdecl*)(const char*, const char*))((_s), (_n))
+#define rwstrcmp(_a, _b)     RWGTASTRSLOT(0x114, int(__cdecl*)(const char*, const char*))((_a), (_b))
+#define rwstrncmp(_a, _b, _n) RWGTASTRSLOT(0x118, int(__cdecl*)(const char*, const char*, size_t))((_a), (_b), (_n))
+#define rwstricmp(_a, _b)    RWGTASTRSLOT(0x11C, int(__cdecl*)(const char*, const char*))((_a), (_b))
+#define rwstrlen(_s)         RWGTASTRSLOT(0x120, size_t(__cdecl*)(const char*))(_s)
+#define rwstrupr(_s)         RWGTASTRSLOT(0x124, char*(__cdecl*)(char*))(_s)
+#define rwstrlwr(_s)         RWGTASTRSLOT(0x128, char*(__cdecl*)(char*))(_s)
+#define rwstrtok(_s, _d)     RWGTASTRSLOT(0x12C, char*(__cdecl*)(char*, const char*))((_s), (_d))
+#define rwsscanf(_s, _f, ...) RWGTASTRSLOT(0x130, int(__cdecl*)(const char*, const char*, ...))((_s), (_f), __VA_ARGS__)
+
 #define rwstrdup(_result, _string)                \
 do                                                \
 {                                                 \
