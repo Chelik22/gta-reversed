@@ -512,7 +512,7 @@ void CProjectileInfo::Update() {
             // Choking starts 0x445C (17500) ms before the tear gas is destroyed
             if (weaponType == WEAPON_TEARGAS
                 && info.m_nDestroyTime != 0
-                && info.m_nDestroyTime - 0x445C < CTimer::m_snTimeInMilliseconds
+                && static_cast<RwUInt32>(info.m_nDestroyTime - 0x445C) < static_cast<RwUInt32>(CTimer::m_snTimeInMilliseconds)
                 && CGeneral::GetRandomNumberInRange(0, 100) < 10 // 0x407180
             ) {
                 const auto pos = projectile->GetPosition();

@@ -827,7 +827,7 @@ bool CAERadioTrackManager::TrackRadioStation(eRadioID id, bool skipTrack) {
     if (pos < 0x1B59 /* 7001 */) {
         pos = 7000;
     }
-    if (skipTrack && state.m_aElapsed[0] + 1 >= pos) {
+    if (skipTrack && static_cast<RwUInt32>(state.m_aElapsed[0] + 1) >= pos) {
         pos = state.m_aElapsed[0] + 1;
     }
 
