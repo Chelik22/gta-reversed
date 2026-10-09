@@ -31,6 +31,88 @@ void LoadConfigurations() {
 
 
 // ExitProcess IAT hook (original exe slot 0x85820C): logs the stack of whoever calls exit().
+
+// ---- File-Win32 failure capture (EXE IAT): log ONLY failures with GetLastError ----
+// Goal: catch the ERROR_INVALID_HANDLE(6) that becomes the game's exit code.
+static decltype(&CreateFileA)  oCreateFileA;
+static decltype(&CreateFileW)  oCreateFileW;
+static decltype(&ReadFile)     oReadFile;
+static decltype(&SetFilePointer) oSetFilePointer;
+static decltype(&CloseHandle)  oCloseHandle;
+static decltype(&GetOverlappedResult) oGetOverlappedResult;
+
+static HANDLE WINAPI H_CreateFileA(LPCSTR a0, DWORD a1, DWORD a2, LPSECURITY_ATTRIBUTES a3, DWORD a4, DWORD a5, HANDLE a6) {
+    auto r = oCreateFileA(a0, a1, a2, a3, a4, a5, a6);
+    if (r == INVALID_HANDLE_VALUE)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL CreateFileA({}) -> GLE={}", a0 ? a0 : "?", GetLastError());
+    return r;
+}
+static HANDLE WINAPI H_CreateFileW(LPCWSTR a0, DWORD a1, DWORD a2, LPSECURITY_ATTRIBUTES a3, DWORD a4, DWORD a5, HANDLE a6) {
+    auto r = oCreateFileW(a0, a1, a2, a3, a4, a5, a6);
+    if (r == INVALID_HANDLE_VALUE)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL CreateFileW -> GLE={}", GetLastError());
+    return r;
+}
+static BOOL WINAPI H_ReadFile(HANDLE h, LPVOID b, DWORD n, LPDWORD got, LPOVERLAPPED ov) {
+    auto r = oReadFile(h, b, n, got, ov);
+    if (!r && GetLastError() != ERROR_IO_PENDING && GetLastError() != ERROR_BROKEN_PIPE)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL ReadFile(h={:#x}, n={}) -> GLE={}", (uintptr_t)h, n, GetLastError());
+    return r;
+}
+static DWORD WINAPI H_SetFilePointer(HANDLE h, LONG dist, PLONG base, DWORD method) {
+    auto r = oSetFilePointer(h, dist, base, method);
+    if (r == INVALID_SET_FILE_POINTER && GetLastError() != NO_ERROR)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL SetFilePointer(h={:#x}, dist={}, method={}) -> GLE={}", (uintptr_t)h, dist, method, GetLastError());
+    return r;
+}
+static BOOL WINAPI H_CloseHandle(HANDLE h) {
+    auto r = oCloseHandle(h);
+    if (!r)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL CloseHandle(h={:#x}) -> GLE={}", (uintptr_t)h, GetLastError());
+    return r;
+}
+static BOOL WINAPI H_GetOverlappedResult(HANDLE h, LPOVERLAPPED ov, LPDWORD got, BOOL wait) {
+    auto r = oGetOverlappedResult(h, ov, got, wait);
+    if (!r)
+        NOTSA_LOG_ERR("!!! WIN32 FAIL GetOverlappedResult(h={:#x}) -> GLE={}", (uintptr_t)h, GetLastError());
+    return r;
+}
+static void InstallWin32FailHooks() {
+    auto* base = (uint8_t*)0x400000;
+    auto* dos = (IMAGE_DOS_HEADER*)base;
+    auto* nt = (IMAGE_NT_HEADERS*)(base + dos->e_lfanew);
+    auto* imp = (IMAGE_IMPORT_DESCRIPTOR*)(base + nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+    int n = 0;
+    while (imp->Name) {
+        auto* thunk = (IMAGE_THUNK_DATA*)(base + (imp->OriginalFirstThunk ? imp->OriginalFirstThunk : imp->FirstThunk));
+        auto* iat = (IMAGE_THUNK_DATA*)(base + imp->FirstThunk);
+        for (int i = 0; thunk[i].u1.AddressOfData; i++) {
+            if (thunk[i].u1.AddressOfData & 0x80000000) continue;
+            auto* ibn = (IMAGE_IMPORT_BY_NAME*)(base + thunk[i].u1.AddressOfData);
+            const char* fn = (const char*)ibn->Name;
+            void** slot = (void**)&iat[i].u1.Function;
+            void* hook = nullptr; void** orig = nullptr;
+            if (!strcmp(fn, "CreateFileA")) { hook = (void*)&H_CreateFileA; orig = (void**)&oCreateFileA; }
+            else if (!strcmp(fn, "CreateFileW")) { hook = (void*)&H_CreateFileW; orig = (void**)&oCreateFileW; }
+            else if (!strcmp(fn, "ReadFile")) { hook = (void*)&H_ReadFile; orig = (void**)&oReadFile; }
+            else if (!strcmp(fn, "SetFilePointer")) { hook = (void*)&H_SetFilePointer; orig = (void**)&oSetFilePointer; }
+            else if (!strcmp(fn, "CloseHandle")) { hook = (void*)&H_CloseHandle; orig = (void**)&oCloseHandle; }
+            else if (!strcmp(fn, "GetOverlappedResult")) { hook = (void*)&H_GetOverlappedResult; orig = (void**)&oGetOverlappedResult; }
+            if (hook) {
+                DWORD old{};
+                if (VirtualProtect(slot, 4, PAGE_READWRITE, &old)) {
+                    *orig = *slot;
+                    *slot = hook;
+                    VirtualProtect(slot, 4, old, &old);
+                    n++;
+                }
+            }
+        }
+        imp++;
+    }
+    NOTSA_LOG_INFO("File-Win32 fail hooks installed: {}", n);
+}
+
 static void(WINAPI* g_realExitProcess)(UINT) = nullptr;
 static void WINAPI LoggedExitProcess(UINT code) {
     NOTSA_LOG_ERR("!!! ExitProcess({}) CALLED - origin stack follows", code);
@@ -135,15 +217,16 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 static uint8_t orig[8];
                 memcpy(orig, src, 8);
                 // trampoline: log caller, run stolen bytes (push ebp; mov ebp,esp; push esi; push edi),
-                // then jump back to CRT_EXIT+6 (push 8; call __lock ... continue)
+                // then jump back to CRT_EXIT+5 (push 8; call __lock ... continue)
                 auto handler = +[]() {
                     CONTEXT ctx{};
                     RtlCaptureContext(&ctx);
                     const auto* sp = (const uint32_t*)ctx.Esp;
                     const auto asiBase = (uintptr_t)s_HandleOfDLL;
-                    NOTSA_LOG_ERR("!!! CRT exit() CALLED - caller stack (first 64 slots):");
+                    NOTSA_LOG_ERR("!!! CRT exit({:#x}) CALLED - caller stack (first 192 slots):",
+                        (uint32_t)(ctx.Ebp ? *(const uint32_t*)((const uint8_t*)ctx.Ebp + 8) : 0));
                     HANDLE hProc = GetCurrentProcess();
-                    for (int i = 0; i < 64; i++) {
+                    for (int i = 0; i < 192; i++) {
                         const auto v = sp[i];
                         if (v == 0) continue;
                         bool asiHit = asiBase <= v && v < asiBase + 0x1900000;
@@ -184,7 +267,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                     {0xE9, 0,0,0,0},
                 };
                 *(int32_t*)(thunk.call_handler + 1) = makeRel(&thunk.call_handler, (void*)handler, 5);
-                *(int32_t*)(thunk.jmp_back + 1) = makeRel(&thunk.jmp_back, (void*)(CRT_EXIT + 6), 5);
+                *(int32_t*)(thunk.jmp_back + 1) = makeRel(&thunk.jmp_back, (void*)(CRT_EXIT + 5), 5);
                 // patch site: E9 rel32 -> thunk; +3 NOPs (total 6 bytes replaced)
                 src[0] = 0xE9;
                 *(int32_t*)(src + 1) = makeRel(src, &thunk, 5);
@@ -194,6 +277,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
                 NOTSA_LOG_INFO("CRT exit() detour installed");
             }
         }
+        InstallWin32FailHooks();
         ReversibleHooks::RHManager::CreateInstance();
         InjectHooksMain();
 
