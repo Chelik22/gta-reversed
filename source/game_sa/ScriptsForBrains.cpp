@@ -128,3 +128,8 @@ void CScriptsForBrains::StartAttractorScriptBrainWithThisName(const char* name, 
         }
     }
 }
+
+// 0x46A5F0 — redirect stub (not in wave-3 batch, preserved)
+bool CScriptsForBrains::HasAttractorScriptBrainWithThisNameLoaded(const char* name) {
+    return plugin::CallMethodAndReturn<bool, 0x46A5F0, CScriptsForBrains*, const char*>(this, name);
+}
