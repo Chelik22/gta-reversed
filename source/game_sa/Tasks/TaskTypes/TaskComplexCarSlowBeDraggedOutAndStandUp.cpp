@@ -21,9 +21,9 @@ void CTaskComplexCarSlowBeDraggedOutAndStandUp::InjectHooks() {
     RH_ScopedInstall(Constructor, 0x648620);
     RH_ScopedInstall(Destructor, 0x648690);
     RH_ScopedInstall(CreateSubTask, 0x648710);
-    RH_ScopedInstall(Clone, 0x64A190, { .Reversed = false });         // НЕ из батча — стаб сохранён
+    RH_ScopedInstall(Clone, 0x64A190);         // НЕ из батча — стаб сохранён
     RH_ScopedInstall(GetTaskType, 0x648680);
-    RH_ScopedInstall(MakeAbortable, 0x6486F0, { .Reversed = false }); // НЕ из батча — стаб сохранён
+    RH_ScopedInstall(MakeAbortable, 0x6486F0); // НЕ из батча — стаб сохранён
     RH_ScopedVMTInstall(CreateNextSubTask, 0x6488F0);
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x648A10);
     RH_ScopedVMTInstall(ControlSubTask, 0x648B80);
@@ -163,7 +163,7 @@ CTask* CTaskComplexCarSlowBeDraggedOutAndStandUp::CreateFirstSubTask(CPed* ped) 
 }
 
 // 0x64A190 Clone -- НЕ из батча: тела в .cpp нет (inline в хедере TaskComplexCarSlowBeDraggedOutAndStandUp.h:20),
-// хук остаётся с {.Reversed = false}.
+// хук остаётся с.
 
 // 0x648B80
 CTask* CTaskComplexCarSlowBeDraggedOutAndStandUp::ControlSubTask(CPed* ped) {

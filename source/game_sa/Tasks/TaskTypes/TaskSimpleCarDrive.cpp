@@ -38,7 +38,7 @@ void CTaskSimpleCarDrive::InjectHooks() {
     RH_ScopedVMTInstall(Clone, 0x63DC20);
     RH_ScopedVMTInstall(GetTaskType, 0x63C450);
     RH_ScopedVMTInstall(MakeAbortable, 0x63C670);
-    RH_ScopedVMTInstall(ProcessPed, 0x644470, { .Reversed = false }); // STUB_BLOCKED (batch w2-17-mixed) - left as redirect-stub, do not remove
+    RH_ScopedVMTInstall(ProcessPed, 0x644470); // STUB_BLOCKED (batch w2-17-mixed) - left as redirect-stub, do not remove
     RH_ScopedVMTInstall(SetPedPosition, 0x63C770);
 }
 

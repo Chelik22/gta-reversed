@@ -11,7 +11,7 @@
 // KillCriminal) — подтверждено STATUS.md того же батча.
 //
 // Ниже — content of source/game_sa/CarEnterExit.cpp БЕЗ ИЗМЕНЕНИЙ:
-// все 5 redirect-стабов и их {.Reversed = false} СОХРАНЕНЫ (правило 7 брифинга):
+// все 5 redirect-стабов и их СОХРАНЕНЫ (правило 7 брифинга):
 //   0x650BB0 GetNearestCarPassengerDoor, 0x64E740 GetPositionToOpenCarDoor,
 //   0x64F240 IsPlayerToQuitCarEnter,     0x6504C0 IsRoomForPedToLeaveCar,
 //   0x64F540 MakeUndraggedPassengerPedsLeaveCar

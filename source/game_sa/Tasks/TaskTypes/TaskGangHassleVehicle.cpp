@@ -17,7 +17,7 @@ void CTaskGangHassleVehicle::InjectHooks() {
     RH_ScopedInstall(Clone, 0x65FC00); // Тело - инлайн в хедере (TaskGangHassleVehicle.h:35), определения в .cpp нет
     RH_ScopedInstall(CreateNextSubTask, 0x65FC80);
     RH_ScopedInstall(CreateFirstSubTask, 0x664BA0);
-    RH_ScopedInstall(ControlSubTask, 0x6637C0, { .Reversed = false }); // STUB_BLOCKED - редирект сохранён (вне батча)
+    RH_ScopedInstall(ControlSubTask, 0x6637C0); // STUB_BLOCKED - редирект сохранён (вне батча)
 }
 
 // 0x65FAC0
