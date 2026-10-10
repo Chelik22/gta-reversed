@@ -167,6 +167,7 @@ LONG WINAPI WindowsExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo) {
 
 notsa::Logging::Logging() {
     using namespace std::chrono_literals;
+    LoadLibraryA("dbghelp.dll"); // преагрузка для MiniDumpWriteDump из VEH (loader lock в контексте исключения)
 #if 0
     while (!IsDebuggerPresent()) {
         Sleep(1);
@@ -203,8 +204,24 @@ notsa::Logging::Logging() {
             return EXCEPTION_CONTINUE_SEARCH;
         }
         static volatile LONG s_seen = 0;
-        if (InterlockedIncrement(&s_seen) > 8) {
+        if (const LONG n_seen = InterlockedIncrement(&s_seen); n_seen > 8) {
             return EXCEPTION_CONTINUE_SEARCH;
+        } else if (n_seen == 1) {
+            // Минидамп на первом читающем AV (не teardown-шум) — оракул для оффлайн-стека
+            typedef LONG (WINAPI* MiniDumpWriteDump_t)(HANDLE, DWORD, HANDLE, int, void*, void*, void*);
+            static MiniDumpWriteDump_t pfnMiniDump = reinterpret_cast<MiniDumpWriteDump_t>(
+                GetProcAddress(LoadLibraryA("dbghelp.dll"), "MiniDumpWriteDump"));
+            if (pfnMiniDump) {
+                if (HANDLE f = CreateFileA("dumps\\veh_first.dmp", GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, 0, nullptr); f != INVALID_HANDLE_VALUE) {
+                    MINIDUMP_EXCEPTION_INFORMATION mei{};
+                    mei.ThreadId          = GetCurrentThreadId();
+                    mei.ExceptionPointers = e;
+                    mei.ClientPointers    = FALSE;
+                    pfnMiniDump(GetCurrentProcess(), GetCurrentThreadId(), f, 2 /*MiniDumpNormal*/,
+                                &mei, nullptr, nullptr);
+                    CloseHandle(f);
+                }
+            }
         }
         char buf[256];
         auto w = [](const void* p, DWORD n) {
@@ -212,14 +229,35 @@ notsa::Logging::Logging() {
             if (f != INVALID_HANDLE_VALUE) { SetFilePointer(f, 0, nullptr, FILE_END); DWORD wq; WriteFile(f, p, n, &wq, nullptr); CloseHandle(f); }
         };
         int n = _snprintf(buf, sizeof(buf),
-            "AV eip=%08X addr=%08X w=%X esp=%08X stack=%08X %08X %08X %08X\n",
+            "AV eip=%08X addr=%08X w=%X eax=%08X ebx=%08X ecx=%08X edx=%08X esi=%08X edi=%08X ebp=%08X esp=%08X\n",
             e->ContextRecord->Eip,
             (unsigned)(uintptr_t)e->ExceptionRecord->ExceptionInformation[1],
             (unsigned)e->ExceptionRecord->ExceptionInformation[0],
-            e->ContextRecord->Esp,
-            *(DWORD*)(e->ContextRecord->Esp + 0x00), *(DWORD*)(e->ContextRecord->Esp + 0x04),
-            *(DWORD*)(e->ContextRecord->Esp + 0x08), *(DWORD*)(e->ContextRecord->Esp + 0x0C));
+            e->ContextRecord->Eax, e->ContextRecord->Ebx, e->ContextRecord->Ecx, e->ContextRecord->Edx,
+            e->ContextRecord->Esi, e->ContextRecord->Edi, e->ContextRecord->Ebp, e->ContextRecord->Esp);
         w(buf, n);
+        { // широкая стопка (32 dword)
+            char b2[600];
+            int n2 = _snprintf(b2, sizeof(b2), "stk:");
+            for (int i = 0; i < 32; i++) {
+                n2 += _snprintf(b2 + n2, sizeof(b2) - n2, " %08X", *(DWORD*)(e->ContextRecord->Esp + i * 4));
+            }
+            n2 += _snprintf(b2 + n2, sizeof(b2) - n2, "\n");
+            w(b2, n2);
+        }
+        { // ebp-цепочка кадров
+            DWORD fp = e->ContextRecord->Ebp;
+            char b3[512];
+            int n3 = _snprintf(b3, sizeof(b3), "frames:");
+            for (int i = 0; i < 12 && fp > 0x10000; i++) {
+                DWORD* f = (DWORD*)fp;
+                if (IsBadReadPtr(f, 8)) break;
+                n3 += _snprintf(b3 + n3, sizeof(b3) - n3, " %08X", f[1]);
+                fp = f[0];
+            }
+            n3 += _snprintf(b3 + n3, sizeof(b3) - n3, "\n");
+            w(b3, n3);
+        }
         return EXCEPTION_CONTINUE_SEARCH;
     });
     // The "silent minute-crash" is NOT an exception (no VEH, no dump): catch terminate/abort too.
