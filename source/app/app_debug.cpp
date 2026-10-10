@@ -192,16 +192,34 @@ notsa::Logging::Logging() {
         notsa::Win32::ExceptionHandler(e);
         return EXCEPTION_EXECUTE_HANDLER;
     });
-    // FIRST-PRIORITY vectored handler: SUHF was bypassed by the silent memcpy-AV crash.
-    // VEH fires before everything else; dump once on the first hard AV, then pass through.
+    // FIRST-PRIORITY vectored handler REMOVED (smoke 2026-10-10): dumping/logging from a VEH
+    // on every first-chance AV deadlocks/corrupts (spdlog heap use inside the interrupted
+    // thread's context) — the game itself uses first-chance AVs during normal load.
+    // Last-resort SUHF minidump above stays: it fires only on truly unhandled exceptions.
+    // Minimal AV recorder (smoke 2026-10-10): raw WriteFile only - no heap/log locks, safe in any context.
+    // The game's SEH swallows AVs during load and exits via its error path; this captures the site.
     AddVectoredExceptionHandler(1, [](PEXCEPTION_POINTERS e) -> LONG {
-        if (e->ExceptionRecord->ExceptionCode == 0xC0000005 || e->ExceptionRecord->ExceptionCode == 0xC0000374) {
-            static uint32 s_dumpCount = 0;
-            SPDLOG_ERROR("!!! VEH caught AV #{} at 0x{:08X} - dumping", ++s_dumpCount, (uintptr_t)e->ExceptionRecord->ExceptionAddress);
-            if (s_dumpCount <= 5) {
-                notsa::Win32::ExceptionHandler(e);
-            }
+        if (e->ExceptionRecord->ExceptionCode != 0xC0000005) {
+            return EXCEPTION_CONTINUE_SEARCH;
         }
+        static volatile LONG s_seen = 0;
+        if (InterlockedIncrement(&s_seen) > 8) {
+            return EXCEPTION_CONTINUE_SEARCH;
+        }
+        char buf[256];
+        auto w = [](const void* p, DWORD n) {
+            HANDLE f = CreateFileA("logs\\veh_av.log", GENERIC_WRITE, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, 0, nullptr);
+            if (f != INVALID_HANDLE_VALUE) { SetFilePointer(f, 0, nullptr, FILE_END); DWORD wq; WriteFile(f, p, n, &wq, nullptr); CloseHandle(f); }
+        };
+        int n = _snprintf(buf, sizeof(buf),
+            "AV eip=%08X addr=%08X w=%X esp=%08X stack=%08X %08X %08X %08X\n",
+            e->ContextRecord->Eip,
+            (unsigned)(uintptr_t)e->ExceptionRecord->ExceptionInformation[1],
+            (unsigned)e->ExceptionRecord->ExceptionInformation[0],
+            e->ContextRecord->Esp,
+            *(DWORD*)(e->ContextRecord->Esp + 0x00), *(DWORD*)(e->ContextRecord->Esp + 0x04),
+            *(DWORD*)(e->ContextRecord->Esp + 0x08), *(DWORD*)(e->ContextRecord->Esp + 0x0C));
+        w(buf, n);
         return EXCEPTION_CONTINUE_SEARCH;
     });
     // The "silent minute-crash" is NOT an exception (no VEH, no dump): catch terminate/abort too.
