@@ -23,7 +23,8 @@ public:
     void ReInit();
     void Update();
 
-    CRealTimeShadow& GetRealTimeShadow(CPhysical* physical);
+    // NOTE (ABI): оригинал (0x706970) возвращает указатель (может вернуть nullptr), не ссылку
+    CRealTimeShadow* GetRealTimeShadow(CPhysical* physical);
     void             DoShadowThisFrame(CPhysical* physical);
     void             ReturnRealTimeShadow(CRealTimeShadow* pShadow);
 };

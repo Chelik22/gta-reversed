@@ -43,6 +43,18 @@ EXPLICIT = {
     "final_Tasks_TaskTypes_TaskSimpleFightingControl.cpp": "source/game_sa/Tasks/TaskTypes/TaskSimpleFightingControl.cpp",
 }
 
+# INT1 files that received manual post-apply compile fixes in the repo —
+# their stale final_* copies in _integration would regress those fixes.
+EXCLUDE = {
+    "final_Audio_Entities_AEPedAudioEntity.cpp",
+    "final_Audio_Entities_AEVehicleAudioEntity.cpp",
+    "final_EntityScanner.cpp",
+    "final_Rope.cpp",
+    "final_Tasks_TaskTypes_TaskSimpleDead.cpp",
+    "final_Tasks_TaskTypes_TaskSimpleFightingControl.cpp",
+    "final_WeaponEffects.cpp",
+}
+
 # Repo basenames for fuzzy fallback (basename without extension -> repo relpath)
 FUZZY_BASES = {}
 
@@ -77,6 +89,8 @@ def main():
         return
     ok, manual, done_before = [], [], []
     for f in files:
+        if f in EXCLUDE:
+            continue
         src = os.path.join(INTEGRATION_DIR, f)
         if os.path.getsize(src) < 200:
             manual.append((f, f"SUSPICIOUS: only {os.path.getsize(src)}B"))

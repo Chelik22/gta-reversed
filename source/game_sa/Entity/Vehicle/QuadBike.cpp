@@ -17,7 +17,7 @@ void CQuadBike::InjectHooks() {
     RH_ScopedVMTInstall(GetRideAnimData, 0x6CDC90);
     RH_ScopedVMTInstall(PreRender, 0x6CEAD0);
     RH_ScopedVMTInstall(ProcessAI, 0x6CE460);
-    RH_ScopedVMTInstall(ProcessControl, 0x6CDCC0, { .Reversed = false });
+    RH_ScopedVMTInstall(ProcessControl, 0x6CDCC0);
     RH_ScopedVMTInstall(ProcessControlInputs, 0x6CE020);
     RH_ScopedVMTInstall(ProcessDrivingAnims, 0x6CE280);
     RH_ScopedVMTInstall(ProcessSuspension, 0x6CE270);
@@ -207,45 +207,57 @@ bool CQuadBike::ProcessAI(uint32& extraHandlingFlags) {
 }
 
 // 0x6CDCC0
+// База X-damping до pow: ветки wheelie/stoppie (восстановлены по дизасму 0x6CDD21..0x6CDE28 —
+// Гидра этот блок потеряла; сравнения точные, не хелперы Automobile.h с >=/truthy):
+//   susp[FL]==1 && susp[FR]==1  -> wheelie: (susp[RL]>1 || susp[RR]>1) && fwd.z > 0 ->
+//       база = res.x - min(0.07, |WheelieAng - fwd.z| * 0.25), множитель z = 0.995;
+//   иначе если counts[RL]==1 && counts[RR]==1 -> stoppie: fwd.z < 0 ->
+//       база = res.x * (0.9 + min(0.1, |StoppieAng - fwd.z| * 0.3));
+//   иначе (stoppie неприменим) -> множитель z = 0.5.
+// Точка для ApplyTurnForce: TransformVector(m_vecCentreOfMass) (0x59C790 = R*v),
+// НЕ InverseTransformVector; ApplyTurnForce сам вычтет TransformVector(com) — плечо = right/forward.
 void CQuadBike::ProcessControl() {
-    return plugin::CallMethod<0x6CDCC0, CQuadBike*>(this);
+    if (GetStatus() == STATUS_PLAYER && bDoQuadDamping) {
+        const auto turnSpeedOS = m_matrix->InverseTransformVector(m_vecTurnSpeed);
 
-    if (GetStatus() != STATUS_PLAYER || !bDoQuadDamping) {
-        CAutomobile::ProcessControl();
-        return;
-    }
+        const auto dt   = CTimer::GetTimeStep();
+        const auto fwdZ = m_matrix->GetForward().z;
 
-    const auto turnSpeed_Mult_Matrix = m_matrix->InverseTransformVector(m_vecTurnSpeed);
-    float v2 = vecQuadResistance.y, v5 = vecQuadResistance.x;
-    if (AreFrontWheelsNotTouchingGround()) {
-        if (!AreRearWheelsNotTouchingGround() && m_matrix->GetForward().z > 0.0f) {
-            v5 = vecQuadResistance.x - std::min(0.07f, fabs(m_pHandling->m_fWheelieAng - m_matrix->GetForward().z) * 0.25f);
-        }
-    } else {
-        if (m_WheelCounts[CAR_WHEEL_REAR_LEFT] == 1.0f && m_WheelCounts[CAR_WHEEL_REAR_RIGHT] == 1.0f) {
-            if (m_matrix->GetForward().z < 0.0f) {
-                v5 = vecQuadResistance.x * (0.9f + std::min(0.1f, fabs(m_pHandling->m_fStoppieAng - m_matrix->GetForward().z) * 0.3f));
+        float baseX = vecQuadResistance.x;
+        float zMult = 0.995f;
+        if (m_fWheelsSuspensionCompression[CAR_WHEEL_FRONT_LEFT] == 1.0f
+         && m_fWheelsSuspensionCompression[CAR_WHEEL_FRONT_RIGHT] == 1.0f) {
+            // wheelie-ветка: база остаётся vecQuadResistance.x (0.995)
+            if ((m_fWheelsSuspensionCompression[CAR_WHEEL_REAR_LEFT]  > 1.0f
+              || m_fWheelsSuspensionCompression[CAR_WHEEL_REAR_RIGHT] > 1.0f)
+             && fwdZ > 0.0f) {
+                baseX = vecQuadResistance.x - std::min(0.07f, std::fabs(m_pHandling->m_fWheelieAng - fwdZ) * 0.25f);
+            }
+        } else if (m_WheelCounts[CAR_WHEEL_REAR_LEFT] == 1.0f
+                && m_WheelCounts[CAR_WHEEL_REAR_RIGHT] == 1.0f) {
+            if (fwdZ < 0.0f) {
+                baseX = vecQuadResistance.x * (0.9f + std::min(0.1f, std::fabs(m_pHandling->m_fStoppieAng - fwdZ) * 0.3f));
             }
         } else {
-            v2 = 0.5f;
+            zMult = 0.5f;
         }
+
+        // pow-базы: оба вызова 0x822130 (pow(x, ts))
+        const float dampX = std::pow(baseX / (turnSpeedOS.z * turnSpeedOS.z * zMult + 1.0f), dt) * turnSpeedOS.x - turnSpeedOS.x;
+        const float dampY = std::pow(vecQuadResistance.y / (turnSpeedOS.y * turnSpeedOS.y + 1.0f), dt) * turnSpeedOS.y - turnSpeedOS.y;
+
+        // Точка: TransformVector(m_vecCentreOfMass) — в декомпиле дважды
+        ApplyTurnForce(
+            m_matrix->GetUp() * -1.0f * dampY * m_fTurnMass,
+            m_matrix->TransformVector(m_vecCentreOfMass) + m_matrix->GetRight()
+        );
+        ApplyTurnForce(
+            m_matrix->GetUp() * dampX * m_fTurnMass,
+            m_matrix->TransformVector(m_vecCentreOfMass) + m_matrix->GetForward()
+        );
     }
 
-    const CVector velocityOS = m_matrix->InverseTransformVector(m_vecTurnSpeed);
-    CVector unk{ // In the original code `x` is calculated once then immediately overwritten by the below line
-        std::pow(vecQuadResistance.x, CTimer::GetTimeStep()),
-        vecQuadResistance.y / (velocityOS.y * velocityOS.y + 1.0f),
-        1.0f
-    };
-    const auto centreOfMassOS = m_matrix->InverseTransformVector(m_vecCentreOfMass);
-
-    const float v9 = std::pow(unk.y, CTimer::GetTimeStep()) * velocityOS.y - velocityOS.y;
-    ApplyTurnForce(m_matrix->GetUp() * -1.0f * v9 * m_fTurnMass, m_matrix->GetRight() + centreOfMassOS);
-
-    const float v19 = velocityOS.x * unk.x - velocityOS.x;
-    ApplyTurnForce(m_matrix->GetUp() * v19 * m_fTurnMass, m_matrix->GetForward() + centreOfMassOS);
-
-    CAutomobile::ProcessControl();
+    CAutomobile::ProcessControl(); // вызывается безусловно
 }
 
 // 0x6CE020

@@ -216,7 +216,7 @@ void CFont::InjectHooks() {
     RH_ScopedInstall(GetCharacterSize, 0x719750);
     RH_ScopedInstall(LoadFontValues, 0x7187C0);
     RH_ScopedGlobalInstall(GetScriptLetterSize, 0x719670); // PR#1414: реверснут (замена закомм. инсталла)
-    RH_ScopedInstall(FindSubFontCharacter, 0x7192C0); // НЕ из батча: PR держал {.Reversed=false} ("hangs up the game"), репо включил в 83c7c61c — оставлено как в репо
+    RH_ScopedInstall(FindSubFontCharacter, 0x7192C0); // НЕ из батча: PR держал хук выключенным ("hangs up the game"), репо включил в 83c7c61c — оставлено как в репо
     // FINAL-FIX (эта сессия): было RH_ScopedGlobalInstall(GetLetterIdPropValue, 0x718770)
     // -> C2672 "InstallStatic: no matching overloaded function found" (репродьюс
     //   MSVC 14.51 x86: 1 error @ new_Font.cpp:212). Причина: в этом TU у

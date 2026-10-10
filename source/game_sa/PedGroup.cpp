@@ -3,16 +3,20 @@
 #include "PedGroup.h"
 #include <TaskSimpleCarSetPedOut.h>
 #include <TaskComplexFollowLeaderInFormation.h>
+#include <Formation.h>
+#include "Tasks/TaskTypes/TaskSimpleGoToPoint.h"
 
 //! @addr 0x5FB010
 //! @returns Distance of the furthers member from the leader
 float CPedGroup::FindDistanceToFurthestMember() {
-    return plugin::CallMethodAndReturn<float, 0x5FB010, CPedGroup*>(this);
-    /*
-    const auto leader = GetMembership().GetLeader();
-    for (const auto& mem : GetMembership().GetMembers(true)) {
+    float maxDist = 0.0f;
 
-    }*/
+    if (const auto leader = GetMembership().GetLeader()) {
+        for (const auto member : GetMembership().GetMembers(false)) {
+            maxDist = std::max(maxDist, (leader->GetPosition() - member->GetPosition()).Magnitude());
+        }
+    }
+    return maxDist;
 }
 
 // 0x5FB0A0
@@ -76,7 +80,34 @@ void CPedGroup::PlayerGaveCommand_Attack(CPed* playerPed, CPed* target) {
 
 // 0x5FAB60
 void CPedGroup::PlayerGaveCommand_Gather(CPed* ped) {
-    plugin::CallMethod<0x5FAB60, CPedGroup*, CPed*>(this, ped);
+    CPedList gatherPedList;
+    gatherPedList.Empty();                                                // 0x699DB0
+    gatherPedList.BuildListFromGroup_NotInCar_NoLeader(&GetMembership()); // 0x69A340
+
+    if (ped->GetIntelligence()->IsInACarOrEnteringOne() && ped->m_pVehicle) {
+        CFormation::GenerateGatherDestinations_AroundCar(gatherPedList, ped->m_pVehicle); // 0x69A770
+    } else {
+        CFormation::GenerateGatherDestinations(gatherPedList, ped);                       // 0x69A620
+    }
+    CFormation::DistributeDestinations(gatherPedList);                                    // 0x69B240
+
+    // NOTE: Around the SetTask call the original materializes a dead stack CTaskSimpleNone
+    // (compiler-generated default argument) which is never passed to SetTask - not translated.
+    // The GoToPoint dtor at the end of each iteration is just scope end (SetTask clones the task).
+    for (auto i = 0; i < (int32)gatherPedList.m_count; i++) {
+        const auto member = gatherPedList.Get(i);
+        CVector destination;
+        if (CFormation::ReturnDestinationForPed(member, &destination)) { // 0x699FA0
+            const CTaskSimpleGoToPoint goToPoint{
+                PEDMOVE_SPRINT,
+                destination,
+                2.0f,
+                true,  // bMoveTowardsTargetPoint
+                false  // a6
+            };
+            GetIntelligence().SetTask(member, goToPoint, GetIntelligence().GetPedTaskPairs(), TASK_SECONDARY_INVALID, false); // 0x5F7540 (slot -1, force=false)
+        }
+    }
 }
 
 // 0x5FC7E0
@@ -144,11 +175,11 @@ void CPedGroup::InjectHooks() {
     RH_ScopedInstall(Destructor, 0x5FC190);
 
     RH_ScopedInstall(Teleport, 0x5F7AD0);
-    RH_ScopedInstall(PlayerGaveCommand_Gather, 0x5FAB60, {.Reversed = false});
+    RH_ScopedInstall(PlayerGaveCommand_Gather, 0x5FAB60);
     RH_ScopedInstall(PlayerGaveCommand_Attack, 0x5F7CC0);
     RH_ScopedInstall(IsAnyoneUsingCar, 0x5F7DB0);
     RH_ScopedInstall(GetClosestGroupPed, 0x5FACD0);
-    RH_ScopedInstall(FindDistanceToFurthestMember, 0x5FB010, {.Reversed = false});
+    RH_ScopedInstall(FindDistanceToFurthestMember, 0x5FB010);
     RH_ScopedInstall(FindDistanceToNearestMember, 0x5FB0A0);
     RH_ScopedInstall(Flush, 0x5FB790);
     RH_ScopedInstall(Process, 0x5FC7E0);

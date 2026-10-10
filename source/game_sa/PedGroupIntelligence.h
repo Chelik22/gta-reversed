@@ -84,6 +84,7 @@ public:
 
     auto GetCurrentEvent()         { return m_CurrentEvent; }
     auto GetHighestPriorityEvent() { return m_HighestPriorityEvent; }
+    int32 GetTaskSeqId() const { return m_TaskSeqId; } // NOTSA (0x5F8900 читает pg+0x2CC)
 
     template<std::derived_from<CEvent> T>
     auto AddEvent(T event) { // TODO: Remove in final

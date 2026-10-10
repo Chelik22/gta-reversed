@@ -30,7 +30,7 @@ void CTaskSimplePlayerOnFoot::InjectHooks() {
 
     RH_ScopedInstall(ProcessPlayerWeapon, 0x6859A0);
     RH_ScopedInstall(PlayIdleAnimations, 0x6872C0);
-    RH_ScopedInstall(PlayerControlFighter, 0x687530, {.Reversed = false});
+    RH_ScopedInstall(PlayerControlFighter, 0x687530);
     RH_ScopedInstall(PlayerControlZelda, 0x6883D0);
 
     RH_ScopedVMTInstall(Clone, 0x68AFF0);
@@ -760,7 +760,180 @@ void CTaskSimplePlayerOnFoot::PlayIdleAnimations(CPlayerPed* player) {
 
 // 0x687530
 void CTaskSimplePlayerOnFoot::PlayerControlFighter(CPlayerPed* player) {
-    plugin::CallMethod<0x687530, CTaskSimplePlayerOnFoot*, CPlayerPed*>(this, player);
+    const auto fightingTask = player->GetIntelligence()->GetTaskFighting();
+    if (!fightingTask) {
+        return;
+    }
+
+    // Режим удара оружием: melee-инфо (m_nWeaponFire != WEAPON_FIRE_MELEE) разрешает атакующие команды
+    const auto weaponFire = CWeaponInfo::GetWeaponInfo(player->m_aWeapons[player->m_nActiveWeaponSlot].m_Type, eWeaponSkill::STD)->m_nWeaponFire;
+
+    const auto pad = player->GetPadFromPlayer();
+    // (pad, x, y) — x = LeftRight, y = UpDown, как в PlayerControlZeldaWeapon
+    CVector2D moveSpeed{
+        (float)pad->GetPedWalkLeftRight() * (1.0f / 128.0f), // 0x858B88
+        (float)pad->GetPedWalkUpDown() * (1.0f / 128.0f)
+    };
+    const auto moveDelta = CTimer::ms_fTimeStep * 0.07f; // 0x858CA8
+
+    const auto hasTarget = player->m_pTargetedObject
+        || (CCamera::m_bUseMouse3rdPerson && pad->GetTarget()); // 0xB6EC2E / 0x540670
+
+    auto moveMagnitude = 0.0f;
+    if (CGameLogic::IsPlayerUse2PlayerControls(player)) {
+        moveMagnitude = moveSpeed.Magnitude();
+        if (moveMagnitude > 0.0f) {
+            const auto moveAngle = CGeneral::LimitRadianAngle(
+                CGeneral::GetRadianAngleBetweenPoints(0.f, 0.f, -moveSpeed.x, moveSpeed.y) - TheCamera.m_fOrientation);
+            const auto sinA = -std::sin(moveAngle);
+            const auto cosA = std::cos(moveAngle);
+            if (CGameLogic::IsPlayerAllowedToGoInThisDirection(player, { sinA, cosA, 0.0f }, 0.0f)) {
+                const auto& mat = *player->m_matrix;
+                moveSpeed.x = (mat.GetRight().z * 0.0f + sinA * mat.GetRight().x + cosA * mat.GetRight().y) * moveMagnitude;
+                moveSpeed.y = -(mat.GetForward().z * 0.0f + sinA * mat.GetForward().x + cosA * mat.GetForward().y) * moveMagnitude;
+            } else {
+                moveSpeed = CVector2D{};
+            }
+        }
+    } else if (hasTarget) {
+        moveMagnitude = moveSpeed.Magnitude();
+        if (moveMagnitude > 0.0f) {
+            if (moveMagnitude > 1.0f) { // 0x858624
+                moveMagnitude = 1.0f;
+            }
+            const auto moveAngle = CGeneral::LimitRadianAngle(
+                CGeneral::GetRadianAngleBetweenPoints(0.f, 0.f, -moveSpeed.x, moveSpeed.y) - TheCamera.m_fOrientation);
+            const auto sinA = -std::sin(moveAngle);
+            const auto cosA = std::cos(moveAngle);
+            const auto& mat = *player->m_matrix;
+            moveSpeed.x = (mat.GetRight().z * 0.0f + sinA * mat.GetRight().x + cosA * mat.GetRight().y) * moveMagnitude;
+            moveSpeed.y = -(mat.GetForward().z * 0.0f + sinA * mat.GetForward().x + cosA * mat.GetForward().y) * moveMagnitude;
+        }
+    }
+
+    // Направление боя тянется к стику
+    auto& fightMovement = player->GetPlayerData()->m_vecFightMovement;
+    if (hasTarget) {
+        // y
+        auto delta = moveSpeed.y - fightMovement.y;
+        if (std::abs(delta) <= moveDelta) {
+            fightMovement.y = moveSpeed.y;
+        } else if (delta <= 0.0f) {
+            fightMovement.y -= moveDelta;
+        } else {
+            fightMovement.y += moveDelta;
+        }
+        // x
+        delta = moveSpeed.x - fightMovement.x;
+        if (std::abs(delta) <= moveDelta) {
+            fightMovement.x = moveSpeed.x;
+        } else if (delta <= 0.0f) {
+            fightMovement.x -= moveDelta;
+        } else {
+            fightMovement.x += moveDelta;
+        }
+
+        // Атака цели
+        if (player->m_pTargetedObject) {
+            const auto& target = *player->m_pTargetedObject;
+            const auto  pedPos = player->m_matrix ? player->m_matrix->GetPosition() : player->m_placement.m_vPosn;
+            const auto  targetPos = target.m_matrix ? target.m_matrix->GetPosition() : target.m_placement.m_vPosn;
+            // NB: CTaskSimpleFight+0x27 — счётчик, поле отсутствует в репо-хедере
+            const auto attackCounter = *reinterpret_cast<int8*>(reinterpret_cast<uint8*>(fightingTask) + 0x27);
+            if ((pedPos - targetPos).SquaredMagnitude() > 16.0f && attackCounter < 11) { // 0x87086C
+                goto attack;
+            }
+        }
+        if (pad->GetSprint() || weaponFire != WEAPON_FIRE_MELEE) {
+attack:
+            if (pad->GetSprint()) {
+                fightingTask->ControlFight(nullptr, 0x11);
+                return;
+            }
+            if (-0.5f <= moveSpeed.y) { // 0x858F40
+                fightingTask->ControlFight(nullptr, 0xF);
+                return;
+            }
+            fightingTask->ControlFight(nullptr, 0x10);
+            return;
+        }
+    } else {
+        // Без залока: движение "на себя" копит таймер и запускает удары
+        const auto rawMoveAngle = CGeneral::GetRadianAngleBetweenPoints(0.f, 0.f, -(float)pad->GetPedWalkLeftRight(), (float)pad->GetPedWalkUpDown());
+        moveMagnitude = moveSpeed.Magnitude();
+        if (moveMagnitude <= 1.0f) { // 0x858624
+            if (moveMagnitude == 0.0f) {
+                fightMovement = CVector2D{};
+            }
+        } else {
+            moveMagnitude = 1.0f;
+        }
+
+        if (moveSpeed.y < 0.0f) {
+            auto newY = -moveMagnitude;
+            const auto delta = newY - fightMovement.y;
+            if (moveDelta < std::abs(delta)) {
+                newY = delta <= 0.0f
+                    ? fightMovement.y - moveDelta
+                    : moveDelta + fightMovement.y;
+            }
+            fightMovement.y = newY;
+            fightMovement.x = 0.0f;
+            player->m_fAimingRotation = CGeneral::LimitRadianAngle(rawMoveAngle - TheCamera.m_fOrientation);
+        }
+
+        if (!player->m_pTargetedObject && moveSpeed.y < 0.0f) {
+            // NB: CTaskSimpleFight+0x27 — см. выше
+            const auto attackCounter = *reinterpret_cast<int8*>(reinterpret_cast<uint8*>(fightingTask) + 0x27);
+            if (attackCounter < 11) {
+                m_nTimer += (int)(CTimer::ms_fTimeStep * 0.02f * 1000.0f); // CRT _ftol2 @0x821B40 (0x68790A)
+            } else {
+                m_nTimer = 0;
+            }
+        } else {
+            m_nTimer = 0;
+        }
+
+        if (!pad->GetSprint() && !pad->GetDuck() && weaponFire == WEAPON_FIRE_MELEE && moveSpeed.y <= 0.0f) {
+            if ((float)(uint32)m_nTimer < 2000.0f) { // 0x870870; конверсия через +2^32 (0x858C54)
+                goto pickMoveCmd;
+            }
+        }
+
+        auto cmd = 0x10;
+        if (moveMagnitude <= 0.5f) { // 0x858B8C
+            cmd = 0xF;
+        }
+        if (pad->DuckJustDown() && CTaskSimpleDuck::CanPedDuck(player)) {
+            // FIX (verify wf5b): было SetTaskDuckSecondary(nullptr) — параметр uint16, nullptr
+            //   не конвертируется; оригинал (FUN_00601230(0)) передаёт 0.
+            player->GetIntelligence()->SetTaskDuckSecondary(0);
+            fightingTask->ControlFight(nullptr, 0x12);
+            return;
+        }
+        if (cmd != 0) {
+            fightingTask->ControlFight(nullptr, cmd);
+            return;
+        }
+    }
+
+pickMoveCmd:
+    // Выбор команд перемещения по накопленному вектору боя
+    if (0.0f < std::abs(fightMovement.y) && std::abs(fightMovement.x) < std::abs(fightMovement.y)) {
+        if (fightMovement.y >= 0.0f) {
+            fightingTask->ControlFight(nullptr, 5);
+            return;
+        }
+        fightingTask->ControlFight(nullptr, 3);
+        return;
+    }
+    if (0.0f < std::abs(fightMovement.x)) {
+        if (fightMovement.x > 0.0f) {
+            fightingTask->ControlFight(nullptr, 6);
+            return;
+        }
+        fightingTask->ControlFight(nullptr, 4);
+    }
 }
 
 // 0x687C20

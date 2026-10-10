@@ -45,7 +45,7 @@ void CShadows::InjectHooks() {
     RH_ScopedInstall(StoreCarLightShadow, 0x70C500);
     RH_ScopedInstall(StoreShadowForPole, 0x70C750);
     RH_ScopedInstall(RenderIndicatorShadow, 0x70CCB0);
-    RH_ScopedGlobalInstall(ShadowRenderTriangleCB, 0x709CF0, { .Reversed = false });
+    RH_ScopedGlobalInstall(ShadowRenderTriangleCB, 0x709CF0);
 }
 
 void CStaticShadow::InjectHooks() {
@@ -1947,15 +1947,67 @@ void CShadows::RenderIndicatorShadow(
 }
 
 // 0x709CF0
-#ifdef _MSC_VER
+// ABI: оригинал принимает аргументы в регистрах (eax=normal, ebx=trianglePos, edi=param) и все
+//   выходы делают `mov eax, ebx` — всегда возвращает trianglePos (вызов `if (!CB(...))` в
+//   CastShadowEntityXYZ поэтому никогда не прерывает цикл — как в оригинале).
+//   Прямых вызовов в .text ровно один (0x70A437 внутри CastShadowEntityXYZ 0x70A040, скан всего
+//   секциона кода), а та функция здесь реверснута и зовёт этот колбэк по cdecl — прежний
+//   MSVC __asm-трамплин удалён, cdecl-хук безопасен.
 CVector* ShadowRenderTriangleCB(CVector* normal, CVector* trianglePos, _ProjectionParam* param) {
-    CVector* result = nullptr;
-    __asm mov eax, normal
-    __asm mov ebx, trianglePos
-    __asm mov edi, param
-    __asm mov ecx, 0x709CF0
-    __asm call ecx
-    __asm mov result, eax
-    return result;
+    // Cull triangles facing away from the light
+    if (param->at.x * normal->x + param->at.y * normal->y + param->at.z * normal->z > 0.0f) {
+        return trianglePos;
+    }
+
+    // Transform the vertices into world space (using the entity's matrix),
+    // and then into the shadow camera's space (using the inverse camera matrix)
+    CVector vertsWorld[3];
+    RwV3dTransformPoints(vertsWorld, trianglePos, 3, &param->entityMatrix); // 0x7EDD90
+    CVector vertsShadow[3];
+    RwV3dTransformPoints(vertsShadow, vertsWorld, 3, &param->invMatrix);
+
+    // The triangle has to overlap the [0..1]^2 shadow texture space
+    if (!(vertsShadow[0].z >= 0.0f || vertsShadow[1].z >= 0.0f || vertsShadow[2].z >= 0.0f)
+        || !(vertsShadow[0].x >= 0.0f || vertsShadow[1].x >= 0.0f || vertsShadow[2].x >= 0.0f)
+        || !(vertsShadow[0].x <= 1.0f || vertsShadow[1].x <= 1.0f || vertsShadow[2].x <= 1.0f)
+        || !(vertsShadow[0].y >= 0.0f || vertsShadow[1].y >= 0.0f || vertsShadow[2].y >= 0.0f)
+        || !(vertsShadow[0].y <= 1.0f || vertsShadow[1].y <= 1.0f || vertsShadow[2].y <= 1.0f)
+    ) {
+        return trianglePos;
+    }
+
+    RwImVertexIndex* idxIt{};
+    RwIm3DVertex*    vtxIt{};
+    RenderBuffer::StartStoring(3, 3, idxIt, vtxIt); // 0x708290
+
+    for (auto i = 0; i < 3; i++) {
+        RwIm3DVertexSetPos(&vtxIt[i], vertsWorld[i].x, vertsWorld[i].y, vertsWorld[i].z + 0.06f); // 0x859934
+        // The shadow texture is a projection, so the UVs are simply the shadow camera space coords
+        RwIm3DVertexSetU(&vtxIt[i], vertsShadow[i].x);
+        RwIm3DVertexSetV(&vtxIt[i], vertsShadow[i].y);
+    }
+
+    // fade (EDX+0x50): выключен -> постоянный цвет из shadowValue (+0x4C);
+    // включен -> затухание по квадрату z в пространстве теневой камеры
+    if (!param->fade) {
+        // Constant color
+        for (auto i = 0; i < 3; i++) {
+            RwIm3DVertexSetRGBA(&vtxIt[i], param->shadowValue, param->shadowValue, param->shadowValue, param->shadowValue);
+        }
+    } else { // Fade out based on the distance from the shadow camera's center plane
+        for (auto i = 0; i < 3; i++) {
+            const auto c = 1.0f - sq(vertsShadow[i].z) >= 0.0f
+                ? (uint8)((float)param->shadowValue * (1.0f - sq(vertsShadow[i].z)))
+                : (uint8)0;
+            RwIm3DVertexSetRGBA(&vtxIt[i], c, c, c, c);
+        }
+    }
+
+    idxIt[0] = 0;
+    idxIt[1] = 1;
+    idxIt[2] = 2;
+
+    RenderBuffer::StopStoring(); // 0x7077A0
+
+    return trianglePos;
 }
-#endif

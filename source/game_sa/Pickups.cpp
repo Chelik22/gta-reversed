@@ -13,6 +13,8 @@
 #include "Shadows.h"
 #include "Coronas.h"
 #include "TaskSimpleJetPack.h"
+#include "PostEffects.h"
+#include "Collision/ColModel.h"
 
 using namespace ModelIndices;
 void CPickups::InjectHooks() {
@@ -22,13 +24,13 @@ void CPickups::InjectHooks() {
     RH_ScopedInstall(Init, 0x454A70);
     RH_ScopedInstall(ReInit, 0x456E60);
     RH_ScopedInstall(AddToCollectedPickupsArray, 0x455240);
-    RH_ScopedOverloadedInstall(CreatePickupCoorsCloseToCoors, "", 0x458A80, void(*)(float, float, float, float&, float&, float&), {.Reversed = false});
+    RH_ScopedOverloadedInstall(CreatePickupCoorsCloseToCoors, "", 0x458A80, void(*)(float, float, float, float&, float&, float&));
     RH_ScopedInstall(CreateSomeMoney, 0x458970);
     RH_ScopedInstall(DetonateMinesHitByGunShot, 0x4590C0);
     RH_ScopedInstall(DoCollectableEffects, 0x455E20);
     RH_ScopedInstall(DoMineEffects, 0x4560E0);
     RH_ScopedInstall(DoMoneyEffects, 0x454E80);
-    RH_ScopedInstall(DoPickUpEffects, 0x455720, { .Reversed = false });
+    RH_ScopedInstall(DoPickUpEffects, 0x455720);
     RH_ScopedInstall(FindPickUpForThisObject, 0x4551C0);
 
     // Cannot be hooked at all for now due to ABI fuckery, the return value is 32 bit, but causes the function to assume the calling convention of of T* Function(T*, ...)
@@ -97,7 +99,46 @@ void CPickups::AddToCollectedPickupsArray(int32 pickupIndex) {
  * @param [out] outX, outY, outZ Created pickup's position
  */
 void CPickups::CreatePickupCoorsCloseToCoors(float inX, float inY, float inZ, float& outX, float& outY, float& outZ) {
-    plugin::Call<0x458A80, float, float, float, float&, float&, float&>(inX, inY, inZ, outX, outY, outZ);
+    int32 attempts = 0;
+    while (true) {
+        const auto angle = (float)(rand() & 0xFF) * 0.024543693f; // 0x859BBC = 2*pi/256
+        const float x = inX + std::sin(angle) * 1.5f;             // 0x858CE8
+        const float y = inY + std::cos(angle) * 1.5f;
+
+        bool foundGround = false;
+        const float z = CWorld::FindGroundZFor3DCoord(CVector{ x, y, inZ }, &foundGround) + 0.5f; // 0x5696C0
+
+        if (foundGround) {
+            const CVector basePos{ inX, inY, inZ + 0.3f }; // 0x858C24
+            const CVector dir{ x - basePos.x, y - basePos.y, z - basePos.z };
+            const auto dirLen = dir.Magnitude();
+            const CVector extendedEnd = basePos + dir * ((dirLen + 0.4f) / dirLen); // 0x858EE8
+
+            const CVector playerCoors = FindPlayerCoors(-1); // 0x56E010 (original calls it 4 times)
+            const bool bFarFromPlayer = 2.0f < (CVector{ x, y, z } - playerCoors).Magnitude2D(); // 0x858CA0
+
+            const bool bTryPlace = bFarFromPlayer
+                ? (attempts > 16 || !TestForPickupsInBubble(CVector{ x, y, z }, 1.3f))
+                : attempts > 16;
+
+            if (bTryPlace && CWorld::GetIsLineOfSightClear(extendedEnd, basePos, true, attempts < 16, false, attempts < 16)) {
+                if (attempts > 16 || !CWorld::TestSphereAgainstWorld(CVector{ x, y, z }, 1.2f, nullptr, false, false, true, false, false, false)) {
+                    outX = x;
+                    outY = y;
+                    outZ = z;
+                    return;
+                }
+            }
+        }
+
+        attempts++;
+        if (attempts > 31) {
+            outX = inX;
+            outY = inY;
+            outZ = inZ + 0.4f;
+            return;
+        }
+    }
 }
 
 /*!
@@ -244,9 +285,197 @@ void CPickups::DoMoneyEffects(CEntity* entity) {
     entity->GetMatrix().SetRotateZOnly(static_cast<float>(CTimer::GetTimeInMS() % 2048) * 0.0030566407f);
 }
 
+// —— Original globals not declared anywhere in the repo ——
+static auto& CAMERA_PICKUP_INDEX     = StaticRef<uint8>(0xB6F081); // byte index into the array below (original uses it with stride 0x11C)
+static auto& CAMERA_PICKUP_ARRAY     = StaticRef<uint8[64][0x11C]>(0xB6F1A8); // stride 0x11C (as in the original; [i][0] == 0x2E?)
+static auto& PICKUP_MSG_MAX_DIST     = StaticRef<float>(0x859030); // max. 2D camera distance for the message to show up
+static auto& PICKUP_MSG_Z_OFFSET     = StaticRef<float>(0x858CB0); // 0.7f above the pickup
+static auto& PICKUP_SPIN_REF         = StaticRef<float>(0x858F08); // 1.2f
+static auto& PICKUP_CORONA_R_PHASE   = StaticRef<float>(0x859B5C); // camera corona radius pulsation phase
+static auto& PICKUP_CORONA_R_OFFSET  = StaticRef<float>(0x859B58);
+static auto& PICKUP_CORONA_R_MULT    = StaticRef<float>(0x859B54);
+static auto& PICKUP_SPIN_STEP        = StaticRef<float>(0x859B0C); // rad/ms of rotation (timeMS & 0x7FF)
+// message color table: [colorId][0..2] = RGB (stride 8)
+static auto& aPickupMessageColors    = StaticRef<uint8[54][8]>(0x8A5FB0);
+
 // 0x455720
 void CPickups::DoPickUpEffects(CEntity* entity) {
-    plugin::Call<0x455720, CEntity*>(entity);
+    // Implicitly used: `this` of PickUpShouldBeInvisible() below (Ghidra loses the thiscall's ecx)
+    const auto pickup = FindPickUpForThisObject(static_cast<CObject*>(entity));
+    // FIX (verify wf5b): objectFlags/m_nBonusValue/m_wCostValue are CObject fields (+0x140/+0x13D/+0x13E),
+    //   while the header parameter is CEntity*; an explicit cast is required.
+    auto* const obj   = static_cast<CObject*>(entity);
+    const auto  model = entity->m_nModelIndex; // +0x22
+
+    if (model == MI_PICKUP_CAMERA) {
+        if (CAMERA_PICKUP_ARRAY[CAMERA_PICKUP_INDEX][0] == 0x2E /* ePickupType 46 - "camera" (not in the repo's enum) */) {
+            obj->objectFlags.bDoNotRender = false; // bit 0x2000000
+        } else {
+            obj->objectFlags.bDoNotRender = true;
+            if (CClock::ms_nGameClockHours < 5 || CPostEffects::IsVisionFXActive()) { // 0xB70153 / 0x7034F0
+                // fp-expressions restored exactly from the disassembly 0x455793..0x45580E:
+                //   randVal = _ftol(-50.0f * (float)(_rand() & 0xFFFF) * (1/32768.0f))  [0x858B14 = 1/32768, 0x859B60 = -50]
+                //   coronaRed = 100 - randVal;  coronaGB = _ftol(0.7f * (float)(100 - randVal))  [0x858CB0 = 0.7]
+                //   (the second color is derived, not a fresh rand)
+                const auto randVal = static_cast<int32>(-50.0f * static_cast<float>(CGeneral::GetRandomNumber()) * (1.0f / 32768.0f)); // _ftol2
+                const auto coronaRed = static_cast<uint8>(100 - randVal);
+                const auto coronaGB  = static_cast<uint8>(static_cast<int32>(0.7f * static_cast<float>(100 - randVal))); // _ftol2
+
+                const auto& entityPos    = entity->GetPosition();
+                const auto  coronaRadius = (std::sin(float(CTimer::GetTimeInMS() & 0x1FFF) * PICKUP_CORONA_R_PHASE) + PICKUP_CORONA_R_OFFSET)
+                                         * PICKUP_CORONA_R_MULT;
+
+                CCoronas::RegisterCorona( // 0x6FC580
+                    // NOTE (verify wf5b): the original passes id = address of a stack variable
+                    //   (lea eax,[esp+0x85] @0x455844 - a per-frame "unique" id). Reproducing the stack address
+                    //   1:1 in C++ is pointless, the pointer to entity is used as a stable unique id
+                    //   (substitution is safe: id is only used as a key).
+                    (uint32)(uintptr_t)entity,
+                    nullptr,
+                    coronaRed, coronaGB, coronaGB, 255,
+                    entityPos,
+                    coronaRadius,
+                    100.0f,
+                    CORONATYPE_HEADLIGHT,                 // 1
+                    FLARETYPE_NONE,
+                    eCoronaReflType::CORREFL_NONE,
+                    eCoronaLOSCheck::LOSCHECK_OFF,
+                    eCoronaTrail::TRAIL_OFF,
+                    0.0f,
+                    false,
+                    1.5f,
+                    false,
+                    15.0f,
+                    false,
+                    false
+                );
+            }
+        }
+    } else {
+        // 0x454D20: this = pickup (lost by Ghidra)
+        obj->objectFlags.bDoNotRender = pickup->PickUpShouldBeInvisible();
+    }
+
+    if (obj->objectFlags.bDoNotRender) { // 0x2000000
+        return;
+    }
+
+    // —— Message color - by the pickup's model (in the decompile - a reused argument slot;
+    //    BRIBE/INFO/KILLFRENZY/PROPERTY/SAVEGAME keep their initial value - taken as 0) ——
+    // FIX (verify wf5b): the first case used to compare with MI_PICKUP_CAMERA - a copy-paste of the neighboring case.
+    //   According to the decompile, it compares with DAT_008cd5bc = MI_PICKUP_ADRENALINE
+    //   (ModelIndices.cpp:56; MI_PICKUP_CAMERA = 0x8CD5D8 - the check at the start of the function).
+    int16 colorId = 0;
+    if (model == MI_PICKUP_ADRENALINE) {
+        colorId = 0x2F;
+    } else if (model == MI_PICKUP_BODYARMOUR) {
+        colorId = 0x30;
+    } else if (model != MI_PICKUP_BRIBE && model != MI_PICKUP_INFO && model != MI_PICKUP_KILLFRENZY) {
+        if (model == MI_PICKUP_HEALTH || model == MI_PICKUP_BONUS) {
+            colorId = 0x2F;
+        } else if (model != MI_PICKUP_PROPERTY) {
+            if (model == MI_PICKUP_PROPERTY_FORSALE) {
+                colorId = 0x2F;
+            } else if (model == MI_PICKUP_REVENUE) {
+                colorId = 0x35;
+            } else if (model != MI_PICKUP_SAVEGAME) {
+                if (model == MI_PICKUP_CLOTHES) {
+                    colorId = 0x2F;
+                } else {
+                    colorId = (int16)WeaponForModel(model); // weapons - color by weapon type; non-weapons return -1 (WEAPON_UNARMED = 0)
+                }
+            }
+        }
+    }
+
+    const auto& entityPos = entity->GetPosition();
+
+    // —— Purchase message (only for property/out-of-stock or objects with a bonus/price) ——
+    if ((obj->m_nObjectFlags & 0xC) // bPickupPropertyForSale | bPickupInShopOutOfStock
+     || obj->m_nBonusValue != 0                  // +0x13D
+     || obj->m_wCostValue != 0) {                // +0x13E
+        // 2D camera distance to the pickup (the decompile has a manual SQRT)
+        const auto& camPos  = TheCamera.GetPosition(); // 0xB6F02C / 0xB6F03C
+        const auto  dx      = camPos.x - entityPos.x;
+        const auto  dy      = camPos.y - entityPos.y;
+
+        if (PICKUP_MSG_MAX_DIST > std::sqrt(dx * dx + dy * dy) && NumMessages <= 15) {
+            const CVector worldPos{ entityPos.x, entityPos.y, entityPos.z + PICKUP_MSG_Z_OFFSET };
+            RwV3d screenPos{};
+            float msgWidth{}, msgHeight{};
+
+            if (CSprite::CalcScreenCoors(worldPos, &screenPos, &msgWidth, &msgHeight, true, true)) { // 0x70CE30
+                auto& msg = aMessages[NumMessages];
+
+                msg.pos.x  = screenPos.x;                              // +0x00
+                msg.pos.y  = screenPos.y;                              // +0x04
+                msg.width  = msgWidth;                                 // +0x0C
+                msg.height = msgHeight;                                // +0x10
+                msg.pos.z  = std::bit_cast<float>(WeaponForModel(model)); // +0x08 - the original copies the int bits (not used by the renderer)
+
+                msg.color.r = aPickupMessageColors[colorId][0];        // 0x8A5FB0 + colorId*8
+                msg.color.g = aPickupMessageColors[colorId][1];
+                msg.color.b = aPickupMessageColors[colorId][2];
+                msg.color.a = static_cast<uint8>((int)CGeneral::GetRandomNumberInRange(0.0f, 100.0f)); // _ftol2 - expression lost
+
+                msg.flags = obj->objectFlags.bPickupInShopOutOfStock ? (msg.flags | 1) : (msg.flags & 0xFE);
+                msg.field_19 = obj->m_nBonusValue;
+                msg.price    = obj->m_wCostValue * 5;
+
+                if (model == MI_PICKUP_PROPERTY || model == MI_PICKUP_PROPERTY_FORSALE) {
+                    // CPickup+0x1D byte = m_nFlags; bits 4-6 = nPropertyTextIndex
+                    const auto text = TheText.Get(CPickup::FindStringForTextIndex(
+                        (ePickupPropertyText)pickup->m_nFlags.nPropertyTextIndex)); // 0x455540 + 0x6A0050
+                    msg.text = const_cast<GxtChar*>(text);
+                    if (model == MI_PICKUP_PROPERTY_FORSALE) {
+                        msg.flags |= 2;
+                    } else {
+                        msg.flags &= 0xFD;
+                    }
+                } else {
+                    msg.text      = nullptr;
+                    msg.flags    &= 0xFD;
+                }
+
+                NumMessages++; // 0x978678
+            }
+        }
+    }
+
+    // —— Pickup model rotation/scale (always executed) ——
+    const auto colModel = CModelInfo::ms_modelInfoPtrs[entity->m_nModelIndex]->m_pColModel; // +0x14
+    const auto& bbox    = colModel->m_boundBox;
+
+    const auto dxSize = bbox.m_vecMax.x - bbox.m_vecMin.x;
+    const auto dySize = bbox.m_vecMax.y - bbox.m_vecMin.y;
+    const auto dzSize = bbox.m_vecMax.z - bbox.m_vecMin.z;
+    const auto maxDim = std::max({ dxSize, dySize, dzSize });
+
+    auto spin = PICKUP_SPIN_REF / maxDim; // 1.2f / maxDim
+    if (spin < 1.0f)                      // 0x858624 = 1.0f
+        spin = 1.0f;
+    spin = (spin - 1.0f) * 0.6f + 1.0f;   // 0x858CC8 = 0.6f
+    if (entity->m_nModelIndex == MODEL_MINIGUN) // 0x16A
+        spin = 1.2f;
+
+    const auto angle = float(CTimer::GetTimeInMS() & 0x7FF) * PICKUP_SPIN_STEP;
+    const auto cosA  = std::cos(angle);
+    const auto sinA  = std::sin(angle);
+    const auto x     = cosA * spin;
+    const auto y     = sinA * spin;
+
+    // In the decompile, the matrix-allocation check precedes EACH of the 9 writes.
+    // CPlaceable::GetMatrix() does exactly that (allocates + UpdateMatrix when null), so it is
+    // called before every write - accessors are used instead of touching CMatrix fields directly.
+    entity->GetMatrix().GetRight().x   = x;    // +0x00
+    entity->GetMatrix().GetRight().y   = y;    // +0x04
+    entity->GetMatrix().GetRight().z   = 0.0f; // +0x08
+    entity->GetMatrix().GetForward().x = -y;   // +0x10
+    entity->GetMatrix().GetForward().y = x;    // +0x14
+    entity->GetMatrix().GetForward().z = 0.0f; // +0x18
+    entity->GetMatrix().GetUp().x      = 0.0f; // +0x20
+    entity->GetMatrix().GetUp().y      = 0.0f; // +0x24
+    entity->GetMatrix().GetUp().z      = spin; // +0x28
 }
 
 // 0x4551C0

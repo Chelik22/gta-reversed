@@ -1,3 +1,7 @@
+// NOTE(integration, волна 5): ProcessPed (0x677920) — STUB_DEFERRED. Оригинальный sizeof класса = 0x38,
+// хедер репо = 0x30 (m_AnimTimer@0x24 вместо 0x28, отсутствуют флаги +0x30..+0x36). Тело держится
+// redirect-стабом, хук остаётся {.Reversed = false} ДО расширения хедера (см. VERIFY-wf5a / STATUS.md
+// волны 5, п.2; пошаговый алгоритм — в шапке batch_out/fresh/0x677920.cpp).
 #include "StdInc.h"
 #include "TaskInteriorSitAtDesk.h"
 

@@ -16,7 +16,7 @@ void CConversations::InjectHooks() {
     RH_ScopedInstall(AwkwardSay, 0x43A810);
     RH_ScopedInstall(EnableConversation, 0x43A7F0);
     RH_ScopedInstall(StartSettingUpConversation, 0x43A840);
-    RH_ScopedInstall(DoneSettingUpConversation, 0x43ADB0, {.Reversed = false});
+    RH_ScopedInstall(DoneSettingUpConversation, 0x43ADB0);
 }
 
 // 0x43A7B0
@@ -154,7 +154,78 @@ void CConversations::StartSettingUpConversation(CPed* ped) {
 
 // 0x43ADB0
 void CConversations::DoneSettingUpConversation(bool bSuppressSubtitles) {
-    plugin::Call<0x43ADB0, bool>(bSuppressSubtitles);
+    const auto numNodes = m_SettingUpConversationNumNodes;
+
+    // Resolve node names into indices (strcmp over m_aTempNodes)
+    if (numNodes > 0) {
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            temp.m_NodeYes = -1;
+            temp.m_NodeNo  = -1;
+            for (auto i = 0; i < numNodes; i++) {
+                if (!strcmp(temp.m_NameNodeYes, m_aTempNodes[i].m_Name)) {
+                    temp.m_NodeYes = (int16)i;
+                }
+                if (!strcmp(temp.m_NameNodeNo, m_aTempNodes[i].m_Name)) {
+                    temp.m_NodeNo = (int16)i;
+                }
+            }
+        }
+    }
+
+    // Find the first free conversation slot (m_pPed == nullptr)
+    CConversationForPed* conversation{};
+    for (auto& c : m_Conversations) {
+        if (!c.m_pPed) {
+            conversation = &c;
+            break;
+        }
+    }
+
+    if (numNodes > 0) {
+        // Reserve a slot for each node
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            auto slot = 0;
+            for (; slot < MAX_NUM_CONVERSATION_NODES; slot++) {
+                auto& node = m_Nodes[slot];
+                if (node.m_Name[0] == '\0') {
+                    node.m_Name[0] = 'X'; // Reserve
+                    node.m_Name[1] = '\0';
+                    break;
+                }
+            }
+            // NOTE: per the decompile, when there are no free nodes left, slot is forced to 0 (overwrites node 0) -
+            // the September stash had slot == MAX here (OOB) - fixed per the decompile.
+            if (slot == MAX_NUM_CONVERSATION_NODES)
+                slot = 0;
+            temp.m_FinalSlot = slot;
+        }
+
+        // Copy the nodes
+        for (auto& temp : std::span{ m_aTempNodes.data(), (size_t)numNodes }) {
+            auto& node = m_Nodes[temp.m_FinalSlot];
+            strcpy(node.m_Name, temp.m_Name);
+            node.m_NodeYes = temp.m_NodeYes < 0 ? int16(-1) : (int16)m_aTempNodes[temp.m_NodeYes].m_FinalSlot;
+            node.m_NodeNo  = temp.m_NodeNo < 0 ? int16(-1) : (int16)m_aTempNodes[temp.m_NodeNo].m_FinalSlot;
+            node.m_Speech  = temp.m_Speech;
+            node.m_SpeechY = temp.m_SpeechY;
+            node.m_SpeechN = temp.m_SpeechN;
+        }
+    }
+
+    // Initialize the conversation
+    assert(conversation);
+    conversation->m_FirstNode   = m_aTempNodes[0].m_FinalSlot; // temp[0].m_FinalSlot
+    conversation->m_CurrentNode = m_aTempNodes[0].m_FinalSlot;
+    conversation->m_pPed        = m_SettingUpConversationPed;
+    conversation->m_pPed->RegisterReference(reinterpret_cast<CEntity**>(&conversation->m_pPed)); // 0x571B70
+    conversation->m_LastChange                 = CTimer::GetTimeInMS();                        // 0xB7CB84
+    conversation->m_LastTimeWeWereCloseEnough  = 0;
+    conversation->m_Status                     = CConversationForPed::eStatus::INACTIVE; // +0x14
+    conversation->m_Enabled                    = true;                                   // +0x18
+    conversation->m_SuppressSubtitles          = bSuppressSubtitles;                     // +0x19
+
+    m_SettingUpConversationNumNodes = 0;   // 0x9691C8
+    m_SettingUpConversation         = false; // 0x9691D0
 }
 
 CConversationForPed* CConversations::FindConversationForPed(CPed* ped) {

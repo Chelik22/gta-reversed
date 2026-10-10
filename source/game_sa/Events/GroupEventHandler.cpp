@@ -24,6 +24,7 @@
 #include "Tasks/TaskTypes/TaskComplexSignalAtPed.h"
 #include "Tasks/TaskTypes/TaskComplexPartnerGreet.h"
 #include "Tasks/TaskTypes/TaskComplexPartnerDeal.h"
+#include "Tasks/TaskTypes/TaskSimpleCarDrive.h"
 
 #include "Tasks/Allocators/TaskAllocator.h"
 #include "Tasks/Allocators/TaskAllocatorPlayerCommandAttack.h"
@@ -47,6 +48,7 @@
 #include "Events/EventNewGangMember.h"
 #include "Events/EventLeaderEntryExit.h"
 #include "Events/EventLeaderExitedCarAsDriver.h"
+#include "Events/EventLeaderEnteredCarAsDriver.h"
 
 void CGroupEventHandler::InjectHooks() {
     RH_ScopedClass(CGroupEventHandler);
@@ -64,8 +66,8 @@ void CGroupEventHandler::InjectHooks() {
     RH_ScopedInstall(ComputeResponsePedFriend, 0x5FB2D0);
     RH_ScopedInstall(ComputeResponseNewGangMember, 0x5F9840);
     RH_ScopedInstall(ComputeResponseLeaderExitedCar, 0x5F90A0);
-    RH_ScopedInstall(ComputeResponsLeaderQuitEnteringCar, 0x5F9530, { .Reversed = false });
-    RH_ScopedInstall(ComputeResponseLeaderEnteredCar, 0x5F8900, { .Reversed = false });
+    RH_ScopedInstall(ComputeResponsLeaderQuitEnteringCar, 0x5F9530);
+    RH_ScopedInstall(ComputeResponseLeaderEnteredCar, 0x5F8900);
     RH_ScopedInstall(ComputeResponseLeaderEnterExit, 0x5F9710);
     RH_ScopedInstall(ComputeResponseGunAimedAt, 0x5FBD10);
     RH_ScopedInstall(ComputeResponseGather, 0x5F99F0);
@@ -157,9 +159,9 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseVehicleDamage(const CEventVeh
     const auto threat = e.m_attacker->AsPed();
     switch (e.m_TaskId) {
     case TASK_GROUP_KILL_THREATS_BASIC:  return ComputeKillThreatsBasicResponse(pg, threat, originator, true);
-    case TASK_GROUP_KILL_PLAYER_BASIC:   return ComputeKillPlayerBasicResponse(pg, threat, originator, true); 
-    case TASK_GROUP_FLEE_THREAT:         return ComputeFleePedResponse(pg, threat, originator, true);         
-    case TASK_GROUP_USE_MEMBER_DECISION: return ComputeMemberResponses(e, pg, originator);                      
+    case TASK_GROUP_KILL_PLAYER_BASIC:   return ComputeKillPlayerBasicResponse(pg, threat, originator, true);
+    case TASK_GROUP_FLEE_THREAT:         return ComputeFleePedResponse(pg, threat, originator, true);
+    case TASK_GROUP_USE_MEMBER_DECISION: return ComputeMemberResponses(e, pg, originator);
     case TASK_GROUP_DRIVEBY:             return ComputeDrivebyResponse(pg, threat, originator);
     }
     return nullptr;
@@ -286,7 +288,7 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderExitedCar(const CEventE
     const auto leader = pg->GetMembership().GetLeader();
     for (auto&& [i, m] : rngv::enumerate(pg->GetMembership().GetFollowers())) {
         if (m->m_pVehicle && m->bInVehicle && m->m_pVehicle == leader->m_pVehicle) { // Already in the leader's vehicle
-            continue; 
+            continue;
         }
         CVehicle* mveh{};
         if (const auto t = m->GetTaskManager().Find<CTaskComplexEnterCarAsPassengerWait>(false); !t || !(mveh = t->GetCar())) {
@@ -299,7 +301,7 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderExitedCar(const CEventE
         };
         const auto isVehOnFire = mveh->m_pFireParticle && mveh->m_pFireParticle->GetPlayStatus() == eFxSystemPlayStatus::FX_PLAYING;
         if (notsa::contains<int>({ 15, 16 }, mveh->m_pHandlingData->m_nAnimGroup)) { // TODO: Enums
-            if (isVehOnFire) { // INVERTED - 0x5F9483 
+            if (isVehOnFire) { // INVERTED - 0x5F9483
                 SetResponseTask(CTaskComplexSequence{
                     new CTaskComplexLeaveCarAsPassengerWait{mveh},
                     new CTaskComplexSmartFleeEntity{
@@ -355,8 +357,117 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderExitedCar(const CEventE
 }
 
 // 0x5F8900
+// ABI: 3-й параметр (originator) в оригинале не используется (Ghidra видит 2 аргумента).
+// Прочее: функция всегда возвращает nullptr; вся работа через SetTask (0x5F7540).
+// Внутри оригинала вокруг каждого SetTask инстанцируется неиспользуемый CTaskSimpleNone
+// (дефолтный параметр SetEventResponseTask) и задачи передаются как стековые временные
+// (SetTask клонирует их) — в репо это выражается самими временными объектами.
+// SUSPECT(asm, не блокирует): аргументы inline-ктора CTaskComplexLeaveAnyCar{0,true,false}
+// в декомпиле не видны — приняты как есть (класс подтверждён vtable-константами 0x858EB4/0x858EC0).
 CTaskAllocator* CGroupEventHandler::ComputeResponseLeaderEnteredCar(const CEvent& e, CPedGroup* pg, CPed* originator) {
-    return plugin::CallAndReturn<CTaskAllocator*, 0x5F8900, const CEvent&, CPedGroup*, CPed*>(e, pg, originator);
+    // Оригинал: *(short*)(e+0xE) == 0x5E9. По раскладке репо CEventEditableResponse это m_TaskId,
+    // а 0x5E9 == 1513 == TASK_GROUP_ENTER_CAR_AND_PERFORM_SEQUENCE (eTaskType) - это ТИП ЗАДАЧИ-ОТВЕТА,
+    // вычисленный ранее ComputeResponseTaskType, а НЕ тип события.
+    const auto responseTaskType = static_cast<const CEventEditableResponse&>(e).m_TaskId;
+    const auto& car             = static_cast<const CEventLeaderEnteredCarAsDriver&>(e).m_vehicle; // +0x14
+    const auto  leader          = pg->GetMembership().GetLeader(); // m_members[LEADER_MEM_ID] (pg+0x28)
+    if (!leader || !car) {
+        return nullptr;
+    }
+
+    // Очередь из фолловеров: сначала mission-пэды (m_nCreatedBy == 2), затем остальные (pg+0xC, 7 слотов)
+    std::array<CPed*, TOTAL_PED_GROUP_FOLLOWERS> followers{};
+    size_t nf{};
+    for (auto* const m : pg->GetMembership().GetFollowers()) {
+        if (m && m->GetCreatedBy() == PED_MISSION) {
+            followers[nf++] = m;
+        }
+    }
+    for (auto* const m : pg->GetMembership().GetFollowers()) {
+        if (m && m->GetCreatedBy() != PED_MISSION) {
+            followers[nf++] = m;
+        }
+    }
+
+    auto&       intel     = pg->GetIntelligence();
+    const auto  taskSeqId = intel.GetTaskSeqId(); // pg+0x2CC (геттер добавлен в PedGroupIntelligence.h - поле приватное)
+    uint32      assigned{};                    // сколько членов уже посажено (local_11c)
+    auto*       prevMember = leader;           // iVar10: за кем член ждёт своей очереди
+
+    // Форсировать переднее сиденье? Оригинал считает одинаково в обеих ветках:
+    // если в группе 1 фолловер и машина не байк/квад — да. Если переднее место
+    // занято членом группы/лидером/пэдом с bDontDragMeOutCar — нет.
+    const auto ComputeForceFrontSeat = [&](const CPed* forMember) {
+        if (pg->GetMembership().CountMembersExcludingLeader() != 1
+            || car->m_nVehicleType == VEHICLE_TYPE_BIKE     // +0x590 != 9
+            || car->m_nVehicleSubType == VEHICLE_TYPE_QUAD  // +0x594 != 2
+        ) {
+            return false;
+        }
+        if (const auto frontPed = car->m_apPassengers[0]; frontPed && frontPed != forMember) {
+            if (notsa::contains(pg->GetMembership().GetFollowers(), frontPed)
+                || frontPed == leader
+                || frontPed->bDontDragMeOutCar /* +0x46C bit 0x20000000 */
+            ) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    for (auto* const m : followers) {
+        if (!m) {
+            continue;
+        }
+        if ((int32)assigned < (int32)car->m_nMaxPassengers) { // car+0x488
+            if (   responseTaskType == TASK_GROUP_ENTER_CAR_AND_PERFORM_SEQUENCE // m_TaskId == 0x5E9
+                && taskSeqId >= 0
+                && taskSeqId < CTaskSequences::NUM_SEQUENCES
+                && CTaskSequences::ms_taskSequence[taskSeqId].IsActive() // m_Tasks[0] != null (0xC17900)
+            ) {
+                // Ветка 1: сажаем члена и продолжаем скриптовую последовательность группы
+                intel.SetEventResponseTask(
+                    m,
+                    CTaskComplexSequence{
+                        new CTaskComplexEnterCarAsPassengerWait{car, prevMember, ComputeForceFrontSeat(m), PEDMOVE_RUN},
+                        new CTaskComplexUseSequence{taskSeqId}
+                    }
+                );
+            } else {
+                // Ветка 2: просто сажаем члена как пассажира
+                intel.SetEventResponseTask(
+                    m,
+                    CTaskComplexEnterCarAsPassengerWait{car, prevMember, ComputeForceFrontSeat(m), PEDMOVE_RUN}
+                );
+
+                // Дефолтная задача члена: за руль этой машины + (старая дефолтная задача)
+                if (!m->bHasGroupDriveTask) { // +0x474 bit 0x2000000
+                    m->bHasGroupDriveTask = true;
+                    CTaskComplexSequence defSeq{ new CTaskSimpleCarDrive{car, nullptr, true} };
+                    if (const auto old = intel.GetTaskDefault(m)) {
+                        defSeq.AddTask(old->Clone());
+                    }
+                    intel.SetDefaultTask(m, defSeq);
+                }
+            }
+            assigned++;
+            prevMember = m;
+        } else {
+            // Ветка 3: свободных мест нет — выходим из любой машины
+            intel.SetEventResponseTask(m, CTaskComplexLeaveAnyCar{0, true, false});
+        }
+    }
+
+    // Лидер: если не игрок и у него ещё нет drive-задачи — за руль + старая дефолтная задача
+    if (!leader->IsPlayer() && !leader->bHasGroupDriveTask) {
+        leader->bHasGroupDriveTask = true;
+        CTaskComplexSequence defSeq{ new CTaskSimpleCarDrive{car, nullptr, true} };
+        if (const auto old = intel.GetTaskDefault(leader)) {
+            defSeq.AddTask(old->Clone());
+        }
+        intel.SetDefaultTask(leader, defSeq);
+    }
+    return nullptr;
 }
 
 // 0x5F9710
@@ -465,8 +576,53 @@ CTaskAllocator* CGroupEventHandler::ComputeResponseDamage(const CEventDamage& e,
 }
 
 // 0x5F9530
+// ABI: 3-й параметр (originator) в оригинале не используется; параметр event тоже не используется.
+// Прочее:
+//  - Функция всегда возвращает nullptr (оригинал: `return 0`).
+//  - Случайное: rand()&0xFFFF (= CGeneral::GetRandomNumber()), затем
+//    (int)(r * (1/32768.f) * -500.f) — 0x858B14 = 1/32768, 0x85AB78 = -500.0 (_ftol2 = 0x821B40).
+//  - Задержки по слотам членов: 0, 500, ... (0x1F4 шаг, лимит 0xDAC — ровно 7 фолловеров).
+//  - Задержка привязана к ИНДЕКСУ СЫРОГО СЛОТА члена (GetMemberId), не к порядковому номеру итерации.
 CTaskAllocator* CGroupEventHandler::ComputeResponsLeaderQuitEnteringCar(const CEvent& e, CPedGroup* pg, CPed* originator) {
-    return plugin::CallAndReturn<CTaskAllocator*, 0x5F9530, const CEvent&, CPedGroup*, CPed*>(e, pg, originator);
+    auto& intel = pg->GetIntelligence();
+    for (auto* const m : pg->GetMembership().GetFollowers()) { // m_members[0..6], задержка = 500 * индекс слота
+        if (!m) {
+            continue;
+        }
+        // Оригинал: ped+0x46C bit8 (bInVehicle) != 0 и ped+0x58C (m_pVehicle) != 0
+        if (!m->bInVehicle || !m->m_pVehicle) {
+            // Член не в машине — он ждал посадки: найдём машину и выставим выход из неё
+            const auto FindWaitingCar = [&]() -> CVehicle* {
+                // Оригинал читает task+0xC — первое поле обеих задач (= машина):
+                if (const auto task = m->GetIntelligence()->FindTaskByType(TASK_COMPLEX_ENTER_CAR_AS_PASSENGER_WAIT)) {
+                    if (const auto car = static_cast<CTaskComplexEnterCarAsPassengerWait*>(task)->GetCar()) {
+                        return car;
+                    }
+                }
+                if (const auto task = m->GetIntelligence()->FindTaskByType(TASK_COMPLEX_ENTER_CAR_AS_PASSENGER)) {
+                    if (const auto car = static_cast<CTaskComplexEnterCarAsPassenger*>(task)->GetTargetCar()) {
+                        return car;
+                    }
+                }
+                return nullptr;
+            };
+            const auto car = FindWaitingCar();
+            if (!car) {
+                continue;
+            }
+            const auto jitter = (int32)((float)CGeneral::GetRandomNumber() * (1.f / 32768.f) * -500.f);
+            intel.SetEventResponseTask(
+                m,
+                CTaskComplexLeaveCar{ car, TARGET_DOOR_FRONT_LEFT, 500 * pg->GetMembership().GetMemberId(m) - jitter + 250, false, false }
+            );
+        } else {
+            intel.SetEventResponseTask(
+                m,
+                CTaskComplexLeaveCar{ m->m_pVehicle, TARGET_DOOR_FRONT_LEFT, 500 * pg->GetMembership().GetMemberId(m), true, false }
+            );
+        }
+    }
+    return nullptr;
 }
 
 // 0x5FAA50

@@ -2,6 +2,7 @@
 
 #include "RealTimeShadowManager.h"
 #include "Shadows.h"
+#include "World.h" // CWorld::Players, CWorld::PlayerInFocus
 
 auto& g_realTimeShadowMan = StaticRef<CRealTimeShadowManager>(0xC40350);
 
@@ -10,9 +11,9 @@ void CRealTimeShadowManager::InjectHooks() {
     RH_ScopedCategory("Shadows");
 
     RH_ScopedInstall(Init, 0x7067C0);
-    RH_ScopedInstall(ReInit, 0x706870, {.Reversed = false});
+    RH_ScopedInstall(ReInit, 0x706870);
     RH_ScopedInstall(ReturnRealTimeShadow, 0x705B30);
-    RH_ScopedInstall(GetRealTimeShadow, 0x706970, { .Reversed = false });
+    RH_ScopedInstall(GetRealTimeShadow, 0x706970);
     RH_ScopedInstall(Update, 0x706AB0);
     RH_ScopedInstall(DoShadowThisFrame, 0x706BA0);
     RH_ScopedInstall(Exit, 0x706A60);
@@ -63,8 +64,31 @@ void CRealTimeShadowManager::ReturnRealTimeShadow(CRealTimeShadow* shdw) {
 }
 
 // 0x706870
+// Пересоздание raster'ов всех теневых камер: для каждой из 16 теней (камера + blur-камера) и
+// для m_BlurCamera/m_GradientCamera менеджера уничтожить raster камеры, создать новый квадратный
+// (w x w, depth=0, rwRASTERTYPECAMERATEXTURE) и привязать к render-текстуре; в конце —
+// MakeGradientRaster() у m_GradientCamera. В оригинале тело пересоздания инлайнено 4 раза —
+// здесь вынесено в лямбду (прецедент: EmitVertex в CPostEffects::UnderWaterRipple).
 void CRealTimeShadowManager::ReInit() {
-    plugin::CallMethod<0x706870, CRealTimeShadowManager*>(this);
+    const auto ReCreateShadowRaster = [](CShadowCamera& shadowCam) {
+        auto* const oldRaster = shadowCam.m_pRwCamera->frameBuffer; // RwCamera+0x60
+        const auto size       = oldRaster->width;                   // RwRaster+0xC
+
+        shadowCam.m_pRwCamera->frameBuffer = nullptr;
+        RwRasterDestroy(oldRaster);                                 // 0x7FB020
+        shadowCam.m_pRwCamera->frameBuffer = RwRasterCreate(size, size, 0, rwRASTERTYPECAMERATEXTURE); // 0x7FB230
+        RwTextureSetRaster(shadowCam.m_pRwRenderTexture, shadowCam.m_pRwCamera->frameBuffer);          // 0x7F35D0
+    };
+
+    for (const auto shdw : m_apShadows) {
+        ReCreateShadowRaster(shdw->m_camera);     // shdw+0x08 / текстура shdw+0x0C
+        ReCreateShadowRaster(shdw->m_blurCamera); // shdw+0x14 / текстура shdw+0x18
+    }
+
+    ReCreateShadowRaster(m_BlurCamera);     // this+0x44 / this+0x48
+    ReCreateShadowRaster(m_GradientCamera); // this+0x4C / this+0x50
+
+    m_GradientCamera.MakeGradientRaster(); // 0x705D20
 }
 
 // 0x706AB0
@@ -117,24 +141,50 @@ void CRealTimeShadowManager::Update() {
     }
 }
 
-CRealTimeShadow& CRealTimeShadowManager::GetRealTimeShadow(CPhysical* physical) {
-    return plugin::CallMethodAndReturn<CRealTimeShadow&, 0x706970, CRealTimeShadowManager*, CPhysical*>(this, physical);
-    /*
-    * Unfinished
-    if (m_bInitialised) {
-        return;
+// 0x706970
+// ABI: оригинал возвращает CRealTimeShadow* (может вернуть nullptr!), а не ссылку —
+// сигнатура в RealTimeShadowManager.h поправлена. Слот 0 всегда за игроком 1 (PED_TYPE_PLAYER1),
+// остальные 1..15 — берётся ПОСЛЕДНИЙ свободный (как в оригинале, без break).
+// Если игрок в фокусе едет в машине быстрее 0.3 (кв. скорость 0.09 = [0x85B324]) — тень не выдаём.
+CRealTimeShadow* CRealTimeShadowManager::GetRealTimeShadow(CPhysical* physical) {
+    CRealTimeShadow* shadow   = nullptr;
+    bool             doSearch  = true;
+    bool             isPlayer1Ped = false;
+
+    if (physical->GetIsTypePed()) {
+        isPlayer1Ped = physical->AsPed()->m_nPedType == PED_TYPE_PLAYER1;
     }
 
-    bool isFirstPlayer{};
-
-    if (!physical->GetIsTypePed() || physical->AsPed()->IsPlayer()) {
-        if (FindPlayerPed()->IsInVehicle()) { // Maybe wrong?
-            if (FindPlayerPed()->m_pVehicle->GetMoveSpeed().SquaredMagnitude() < sq(0.3f)) {
-                return;
+    if (!isPlayer1Ped) {
+        // null-чека playerPed в оригинале нет
+        const auto* const playerPed = CWorld::Players[CWorld::PlayerInFocus].m_pPed;
+        if (playerPed->bInVehicle && playerPed->m_pVehicle) {
+            if (playerPed->m_pVehicle->m_vecMoveSpeed.SquaredMagnitude() > 0.09f) {
+                doSearch = false;
             }
         }
     }
-    */
+
+    if (m_bInitialised && doSearch) {
+        if (isPlayer1Ped) {
+            shadow = m_apShadows[0];
+        } else {
+            for (auto i = 1; i < NUM_REALTIME_SHADOWS; i++) {
+                const auto shdw = m_apShadows[i];
+                if (!shdw->m_pOwner) {
+                    shadow = shdw;
+                }
+            }
+        }
+
+        if (shadow) {
+            plugin::CallMethod<0x706520, CRealTimeShadow*, CPhysical*>(shadow, physical); // CRealTimeShadow::SetupForThisEntity (не реверснута)
+            physical->m_pShadowData = shadow;
+            shadow->m_bKeepAlive    = true;
+            shadow->m_nIntensity    = 0;
+        }
+    }
+    return shadow;
 }
 
 // 0x706BA0

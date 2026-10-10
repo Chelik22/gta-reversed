@@ -22,8 +22,10 @@ public:
     static void RegisterStencilShadows(CVector& cameraPos, bool doNotCreateNew);
 
     static void RenderStencilShadows();
-    static void RenderForVehicle(CStencilShadowObject*);
-    static void RenderForObject(CStencilShadowObject*);
+    // NOTE (ABI): оригинал возвращает bool в AL (0 = нет теневой геометрии/рассинхрон,
+    // 1 = ок); Process() результат не читает, так что смена void->bool безопасна.
+    static bool RenderForVehicle(CStencilShadowObject*);
+    static bool RenderForObject(CStencilShadowObject*);
     static void Render(const CRGBA& color);
     static void RenderBuffer(const CVector& pos);
     static void SunSetPositionFromEntity(const CEntity* entity);

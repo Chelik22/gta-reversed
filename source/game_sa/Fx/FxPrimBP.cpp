@@ -8,7 +8,7 @@ void FxPrimBP_c::InjectHooks() {
     RH_ScopedCategory("Fx");
 
     RH_ScopedInstall(GetRWMatrix, 0x4A9DC0);
-    RH_ScopedInstall(Load, 0x5C2010, { .Reversed = false });
+    RH_ScopedInstall(Load, 0x5C2010);
 }
 
 // 0x4A9CF0
@@ -35,14 +35,16 @@ void FxPrimBP_c::GetRWMatrix(RwMatrix& outMatrix) {
 }
 
 // 0x5C2010
+// Аллокация буферизованной матрицы: g_fxMan.GetMemPool().GetMem(0x18, align=2) — как в оригинале
+// (0x4A9CA0); прежний вариант g_fxMan.Allocate<FxBufferedMatrix>(1) давал выравнивание 4.
+// Копия матрицы — 12 x int16(v * 32767.0f), это FixedVector (FixedFloat::Set без округления).
+// Текстуры: textureNames[0] всегда, [1..3] только при version > 101.
 bool FxPrimBP_c::Load(FILESTREAM file, int32 version, FxName32_t* textureNames) {
-    return plugin::CallMethodAndReturn<bool, 0x5C2010, FxPrimBP_c*, FILESTREAM, int32, FxName32_t*>(this, file, version, textureNames);
-
     char line[256], field[128];
 
-    ReadFieldImpl(file, field, "FX_PRIM_BASE_DATA:");
-    ReadFieldImpl(file, field, "NAME:");
-    
+    ReadField<void>(file, "FX_PRIM_BASE_DATA:");
+    ReadFieldImpl(file, field, "NAME:"); // имя прима не сохраняется ("%s %s" в один буфер)
+
     CVector mat[4];
     ReadLine(file, line, sizeof(line));
     VERIFY(sscanf(
@@ -55,23 +57,19 @@ bool FxPrimBP_c::Load(FILESTREAM file, int32 version, FxName32_t* textureNames) 
         &mat[3].x, &mat[3].y, &mat[3].z  // pos
     ) == 13);
 
-    // if it's identity matrix, don't allocate it
-    if (mat[0] == CVector{1.0f, 0.0f, 0.0f} &&
-        mat[1] == CVector{0.0f, 1.0f, 0.0f} &&
-        mat[2] == CVector{0.0f, 0.0f, 1.0f} &&
-        mat[3] == CVector{0.0f, 0.0f, 0.0f}
+    // Identity-матрицу не буферизуем (проверка точным равенством всех 12 компонент, как в оригинале)
+    if (mat[0] == CVector{ 1.0f, 0.0f, 0.0f }
+     && mat[1] == CVector{ 0.0f, 1.0f, 0.0f }
+     && mat[2] == CVector{ 0.0f, 0.0f, 1.0f }
+     && mat[3] == CVector{ 0.0f, 0.0f, 0.0f }
     ) {
         m_pMatrixBuffered = nullptr;
     } else {
-        m_pMatrixBuffered = g_fxMan.Allocate<FxBufferedMatrix>(1);
-        assert(m_pMatrixBuffered);
-
+        m_pMatrixBuffered = static_cast<FxBufferedMatrix*>(g_fxMan.GetMemPool().GetMem(sizeof(FxBufferedMatrix), 2));
         m_pMatrixBuffered->CopyFromVectors(mat[0], mat[1], mat[2], mat[3]);
     }
 
-    assert(textureNames);
     ReadFieldImpl(file, textureNames[0], "TEXTURE:");
-
     if (version > 101) {
         ReadFieldImpl(file, textureNames[1], "TEXTURE2:");
         ReadFieldImpl(file, textureNames[2], "TEXTURE3:");
@@ -82,6 +80,6 @@ bool FxPrimBP_c::Load(FILESTREAM file, int32 version, FxName32_t* textureNames) 
     m_nSrcBlendId = ReadField<uint8>(file, "SRCBLENDID:");
     m_nDstBlendId = ReadField<uint8>(file, "DSTBLENDID:");
 
-    m_FxInfoManager.Load(file, version);
+    m_FxInfoManager.Load(file, version); // 0x5C0B70 (в репо редирект; this = this+0x2C)
     return true;
 }

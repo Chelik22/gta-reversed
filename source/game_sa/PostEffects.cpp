@@ -39,7 +39,7 @@ void CPostEffects::InjectHooks() {
     RH_ScopedInstall(ScriptResetForEffects, 0x7010F0);
     RH_ScopedInstall(UnderWaterRipple, 0x7039C0);
     RH_ScopedInstall(HeatHazeFXInit, 0x701450);
-    RH_ScopedInstall(HeatHazeFX, 0x701780, { .Reversed = false });
+    RH_ScopedInstall(HeatHazeFX, 0x701780);
     RH_ScopedInstall(IsVisionFXActive, 0x7034F0);
     RH_ScopedInstall(NightVision, 0x7011C0);
     RH_ScopedInstall(NightVisionSetLights, 0x7012E0);
@@ -51,10 +51,10 @@ void CPostEffects::InjectHooks() {
     RH_ScopedInstall(Fog, 0x704150);
     RH_ScopedInstall(CCTV, 0x702F40);
     RH_ScopedInstall(Grain, 0x7037C0);
-    RH_ScopedInstall(SpeedFX, 0x7030A0, { .Reversed = false });
+    RH_ScopedInstall(SpeedFX, 0x7030A0);
     RH_ScopedInstall(DarknessFilter, 0x702F00);
     RH_ScopedInstall(ColourFilter, 0x703650);
-    RH_ScopedInstall(Radiosity, 0x702080, { .Reversed = false });
+    RH_ScopedInstall(Radiosity, 0x702080);
     RH_ScopedInstall(SetSpeedFXManualSpeedCurrentFrame, 0x700BE0);
     RH_ScopedInstall(Render, 0x7046E0);
 }
@@ -539,8 +539,205 @@ void CPostEffects::HeatHazeFXInit() {
 }
 
 // 0x701780
+// NOTE: в оригинале render-states ставятся «сырыми» вызовами RwEngineInstance->dOpenDevice.fpRenderStateSet
+//   — это инлайн RwRenderStateSet; значения — енамы репо.
+//   0xC402BB (s_bMaskActive) читается/пишется только здесь и в .data обнулён, поэтому ветка
+//   одиночного квада в игре недостижима (переведена дословно).
+//   Формулы скан-линий по дизассемблеру (Ghidra потеряла x87-операнды _ftol2):
+//   hpY[i] -= (int32)(hpS[i] * ms_fTimeStep * 0.5f); джиттер = GetRandomNumberInRange(-RandomShift, RandomShift).
 void CPostEffects::HeatHazeFX(float fIntensity, bool bAlphaMaskMode) {
-    plugin::Call<0x701780, float, bool>(fIntensity, bAlphaMaskMode);
+    static auto& s_bMaskActive = StaticRef<bool>(0xC402BB); // пишется только здесь (0 => рендер скан-линий)
+
+    auto* const scene = Scene.m_pRwCamera;
+    auto*       front = pRasterFrontBuffer;
+    const bool  bHasStencil = scene->frameBuffer->depth != 0x10; // 16-битному фреймбуферу стенсил не нужен
+
+    if (!bAlphaMaskMode) {
+        s_bMaskActive = false;
+    } else {
+        RwRGBA black{}; // {0,0,0,0}
+        RwCameraClear(scene, &black, rwCAMERACLEARZ);
+        ImmediateModeRenderStatesStore();
+        ImmediateModeRenderStatesSet();
+        RwRenderStateSet(rwRENDERSTATESRCBLEND,  RWRSTATE(rwBLENDSRCALPHA));
+        RwRenderStateSet(rwRENDERSTATEDESTBLEND, RWRSTATE(rwBLENDONE));
+        if (bHasStencil) {
+            // в стенсил пишется 0 там, где haze нет; REF=1 — где рисуется FX-маска (g_fxMan.Render)
+            RwRenderStateSet(rwRENDERSTATESTENCILENABLE,      RWRSTATE(TRUE));
+            RwRenderStateSet(rwRENDERSTATESTENCILFAIL,        RWRSTATE(rwSTENCILOPERATIONKEEP));
+            RwRenderStateSet(rwRENDERSTATESTENCILZFAIL,       RWRSTATE(rwSTENCILOPERATIONKEEP));
+            RwRenderStateSet(rwRENDERSTATESTENCILPASS,        RWRSTATE(rwSTENCILOPERATIONREPLACE));
+            RwRenderStateSet(rwRENDERSTATESTENCILFUNCTIONREF, RWRSTATE(0));
+            RwRenderStateSet(rwRENDERSTATESTENCILFUNCTION,    RWRSTATE(rwSTENCILFUNCTIONALWAYS));
+        }
+        DrawQuad(0.0f, 0.0f, (float)RsGlobal.maximumWidth, (float)RsGlobal.maximumHeight, 0, 0, 0, 255, nullptr);
+        if (bHasStencil) {
+            RwRenderStateSet(rwRENDERSTATESTENCILFUNCTIONREF, RWRSTATE(1));
+        }
+        g_fxMan.Render(TheCamera.m_pRwCamera, true); // FUN_0049E650: Fx_c::Render(camera, true) — форвардер к g_fxMan.Render
+        ImmediateModeRenderStatesReStore();
+    }
+
+    HeatHazeFXInit();
+    RwRenderStateSet(rwRENDERSTATETEXTUREADDRESS, RWRSTATE(rwTEXTUREADDRESSCLAMP));
+    RwCameraEndUpdate(scene);
+    RwRasterPushContext(front);
+    RwRasterRenderFast(scene->frameBuffer, 0, 0); // копия кадра в pRasterFrontBuffer
+    RwRasterPopContext();
+    psCameraBeginUpdate(scene); // 0x745210
+
+    // альфа цвета = (int)(базовая интенсивность * fIntensity)
+    const auto iIntensity = (int32)((float)m_HeatHazeFXIntensity * fIntensity);
+
+    uiTempBufferVerticesStored = 0;
+    uiTempBufferIndicesStored  = 0;
+    RwRenderStateSet(rwRENDERSTATEFOGENABLE,         RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(TRUE));
+    if (bHasStencil) {
+        // рисуем скан-линии только там, где стенсил == REF(1) (маска FX)
+        RwRenderStateSet(rwRENDERSTATESTENCILPASS,        RWRSTATE(rwSTENCILOPERATIONKEEP));
+        RwRenderStateSet(rwRENDERSTATESTENCILFUNCTIONREF, RWRSTATE(1));
+        RwRenderStateSet(rwRENDERSTATESTENCILFUNCTION,    RWRSTATE(rwSTENCILFUNCTIONEQUAL)); // декомпил ставит (rwSTENCILFUNCTION, 3) = EQUAL
+    }
+    RwRenderStateSet(rwRENDERSTATEZTESTENABLE,   RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,  RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RWRSTATE(front));
+    RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, RWRSTATE(rwFILTERLINEAR));
+    RwRenderStateSet(rwRENDERSTATESRCBLEND,      RWRSTATE(rwBLENDSRCALPHA));
+    RwRenderStateSet(rwRENDERSTATEDESTBLEND,     RWRSTATE(rwBLENDINVSRCALPHA));
+
+    auto&    v        = aRadiosityVertexBuffer;
+    const auto nearZ  = RWSRCGLOBAL(dOpenDevice).zBufferNear;   // RwGlobals+0x18
+    const auto recipNear = 1.0f / scene->nearPlane;             // RwCamera+0x80
+    const auto fW     = (float)front->width;
+    const auto fH     = (float)front->height;
+
+    if (s_bMaskActive == 0) { // рендер 180 «скан-линий»
+        const auto color  = (uint32)iIntensity << 24 | 0x00FFFFFF;
+        const auto shiftX = (m_HeatHazeFXRenderSizeX - m_HeatHazeFXScanSizeX) / 2;
+        const auto shiftY = (m_HeatHazeFXRenderSizeY - m_HeatHazeFXScanSizeY) / 2;
+
+        for (auto i = 0; i < 180; i++) { // оригинал: do..while (байтовый индекс < 0x2D0)
+            auto scanX = hpX[i];
+            auto scanY = hpY[i];
+            auto offX  = scanX - shiftX;
+            auto offY  = scanY - shiftY;
+
+            if (m_HeatHazeFXRandomShift > 0) {
+                offX += CGeneral::GetRandomNumberInRange(-m_HeatHazeFXRandomShift, m_HeatHazeFXRandomShift);
+                offY += CGeneral::GetRandomNumberInRange(-m_HeatHazeFXRandomShift, m_HeatHazeFXRandomShift);
+            }
+            if (offX < 0) {
+                scanX += shiftX;
+                offX = 0;
+            }
+            if (const auto maxX = front->width - m_HeatHazeFXRenderSizeX; maxX < offX) {
+                scanX -= shiftX;
+                offX = maxX;
+            }
+            if (offY < 0) {
+                scanY += shiftY;
+                offY = 0;
+            }
+            if (const auto maxY = front->height - m_HeatHazeFXRenderSizeY; maxY < offY) {
+                scanY -= shiftY;
+                offY = maxY;
+            }
+
+            const auto n = uiTempBufferVerticesStored;
+            v[n + 0] = {
+                .x = (float)offX,                        .y = (float)offY,
+                .z = nearZ,                              .rhw = recipNear,
+                .emissiveColor = color,
+                .u = (float)scanX / fW,                  .v = (float)scanY / fH
+            };
+            v[n + 1] = {
+                .x = (float)(offX + m_HeatHazeFXRenderSizeX), .y = (float)offY,
+                .z = nearZ,                              .rhw = recipNear,
+                .emissiveColor = color,
+                .u = (float)(scanX + m_HeatHazeFXScanSizeX) / fW, .v = (float)scanY / fH
+            };
+            v[n + 2] = {
+                .x = (float)offX,                        .y = (float)(offY + m_HeatHazeFXRenderSizeY),
+                .z = nearZ,                              .rhw = recipNear,
+                .emissiveColor = color,
+                .u = (float)scanX / fW,                  .v = (float)(scanY + m_HeatHazeFXScanSizeY) / fH
+            };
+            v[n + 3] = {
+                .x = (float)(offX + m_HeatHazeFXRenderSizeX), .y = (float)(offY + m_HeatHazeFXRenderSizeY),
+                .z = nearZ,                              .rhw = recipNear,
+                .emissiveColor = color,
+                .u = (float)(scanX + m_HeatHazeFXScanSizeX) / fW, .v = (float)(scanY + m_HeatHazeFXScanSizeY) / fH
+            };
+
+            const auto idx = uiTempBufferIndicesStored;
+            aTempBufferIndices[idx + 0] = (RxVertexIndex)(n + 0);
+            aTempBufferIndices[idx + 1] = (RxVertexIndex)(n + 2);
+            aTempBufferIndices[idx + 2] = (RxVertexIndex)(n + 1);
+            aTempBufferIndices[idx + 3] = (RxVertexIndex)(n + 1);
+            aTempBufferIndices[idx + 4] = (RxVertexIndex)(n + 2);
+            aTempBufferIndices[idx + 5] = (RxVertexIndex)(n + 3);
+            uiTempBufferIndicesStored  += 6;
+            uiTempBufferVerticesStored += 4;
+
+            // движение скан-линий вверх; (int)(hpS[i] * ms_fTimeStep * 0.5f) — по дизассемблеру
+            hpY[i] -= (int32)((float)hpS[i] * CTimer::ms_fTimeStep * 0.5f);
+            if (hpY[i] < 0) { // линия ушла за экран — перезапуск снизу
+                hpX[i] = CGeneral::GetRandomNumberInRange(0, front->width - shiftX);
+                hpY[i] = front->height - m_HeatHazeFXScanSizeY;
+                hpS[i] = CGeneral::GetRandomNumberInRange(m_HeatHazeFXSpeedMin, m_HeatHazeFXSpeedMax);
+            }
+        }
+    } else { // одиночный полноэкранный квад (в игре недостижим: 0xC402BB никто не ставит в 1)
+        const auto color = (uint32)iIntensity << 24 | 0x00FF0000;
+        const auto n     = uiTempBufferVerticesStored;
+        v[n + 0].x = 0.0f;
+        v[n + 0].y = 0.0f;
+        v[n + 0].z = nearZ;
+        v[n + 0].rhw = recipNear;
+        v[n + 1].x = fW;
+        v[n + 1].y = 0.0f;
+        v[n + 1].z = nearZ;
+        v[n + 1].rhw = recipNear;
+        v[n + 2].x = 0.0f;
+        v[n + 2].y = fH;
+        v[n + 2].z = nearZ;
+        // v[n+2].rhw / v[n+3].rhw, а также u/v всех вершин НЕ пишутся (дословно как в оригинале —
+        // используются значения, оставшиеся в буфере от последнего прохода скан-линий)
+        v[n + 3].x = fW;
+        v[n + 3].y = fH;
+        v[n + 3].z = nearZ;
+        v[n + 0].emissiveColor = color;
+        v[n + 1].emissiveColor = color;
+        v[n + 2].emissiveColor = color;
+        v[n + 3].emissiveColor = color;
+
+        const auto idx = uiTempBufferIndicesStored;
+        aTempBufferIndices[idx + 0] = (RxVertexIndex)(n + 0);
+        aTempBufferIndices[idx + 1] = (RxVertexIndex)(n + 2);
+        aTempBufferIndices[idx + 2] = (RxVertexIndex)(n + 1);
+        aTempBufferIndices[idx + 3] = (RxVertexIndex)(n + 1);
+        aTempBufferIndices[idx + 4] = (RxVertexIndex)(n + 2);
+        aTempBufferIndices[idx + 5] = (RxVertexIndex)(n + 3);
+        uiTempBufferVerticesStored += 4;
+        uiTempBufferIndicesStored  += 6;
+    }
+
+    RwRenderStateSet(rwRENDERSTATETEXTURERASTER, RWRSTATE(front));
+    if (uiTempBufferVerticesStored != 0) {
+        RwIm2DRenderIndexedPrimitive(rwPRIMTYPETRILIST, aRadiosityVertexBuffer, uiTempBufferVerticesStored, aTempBufferIndices, uiTempBufferIndicesStored);
+    }
+    uiTempBufferVerticesStored = 0;
+    RwRenderStateSet(rwRENDERSTATEFOGENABLE,         RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATEZTESTENABLE,       RWRSTATE(TRUE));
+    RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,      RWRSTATE(TRUE));
+    RwRenderStateSet(rwRENDERSTATETEXTURERASTER,     RWRSTATE(nullptr));
+    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATESRCBLEND,          RWRSTATE(rwBLENDSRCALPHA));
+    RwRenderStateSet(rwRENDERSTATEDESTBLEND,         RWRSTATE(rwBLENDINVSRCALPHA));
+    if (bHasStencil) {
+        RwRenderStateSet(rwRENDERSTATESTENCILENABLE, RWRSTATE(FALSE));
+    }
 }
 
 // 0x7034F0
@@ -840,8 +1037,125 @@ void CPostEffects::Grain(int32 strengthMask, bool update) {
 }
 
 // 0x7030A0
+// Таблица 0x8D5190: 7 записей { float speedThreshold; int32 numQuads; int32 sizeX; int32 sizeY; }
+// (Ghidra читает sizeX/sizeY как float, но байтовые значения и интовые касты декомпила
+// ((int)local_8/2, (float)(int)local_8) доказывают: это int-поля).
+// UV-четвёрка пишется прямо в ms_imf.quad[0..3].u/.v, после отрисовки восстанавливается
+// DrawQuadSetUVs(0,0, 1,0, 0,1, 1,1) — как в теле оригинальной 0x701060 (репо-DrawQuadSetDefaultUVs
+// пишет q2/q3 в перепутанном порядке — не использовать).
 void CPostEffects::SpeedFX(float speed) {
-    plugin::Call<0x7030A0, float>(speed);
+    struct SpeedFXParams {
+        float speedThreshold;
+        int32 numQuads;
+        int32 sizeX;
+        int32 sizeY;
+    };
+    static auto& s_Params = StaticRef<SpeedFXParams[7]>(0x8D5190);
+
+    const auto lookingDir = (eLookingDirection)TheCamera.m_aCams[TheCamera.m_nActiveCam].m_nDirectionWasLooking;
+
+    auto quadSizeX = 0.0f;
+    auto quadSizeY = 0.0f;
+    auto numQuads  = 0;
+    for (auto e = 6; e >= 0; e--) { // оригинал идёт указателем от 0x8D51F0 вниз по таблице
+        if (s_Params[e].speedThreshold <= speed) {
+            quadSizeX = (float)s_Params[e].sizeX;
+            quadSizeY = (float)s_Params[e].sizeY;
+            numQuads  = s_Params[e].numQuads;
+            break;
+        }
+    }
+
+    if (lookingDir == LOOKING_DIRECTION_BEHIND || lookingDir == LOOKING_DIRECTION_UNKNOWN_3) {
+        quadSizeX = (float)((int32)quadSizeX / 2); // в оригинале целочисленное деление
+        quadSizeY = 0.0f;
+    }
+
+    if (numQuads <= 0) {
+        return;
+    }
+
+    ImmediateModeRenderStatesStore(); // 0x700CC0
+    ImmediateModeRenderStatesSet();   // 0x700D70
+
+    float randU = 0.0f;
+    float randV = 0.0f;
+    if ((int32)quadSizeY > 0) {
+        randU = ms_imf.fFrontBufferU2 * quadSizeY * StaticRef<float>(0x859CE0); // × 0.004f
+        randV = ms_imf.fFrontBufferV2 * quadSizeY * StaticRef<float>(0x859CE0);
+        randU  = (float)CGeneral::GetRandomNumber() * StaticRef<float>(0x858C7C) * randU;
+        randV  = (float)CGeneral::GetRandomNumber() * StaticRef<float>(0x858C7C) * randV;
+    }
+
+    const float stepU = ms_imf.fFrontBufferU2 * quadSizeX * StaticRef<float>(0x86C340); // × 0.0025f
+    const float stepV = quadSizeX * ms_imf.fFrontBufferV2 * StaticRef<float>(0x86C340);
+
+    // Аккумуляторы краёв UV-четвёрки (имена по ролям, в скобках — локали декомпила):
+    float leftU   = -stepU;  // local_c  — левый край кв.[1],[3].u
+    float left1U  = leftU;   // local_8
+    float topV    = -stepV;  // local_1c — нижний край кв.[2].v
+    float bot0V   = topV;    // local_18
+    float top0V   = stepV;   // local_24 — верхний край кв.[0].v
+    float top1V   = stepV;   // local_20
+    float rightU  = stepU;   // local_10 — правый край кв.[0].u
+    float right1U = stepU;   // local_4
+    float rndV0   = randV;   // local_30 — случайный сдвиг U кв.[0]/[2]
+    float rndU0   = randU;   // local_2c — случайный сдвиг V кв.[0]/[1]
+
+    auto n = numQuads;
+    do {
+        if (lookingDir == LOOKING_DIRECTION_BEHIND) { // 1: гасим вертикальные составляющие
+            rndV0   = 0.0f; // local_2c
+            randU   = 0.0f; // local_28
+            rndU0   = 0.0f; // local_30
+            randV   = 0.0f; // local_14
+            top0V   = 0.0f; // local_24
+            leftU   = 0.0f; // local_c
+            top1V   = 0.0f; // local_20
+            left1U  = 0.0f; // local_8
+            topV    = 0.0f; // local_1c
+            bot0V   = 0.0f; // local_18
+        }
+        if (lookingDir == LOOKING_DIRECTION_UNKNOWN_3) { // 2: гасим горизонтальные составляющие
+            rndV0   = 0.0f; // local_2c
+            randU   = 0.0f; // local_28
+            rndU0   = 0.0f; // local_30
+            randV   = 0.0f; // local_14
+            rightU  = 0.0f; // local_10
+            top0V   = 0.0f; // local_24
+            top1V   = 0.0f; // local_20
+            topV    = 0.0f; // local_1c
+            right1U = 0.0f; // local_4
+            bot0V   = 0.0f; // local_18
+        }
+
+        // Базы UV: 0xC40164 = fFrontBufferU1, 0xC40168 = fFrontBufferV1 (U2/V2 идут со знаком минус)
+        ms_imf.quad[0].u = ms_imf.fFrontBufferU1 + rightU + rndU0;
+        ms_imf.quad[0].v = ms_imf.fFrontBufferV1 + top0V + rndV0;
+        ms_imf.quad[1].u = (ms_imf.fFrontBufferU2 + leftU) - randU;
+        ms_imf.quad[1].v = ms_imf.fFrontBufferV1 + top1V + rndV0;
+        ms_imf.quad[2].u = ms_imf.fFrontBufferU1 + right1U + rndU0;
+        ms_imf.quad[2].v = (ms_imf.fFrontBufferV2 + bot0V) - randU;
+        ms_imf.quad[3].u = (ms_imf.fFrontBufferU2 + left1U) - randU;
+        ms_imf.quad[3].v = (ms_imf.fFrontBufferV2 + topV) - randV;
+
+        DrawQuad(0.0f, 0.0f, (float)RsGlobal.maximumWidth, (float)RsGlobal.maximumHeight, 255, 255, 255, (uint8)m_SpeedFXAlpha, pRasterFrontBuffer);
+
+        // расширение "ромба" UV на следующий квад
+        leftU   -= stepU;
+        left1U  -= stepU;
+        topV    -= stepV;
+        bot0V   -= stepV;
+        top0V   += stepV;
+        top1V   += stepV;
+        rightU  += stepU;
+        right1U += stepU;
+    } while (--n);
+
+    // Сброс UV как в оригинале 0x701060: q0=(0,0) q1=(1,0) q2=(0,1) q3=(1,1)
+    // (репо-DrawQuadSetDefaultUVs даёт q2=(1,1) q3=(0,1) — не использовать)
+    DrawQuadSetUVs(0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f);
+    ImmediateModeRenderStatesReStore(); // 0x700E00
 }
 
 // 0x702F00
@@ -884,8 +1198,163 @@ void CPostEffects::ColourFilter(RwRGBA pass1, RwRGBA pass2) {
 }
 
 // 0x702080
+// Сигнатура (int32,int32,int32,int32) __cdecl — прежний стаб plugin::Call<0x702080>() терял аргументы.
+// Структура: [фаза фильтра] filterPasses полуквадов с прогрессирующим уменьшением (size /= 2),
+// затем квад интенсивности; [фаза рендера] renderPasses квадов, растягивающих результат на экран.
+// m_RadiosityPixelsX/Y (0xC40314/0xC40318) в хедере репо объявлены float, но бинарь хранит int
+// (декомпил читает их как int) — здесь локальные StaticRef<int32>.
 void CPostEffects::Radiosity(int32 intensityLimit, int32 filterPasses, int32 renderPasses, int32 intensity) {
-    plugin::Call<0x702080>();
+    static auto& s_RadiosityPixelsX = StaticRef<int32>(0xC40314); // ширина (int; в хедере репо float — см. шапку)
+    static auto& s_RadiosityPixelsY = StaticRef<int32>(0xC40318); // высота
+
+    auto* const scene = Scene.m_pRwCamera;
+    auto*       front = pRasterFrontBuffer;
+    const auto recipNear = StaticRef<float>(0x858624) / scene->nearPlane; // 1.0f / nearPlane
+    auto& v = aRadiosityVertexBuffer;
+
+    RwRenderStateSet(rwRENDERSTATETEXTUREFILTER,     RWRSTATE(rwFILTERNEAREST));
+    RwRenderStateSet(rwRENDERSTATEFOGENABLE,         RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATEZTESTENABLE,       RWRSTATE(TRUE));
+    RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,      RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATETEXTURERASTER,     RWRSTATE(front));
+    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATESRCBLEND,          RWRSTATE(rwBLENDSRCALPHA));
+    RwRenderStateSet(rwRENDERSTATEDESTBLEND,         RWRSTATE(rwBLENDINVSRCALPHA));
+
+    const auto fW = (float)front->width;
+    const auto fH = (float)front->height;
+
+    // предварительный квад (переиспользуется как квад интенсивности, если filterPasses == 0)
+    v[0].x = 0.0f;
+    v[0].y = 0.0f;
+    v[0].z = 0.0f;
+    v[0].rhw = recipNear;
+    v[0].u  = 0.0f;
+    v[0].v  = 0.0f;
+    v[1].z  = 0.0f;
+    v[1].u  = 1.0f;
+    v[1].v  = 1.0f;
+    auto endX = (int32)RsGlobal.maximumWidth;
+    auto endY = (int32)RsGlobal.maximumHeight;
+    if (!m_bRadiosityStripCopyMode) {
+        endX = s_RadiosityPixelsX;
+        endY = s_RadiosityPixelsY;
+    }
+    v[1].x   = (float)endX;
+    v[1].y   = (float)endY;
+    v[1].rhw = recipNear;
+
+    uiTempBufferVerticesStored = 0;
+    RwRenderStateSet(rwRENDERSTATEZTESTENABLE, RWRSTATE(TRUE));
+
+    auto sizeX = s_RadiosityPixelsX; // прогрессирующе уменьшается
+    auto sizeY = s_RadiosityPixelsY;
+
+    if (filterPasses > 0) {
+        RwRenderStateSet(rwRENDERSTATETEXTUREFILTER, RWRSTATE(rwFILTERLINEAR));
+
+        // оригинал: развёрнутые итерации по 4 квада + хвостовой цикл; эквивалентно одному циклу
+        // с целочисленным делением размера пополам на каждом шаге
+        for (auto i = 0; i < filterPasses; i++) {
+            const auto n     = uiTempBufferVerticesStored;
+            const auto halfX = sizeX / 2;
+            const auto halfY = sizeY / 2;
+
+            v[n] = {
+                .x = 0.0f,                                        .y = 0.0f,
+                .z = 0.0f,                                        .rhw = recipNear,
+                .emissiveColor = 0xFFFFFFFF,
+                .u = (float)m_RadiosityFilterUCorrection / fW,    .v = (float)m_RadiosityFilterVCorrection / fH
+            };
+            v[n + 1] = {
+                .x = (float)(halfX + 1),                          .y = (float)(halfY + 1),
+                .z = 0.0f,                                        .rhw = recipNear,
+                .emissiveColor = 0xFFFFFFFF,
+                .u = (float)sizeX / fW,                           .v = (float)sizeY / fH
+            };
+            uiTempBufferVerticesStored = n + 2;
+            sizeX = halfX;
+            sizeY = halfY;
+        }
+    }
+
+    // квад интенсивности: TL без u/v (наследует uv последнего квада фильтра / (0,0)+(1,1) при filterPasses==0)
+    {
+        const auto n = uiTempBufferVerticesStored;
+        const auto color = 0x80000000u                                     // Ghidra: ((x|0xFFFF8000)<<8|x)<<8|x
+                         | (uint32)(intensityLimit << 16)
+                         | (uint32)(intensityLimit << 8)
+                         | (uint32)intensityLimit;
+        v[n].x     = 0.0f;
+        v[n].y     = 0.0f;
+        v[n].z     = 0.0f;
+        v[n].rhw   = recipNear;
+        v[n + 1].x = (float)(sizeX + 1);
+        v[n + 1].y = (float)(sizeY + 1);
+        v[n + 1].z = 0.0f;
+        v[n + 1].rhw = recipNear;
+        v[n].emissiveColor     = color;
+        v[n + 1].emissiveColor = color;
+        uiTempBufferVerticesStored = n + 2;
+    }
+
+    // Первый рендер гейтится renderPasses, а финальный — НЕТ: при renderPasses==0
+    // оригинал всё равно отрисовывает накопленный фильтр-стрип вторым вызовом.
+    auto renderCount = (int32)uiTempBufferVerticesStored;
+    if (renderPasses > 0) {
+        if (2 < renderCount) {
+            RwIm2DRenderPrimitive(rwPRIMTYPETRISTRIP, aRadiosityVertexBuffer, uiTempBufferVerticesStored);
+        }
+        uiTempBufferVerticesStored = 0;
+
+        RwRenderStateSet(rwRENDERSTATETEXTUREFILTER,
+            m_bRadiosityLinearFilter ? RWRSTATE(rwFILTERLINEAR) : RWRSTATE(rwFILTERMIPNEAREST));
+
+        const auto fMaxW = (float)RsGlobal.maximumWidth;
+        const auto fMaxH = (float)RsGlobal.maximumHeight;
+
+        // TL.u/v = 0 пишутся в ОБОИХ ветках (StripCopyMode/нет) на КАЖДОЙ итерации;
+        // в ветке !StripCopyMode при m_bRadiosityDebug цвет белый, иначе intensity<<24;
+        // в ветке StripCopyMode всегда intensity<<24.
+        for (auto i = 0; i < renderPasses; i++) {
+            const auto n = uiTempBufferVerticesStored;
+            const auto color = (!m_bRadiosityStripCopyMode && m_bRadiosityDebug)
+                ? 0xFFFFFFFFu
+                : (uint32)intensity << 24;
+
+            v[n].x     = 0.0f;
+            v[n].y     = 0.0f;
+            v[n].z     = 0.0f;
+            v[n].rhw   = recipNear;
+            v[n].u = 0.0f; // пишется безусловно на каждой итерации (обе ветки, головной и хвостовой циклы декомпила)
+            v[n].v = 0.0f;
+            v[n].emissiveColor = color;
+
+            v[n + 1].x = fMaxW;
+            v[n + 1].y = fMaxH;
+            v[n + 1].z = 0.0f;
+            v[n + 1].rhw = recipNear;
+            v[n + 1].u = (float)sizeX / fW;
+            v[n + 1].v = (float)sizeY / fH;
+            v[n + 1].emissiveColor = color;
+
+            uiTempBufferVerticesStored = n + 2;
+        }
+
+        renderCount = (int32)uiTempBufferVerticesStored;
+    }
+    if (2 < renderCount) {
+        RwIm2DRenderPrimitive(rwPRIMTYPETRISTRIP, aRadiosityVertexBuffer, renderCount);
+    }
+    uiTempBufferVerticesStored = 0;
+
+    RwRenderStateSet(rwRENDERSTATEFOGENABLE,         RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATEZTESTENABLE,       RWRSTATE(TRUE));
+    RwRenderStateSet(rwRENDERSTATEZWRITEENABLE,      RWRSTATE(TRUE));
+    RwRenderStateSet(rwRENDERSTATETEXTURERASTER,     RWRSTATE(nullptr));
+    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(FALSE));
+    RwRenderStateSet(rwRENDERSTATESRCBLEND,          RWRSTATE(rwBLENDSRCALPHA));
+    RwRenderStateSet(rwRENDERSTATEDESTBLEND,         RWRSTATE(rwBLENDINVSRCALPHA));
 }
 
 // 0x700BE0

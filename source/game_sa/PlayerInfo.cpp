@@ -5,16 +5,20 @@
 #include "MenuSystem.h"
 #include "Hud.h"
 
+// 0x858B90 - порог z-гейта лодок в FindClosestCarSectorList (значение по байтам не перепроверено
+// верификатором - читаем по адресу, как в оригинале)
+static auto& boat_flt_858B90 = StaticRef<float>(0x858B90);
+
 void CPlayerInfo::InjectHooks() {
     RH_ScopedClass(CPlayerInfo);
     RH_ScopedCategoryGlobal();
 
     RH_ScopedInstall(Constructor, 0x571920, { .State = HS::RedirectToGTA, .Locked = true }); // hooking ctor will produce bugs with weapons, you will never give weapon through cheat or something
     RH_ScopedInstall(CancelPlayerEnteringCars, 0x56E860);
-    RH_ScopedInstall(FindObjectToSteal, 0x56DBD0, { .Reversed = false });
+    RH_ScopedInstall(FindObjectToSteal, 0x56DBD0);
     RH_ScopedInstall(EvaluateCarPosition, 0x56DAD0);
-    RH_ScopedInstall(Process, 0x56F8D0, { .Reversed = false });
-    RH_ScopedInstall(FindClosestCarSectorList, 0x56F4E0, { .Reversed = false });
+    RH_ScopedInstall(Process, 0x56F8D0, { .Reversed = false }); // STUB_DEFERRED: тело не реверснуто (см. 0x56F8D0.cpp)
+    RH_ScopedInstall(FindClosestCarSectorList, 0x56F4E0);
     RH_ScopedInstall(Clear, 0x56F330);
     RH_ScopedInstall(StreamParachuteWeapon, 0x56EB30);
     RH_ScopedInstall(AddHealth, 0x56EAB0);
@@ -73,8 +77,64 @@ void CPlayerInfo::CancelPlayerEnteringCars(CVehicle* vehicle) {
 }
 
 // 0x56DBD0
+// Константы декодированы из gta_sa.exe (1.0 US):
+//   0x858B8C=0.5f 0x858B3C=3.0f 0x858B38=0.02f 0x858B34=60.0f 0x863214=4.5f
+//   0x85862C=10.0f 0x858C4C=1000.0f 0xB7CD78=CWorld::ms_nCurrentScanCode
+//   0xB992C0 = CWorld::ms_aRepeatSectors[].Objects (0xB992B8 + 0x8)
+// Оффсеты: ped+0x14=m_matrix (fwd=+0x10, right=+0x00, pos=+0x30), ped+0x04=placement.pos;
+//   obj+0x140=m_nObjectFlags (bit 0x2000 = bIsLiftable), obj+0x2C=m_ScanCode.
+// Прочее: FUN_008219F0/FUN_00821B40 в декомпиле — пара float->int (_ftol/_ftol2) = обычный (int)каст;
+//   лимиты секторов: min >= 0, max <= 0x77 (119).
 CEntity* CPlayerInfo::FindObjectToSteal(CPed* ped) {
-    return plugin::CallAndReturn<CEntity*, 0x56DBD0, CPed*>(ped);
+    CEntity* result = nullptr;
+
+    // Точка поиска перед пэдом: pos + forward * (0.5f * 3.0f)
+    const auto& pos = ped->GetPosition();      // matrix ? matrix->pos : placement.pos (оригинал: +0x14/+0x04)
+    const auto& fwd = ped->GetForward();       // matrix->forward (RW-матрица, +0x10)
+    const auto  searchX = pos.x + fwd.x * 1.5f;
+    const auto  searchY = pos.y + fwd.y * 1.5f;
+    const auto  searchZ = pos.z + fwd.z * 1.5f;
+
+    // Координаты -> индексы 120 секторов (по 50 юнитов): c * 0.02f + 60.0f, окно ±3.0f
+    const auto SectorOf = [](float c) { return (int32)(c * 0.02f + 60.0f); };
+
+    const auto minX = std::max(0,   SectorOf(searchX - 3.0f));
+    const auto minY = std::max(0,   SectorOf(searchY - 3.0f));
+    const auto maxX = std::min(119, SectorOf(searchX + 3.0f));
+    const auto maxY = std::min(119, SectorOf(searchY + 3.0f));
+    // Оригинал (0x56DBD0): if (DAT_00b7cd78 == -1) { FUN_00563470(); DAT_00b7cd78 = 1; } else { DAT_00b7cd78++; }
+    // FUN_00563470 = CWorld::ClearScanCodes; 0x4072E0 = CWorld::AdvanceCurrentScanCode - ровно эта логика.
+    // Без инкремента сравнение obj->GetScanCode() != ms_nCurrentScanCode сравнивало бы с устаревшим значением.
+    CWorld::AdvanceCurrentScanCode();
+    if (maxY < minY) {
+        return nullptr;
+    }
+
+    for (auto y = minY; y <= maxY; y++) {
+        for (auto x = minX; x <= maxX; x++) {
+            for (auto* const obj : CWorld::GetRepeatSector(x, y).Objects) { // (x & 0xF) + (y & 0xF) * 16
+                const auto& objPosn = obj->GetPosition();
+                const auto  dx = objPosn.x - searchX;
+                const auto  dy = objPosn.y - searchY;
+                const auto  dz = objPosn.z - searchZ;
+
+                if (   obj->objectFlags.bIsLiftable          // +0x140 & 0x2000
+                    && obj->GetScanCode() != CWorld::ms_nCurrentScanCode // +0x2C vs 0xB7CD78
+                    && dx * dx + dy * dy + dz * dz < 4.5f
+                ) {
+                    const auto& mat    = *ped->m_matrix;
+                    auto        dotFwd = DotProduct(CVector{dx, dy, dz}, mat.GetForward());
+                    if (dotFwd < 0.0f) {
+                        dotFwd = 10.0f - dotFwd;
+                    }
+                    if (dotFwd + std::abs(DotProduct(CVector{dx, dy, dz}, mat.GetRight())) * 3.0f < 1000.0f) {
+                        result = obj;
+                    }
+                }
+            }
+        }
+    }
+    return result;
 }
 
 // 0x56DAD0
@@ -129,13 +189,116 @@ void CPlayerInfo::SetLastTargetVehicle(CVehicle* vehicle) {
 }
 
 // 0x56F8D0
+// STUB_DEFERRED — декомпил ~1030 строк, ~25 невыясненных вызовов, x87/_ftol2-паттерны, SEH.
+// Тело оставлено редиректом; карта верифицированных фактов для будущего реверса — в шапке фрагмента
+// D:\projects\keep\batch_out\fresh\0x56F8D0.cpp. Сигнатура свёрена: void Process(uint32 playerIndex).
 void CPlayerInfo::Process(uint32 playerIndex) {
     plugin::CallMethod<0x56F8D0, CPlayerInfo*, uint32>(this, playerIndex);
 }
 
 // 0x56F4E0
+// Константы из gta_sa.exe (1.0 US): 0x858C24=0.3f 0x858624=1.0f 0x858CA0=2.0f 0x85862C=10.0f
+//   0x858B50=0.0f (множитель X/Y-слагаемых!) 0x41200000=10.0f 0xB7CD78=CWorld::ms_nCurrentScanCode
+// Оффсеты: veh+0x1C bit0=m_bUsesCollision; veh+0x36=m_info (тип &7==2, статус >>3);
+//   veh+0x42E & 0x20 = vehicleFlags.bCanBeDamaged; veh+0x590=m_nVehicleType (9=BIKE, 5=BOAT);
+//   veh+0x22=m_nModelIndex (0x241=577=MODEL_AT400); veh+0x14=m_matrix, +0x04=placement.pos, +0x28=up.z.
+// Прочее: vtbl+0xD4 = CVehicle::GetHeightAboveRoad(); вызов GetBoundCentre в оригинале затирается
+//   нечитанной позицией (квирк R*) — опущен (чистая функция, без сайд-эффектов).
 void CPlayerInfo::FindClosestCarSectorList(CPtrListDoubleLink<CVehicle*>& ptrList, CPed* ped, float minX, float minY, float maxX, float maxY, float* outVehDist, CVehicle** outVehicle) {
-    plugin::CallMethod<0x56F4E0, CPlayerInfo*, CPtrListDoubleLink<CVehicle*>&, CPed*, float, float, float, float, float*, CVehicle**>(this, ptrList, ped, minX, minY, maxX, maxY, outVehDist, outVehicle);
+    // Оригинал: this и границы сектора (minX..maxY) не используются
+
+    for (auto* const veh : ptrList) {
+        if (veh->IsScanCodeCurrent()) {                       // +0x2C vs 0xB7CD78
+            continue;
+        }
+        if (!veh->m_bUsesCollision) {                         // +0x1C bit0
+            continue;
+        }
+        // +0x36 = CEntity::m_info (protected в хедере) — читаем байт по смещению, как в оригинале
+        const auto infoByte = *reinterpret_cast<const uint8*>(uintptr_t(veh) + 0x36);
+        if (eEntityType(infoByte & 7) != ENTITY_TYPE_VEHICLE) { // & 7 == 2
+            continue;
+        }
+        const auto status = eEntityStatus(infoByte >> 3);       // >> 3
+        veh->SetCurrentScanCode();
+        // Оригинал: bVar3 == 5 || bVar3 == 6. По eEntityStatus ЭТОГО репо (PLAYER=0,..,ABANDONED=4,
+        // WRECKED=5, TRAIN_MOVING=6) это STATUS_WRECKED и STATUS_TRAIN_MOVING - не ABANDONED/WRECKED.
+        if (status == STATUS_WRECKED || status == STATUS_TRAIN_MOVING) {
+            continue;
+        }
+
+        if (!veh->m_matrix) {
+            veh->AllocateMatrix();                            // 0x54F560
+            veh->m_placement.UpdateMatrix(veh->m_matrix);     // 0x54F1B0
+        }
+
+        // Перевёрнутая (up.z <= 0.3) машина — только байк подлежит обработке
+        if (   veh->m_matrix->GetUp().z <= 0.3f
+            && (eEntityType(infoByte & 7) != ENTITY_TYPE_VEHICLE || veh->m_nVehicleType != VEHICLE_TYPE_BIKE)
+        ) {
+            continue;
+        }
+
+        // (void)veh->GetBoundCentre(); — в оригинале вызывается (0x534250), но результат затирается позицией
+        auto vehPos = veh->GetPosition();                     // matrix ? matrix->pos : placement.pos
+        vehPos.z -= veh->GetHeightAboveRoad();                // vtbl+0xD4
+        vehPos.z += 1.0f;
+
+        // В оригинале дистанция = только разница Z: X/Y-слагаемые умножены на 0.0f (0x858B50)
+        auto pedToVehDist = ped->GetPosition().z - vehPos.z;
+
+        const auto ProcessVehicle = [&]() {
+            if (!veh->vehicleFlags.bCanBeDamaged) {           // +0x42E & 0x20
+                return;
+            }
+            CVector doorPos{};
+            int32   doorId{};
+            if (!CCarEnterExit::GetNearestCarDoor(ped, veh, doorPos, doorId)) {
+                return;
+            }
+            const auto& carPosn = veh->GetPosition();
+            const auto& pedPosn = ped->GetPosition();
+            const auto  dist    = CVector{ pedPosn.x - carPosn.x, pedPosn.y - carPosn.y, 0.0f }.Magnitude(); // z=0 в оригинале
+            auto        effectiveDist = dist;
+            if (dist > 10.0f) { // оригинал: 0x85862C(10.0f) < dist - строго больше
+                if (!CPedGeometryAnalyser::LiesInsideBoundingBox(*ped, pedPosn, *veh)) { // 0x5F3880
+                    return;
+                }
+                effectiveDist = 10.0f;
+            }
+            if (!CCranes::IsThisCarBeingCarriedByAnyCrane(veh)) { // 0x6F3FF0
+                EvaluateCarPosition(veh, ped, effectiveDist, outVehDist, outVehicle); // 0x56DAD0
+            }
+        };
+
+        if (veh->m_nModelIndex == MODEL_AT400) {              // 0x241 = 577
+            CVector doorPos{};
+            int32   doorId{};
+            if (CCarEnterExit::GetNearestCarDoor(ped, veh, doorPos, doorId)) {
+                pedToVehDist = std::abs(ped->GetPosition().z - doorPos.z);
+                if (pedToVehDist < 1.0f) {
+                    ProcessVehicle();
+                    continue;
+                }
+            }
+        }
+        if (std::abs(pedToVehDist) < 2.0f) {
+            ProcessVehicle();
+        } else if (veh->m_nVehicleType == VEHICLE_TYPE_BOAT) {
+            // Оригинал (0x56F699..0x56F6DE): для не-лодок ветка `|dist|>=2` уходит на следующую машину,
+            // а для BOAT (vehType==5) do-while проваливается в доп.гейт:
+            //   if (vehPos.z < pedPos.z) { if (vehPos.z <= pedPos.z - DAT_00858b90) -> нужна контактная проверка; else -> Process }
+            //   else (vehPos.z >= pedPos.z) -> нужна контактная проверка
+            //   контактная проверка: ped->m_pContactEntity (+0x584) == veh, иначе следующая машина
+            const auto pedZ = ped->GetPosition().z;
+            if (vehPos.z >= pedZ || vehPos.z <= pedZ - boat_flt_858B90) {
+                if (ped->m_pContactEntity != veh) {
+                    continue;
+                }
+            }
+            ProcessVehicle();
+        }
+    }
 }
 
 // 0x56F330

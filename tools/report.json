@@ -1,0 +1,105 @@
+{
+ "meta": [
+  "- original: D:\\projects\\keep\\ghidra\\gta_sa.exe (base 0x400000)",
+  "- ours: D:\\projects\\gta_sa_reversed\\bin\\Release\\gta_reversed.asi (base 0x10000000)",
+  "- generated: 2026-10-08 02:13:17",
+  "- score = 0.45*mnemonic + 0.30*constants + 0.15*calls + 0.10*branches",
+  "- normalization: opcode classes (registers stripped), MSVC frame-pointer/GS-cookie boilerplate stripped"
+ ],
+ "results": [
+  {
+   "name": "CGarage::FindDoorsWithGarage",
+   "orig_addr": 4497392,
+   "key": "CGarage::FindDoorsWithGarage@449FF0",
+   "orig_end": "0x44a170",
+   "orig_bytes": 384,
+   "candidates": [
+    {
+     "rva": "0xfb5bb0",
+     "size": 356
+    }
+   ],
+   "our_rva": "0xfb5bb0",
+   "our_bytes": 356,
+   "our_size_pdb": 356,
+   "missing_constants": [
+    [
+     "i:32",
+     2
+    ],
+    [
+     "i:412",
+     2
+    ],
+    [
+     "i:5",
+     2
+    ],
+    [
+     "i:128",
+     1
+    ],
+    [
+     "i:48",
+     1
+    ],
+    [
+     "f:0.5",
+     1
+    ]
+   ],
+   "extra_constants": [
+    [
+     "i:24",
+     1
+    ],
+    [
+     "i:4",
+     1
+    ]
+   ],
+   "callees": {
+    "orig": [],
+    "ours": [
+     "CPlaceable::GetPosition",
+     "CPool<CObject,CCutsceneObject>::GetAt",
+     "CPool<CObject,CCutsceneObject>::GetSize",
+     "GetObjectPool",
+     "sqrt"
+    ],
+    "only_in_orig": [],
+    "only_in_ours": [
+     "CPlaceable::GetPosition",
+     "CPool<CObject,CCutsceneObject>::GetAt",
+     "CPool<CObject,CCutsceneObject>::GetSize",
+     "GetObjectPool",
+     "sqrt"
+    ]
+   },
+   "status": [],
+   "branches": {
+    "orig": {
+     "jcc": 10,
+     "back_jcc": 1,
+     "jmp": 4,
+     "insns": 128
+    },
+    "ours": {
+     "jcc": 8,
+     "back_jcc": 1,
+     "jmp": 1,
+     "insns": 101
+    }
+   },
+   "score": 0.3639,
+   "components": {
+    "mnemonic": 0.2707,
+    "constants": 0.5926,
+    "calls": 0.0,
+    "branches": 0.6429
+   },
+   "orig_insns": 128,
+   "our_insns": 101
+  }
+ ]
+}
