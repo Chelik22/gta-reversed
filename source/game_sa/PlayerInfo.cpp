@@ -4,6 +4,12 @@
 #include "FireManager.h"
 #include "MenuSystem.h"
 #include "Hud.h"
+#include "Tasks/TaskTypes/TaskComplexGoPickUpEntity.h"
+#include "Tasks/TaskTypes/TaskSimpleHoldEntity.h"
+#include "Tasks/TaskTypes/TaskSimpleJetPack.h"
+#include "Tasks/TaskTypes/TaskSimpleSwim.h"
+#include "Tasks/TaskTypes/TaskComplexEnterCarAsPassenger.h"
+#include "Tasks/TaskTypes/TaskComplexLeaveCar.h"
 
 // 0x858B90 - порог z-гейта лодок в FindClosestCarSectorList (значение по байтам не перепроверено
 // верификатором - читаем по адресу, как в оригинале)
@@ -17,7 +23,7 @@ void CPlayerInfo::InjectHooks() {
     RH_ScopedInstall(CancelPlayerEnteringCars, 0x56E860);
     RH_ScopedInstall(FindObjectToSteal, 0x56DBD0);
     RH_ScopedInstall(EvaluateCarPosition, 0x56DAD0);
-    RH_ScopedInstall(Process, 0x56F8D0, { .Reversed = false }); // STUB_DEFERRED: тело не реверснуто (см. 0x56F8D0.cpp)
+    RH_ScopedInstall(Process, 0x56F8D0); // полная реверсня (wf-final), 3 остаточных plugin::Call в теле
     RH_ScopedInstall(FindClosestCarSectorList, 0x56F4E0);
     RH_ScopedInstall(Clear, 0x56F330);
     RH_ScopedInstall(StreamParachuteWeapon, 0x56EB30);
@@ -188,13 +194,667 @@ void CPlayerInfo::SetLastTargetVehicle(CVehicle* vehicle) {
     CEntity::SafeRegisterRef(m_pLastTargetVehicle);
 }
 
-// 0x56F8D0
-// STUB_DEFERRED — декомпил ~1030 строк, ~25 невыясненных вызовов, x87/_ftol2-паттерны, SEH.
-// Тело оставлено редиректом; карта верифицированных фактов для будущего реверса — в шапке фрагмента
-// D:\projects\keep\batch_out\fresh\0x56F8D0.cpp. Сигнатура свёрена: void Process(uint32 playerIndex).
+// Статик-переменные логики погони (оригинальные глобалы Process)
+static auto& Process_ChasePosInitialized_   = StaticRef<uint8>(0xB9B9A0);    // bit0: кэш позиции инициализирован
+static auto& Process_ChaseCachedPlayerPos_  = StaticRef<CVector>(0xB9B994);  // позиция игрока с прошлой проверки
+static auto& Process_ChasePlayerMovedFar_   = StaticRef<uint8>(0x8CDF21);    // игрок уехал >= 10.0f от кэша
+static auto& Process_ChaseNodeFound_        = StaticRef<uint8>(0x8CDF20);    // найдена роад-нода рядом
+
 void CPlayerInfo::Process(uint32 playerIndex) {
-    plugin::CallMethod<0x56F8D0, CPlayerInfo*, uint32>(this, playerIndex);
+    if (CReplay::Mode == MODE_PLAYBACK) {
+        return;
+    }
+
+    const auto pad = CPad::GetPad(playerIndex);
+    const auto ped = m_pPed;
+
+    // Такси-тариф: +1$ за каждую секунду с пассажиром в TAXI/CABBIE
+    if (m_bTaxiTimerScore && ped->bInVehicle) {
+        const auto veh = ped->m_pVehicle;
+        const auto now = CTimer::GetTimeInMS();
+        if ((veh->m_nModelIndex == MODEL_TAXI || veh->m_nModelIndex == MODEL_CABBIE)
+            && veh->m_pDriver == ped
+            && veh->m_nNumPassengers != 0
+        ) {
+            if (const auto elapsed = now - m_nTaxiTimer; elapsed > 999) {
+                const auto seconds = elapsed / 1000;
+                m_nMoney += seconds;
+                m_nTaxiTimer += seconds * 1000;
+            }
+        } else {
+            m_nTaxiTimer = now;
+        }
+    } else {
+        m_nTaxiTimer = CTimer::GetTimeInMS();
+    }
+
+    // Счётчики трюков: two wheels / wheelie / stoppie (+ меньше 3 колёс)
+    const auto ResetStuntCounters = [&] {
+        m_nCarLess3WheelCounter  = 0;
+        m_nTempBufferCounter     = 0;
+        m_nCarTwoWheelCounter    = 0;
+        m_nBikeRearWheelCounter  = 0;
+        m_nBikeFrontWheelCounter = 0;
+    };
+    if (!ped->bInVehicle || !ped->m_pVehicle) {
+        ResetStuntCounters();
+    } else {
+        const auto veh = ped->m_pVehicle;
+
+        // Служебное: финализация «двух колёс» автомобиля (рекорд с 2 секунд)
+        const auto RecordCarTwoWheels = [&] {
+            if (m_nCarTwoWheelCounter > 1999) {
+                m_fBestCarTwoWheelsDistM  = m_fCarTwoWheelDist;
+                m_nBestCarTwoWheelsTimeMs = m_nCarTwoWheelCounter;
+                CStats::SetNewRecordStat(STAT_LONGEST_2_WHEELS_TIME, static_cast<float>(m_nCarTwoWheelCounter / 1000));
+                CStats::SetNewRecordStat(STAT_LONGEST_2_WHEELS_DISTANCE, m_fCarTwoWheelDist);
+            }
+            m_fCarTwoWheelDist     = 0.0f;
+            m_nTempBufferCounter   = 0;
+            m_nCarTwoWheelCounter  = 0;
+        };
+
+        if (veh->m_nVehicleType == VEHICLE_TYPE_AUTOMOBILE) {
+            const auto automobile = veh->AsAutomobile();
+
+            // Меньше 3 колёс на земле
+            if (automobile->GetNumContactWheels() < 3) {
+                m_nCarLess3WheelCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+            } else {
+                m_nCarLess3WheelCounter = 0;
+            }
+
+            // Два колеса: m_fWheelsSuspensionCompressionPrev == 1.0f = колесо в покое
+            const auto& susp = automobile->m_fWheelsSuspensionCompressionPrev;
+            if (susp[2] != 1.0f || susp[3] != 1.0f) {
+                if (susp[0] == 1.0f && susp[1] == 1.0f) {
+                    if (susp[2] < 1.0f && susp[3] < 1.0f && veh->m_fDamageIntensity == 0.0f) {
+                        // Едем на стороне {2,3}
+                        m_nCarTwoWheelCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                        m_fCarTwoWheelDist += veh->m_fMovingSpeed;
+                        const auto newTemp = static_cast<float>(m_nTempBufferCounter) - CTimer::GetTimeStepInMS() * 0.5f;
+                        m_nTempBufferCounter = newTemp > 0.0f ? static_cast<uint32>(newTemp) : 0;
+                    } else if (m_nCarTwoWheelCounter != 0 && m_nTempBufferCounter < 500) {
+                        m_nTempBufferCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                    } else {
+                        RecordCarTwoWheels();
+                    }
+                } else {
+                    // Передняя сторона тоже не в покое
+                    if (m_nCarTwoWheelCounter != 0) {
+                        RecordCarTwoWheels();
+                    }
+                }
+            } else {
+                if (susp[0] >= 1.0f || susp[1] >= 1.0f || veh->m_fDamageIntensity != 0.0f) {
+                    if (m_nCarTwoWheelCounter != 0 && m_nTempBufferCounter < 500) {
+                        m_nTempBufferCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                    } else {
+                        RecordCarTwoWheels();
+                    }
+                } else {
+                    // Едем на стороне {0,1}
+                    m_nCarTwoWheelCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                    m_fCarTwoWheelDist += veh->m_fMovingSpeed;
+                    const auto newTemp = static_cast<float>(m_nTempBufferCounter) - CTimer::GetTimeStepInMS() * 0.5f;
+                    m_nTempBufferCounter = newTemp > 0.0f ? static_cast<uint32>(newTemp) : 0;
+                }
+            }
+            m_nBikeRearWheelCounter  = 0;
+            m_nBikeFrontWheelCounter = 0;
+        } else if (veh->m_nVehicleType == VEHICLE_TYPE_BIKE) {
+            const auto bike = veh->AsBike();
+
+            // Служебные: рекорды вилли (с 5 секунд) и стоппи (с 2 секунд)
+            const auto RecordWheelie = [&] {
+                if (m_nBikeRearWheelCounter > 4999) {
+                    m_fBestBikeWheelieDistM  = m_fBikeRearWheelDist;
+                    m_nBestBikeWheelieTimeMs = m_nBikeRearWheelCounter;
+                    CStats::SetNewRecordStat(STAT_LONGEST_WHEELIE_TIME, static_cast<float>(m_nBikeRearWheelCounter / 1000));
+                    CStats::SetNewRecordStat(STAT_LONGEST_WHEELIE_DISTANCE, m_fBikeRearWheelDist);
+                }
+                m_nBikeRearWheelCounter = 0;
+                m_fBikeRearWheelDist    = 0.0f;
+            };
+            const auto RecordStoppie = [&] {
+                if (m_nBikeFrontWheelCounter > 1999) {
+                    m_fBestBikeStoppieDistM  = m_fBikeFrontWheelDist;
+                    m_nBestBikeStoppieTimeMs = m_nBikeFrontWheelCounter;
+                    CStats::SetNewRecordStat(STAT_LONGEST_STOPPIE_TIME, static_cast<float>(m_nBikeFrontWheelCounter / 1000));
+                    CStats::SetNewRecordStat(STAT_LONGEST_STOPPIE_DISTANCE, m_fBikeFrontWheelDist);
+                }
+                m_nBikeFrontWheelCounter = 0;
+                m_fBikeFrontWheelDist    = 0.0f;
+            };
+            const auto DecayTempBuffer = [&](float mult) {
+                const auto newTemp = static_cast<float>(m_nTempBufferCounter) - CTimer::GetTimeStepInMS() * mult;
+                m_nTempBufferCounter    = newTemp > 0.0f ? static_cast<uint32>(newTemp) : 0;
+                m_nCarTwoWheelCounter   = 0;
+                m_nCarLess3WheelCounter = 0;
+            };
+
+            const auto& hist = bike->m_aRatioHistory;
+            if (hist[0] == 1.0f && hist[1] == 1.0f && m_nBikeFrontWheelCounter == 0) {
+                if (hist[2] < 1.0f || (hist[3] < 1.0f && veh->m_fDamageIntensity == 0.0f)) {
+                    // Вилли активен
+                    m_nBikeRearWheelCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                    m_fBikeRearWheelDist += veh->m_fMovingSpeed;
+                    DecayTempBuffer(0.2f);
+                } else if (m_nBikeRearWheelCounter == 0 || m_nTempBufferCounter > 499) {
+                    // Вилли завершён: рекорд и полный сброс
+                    RecordWheelie();
+                    m_nTempBufferCounter     = 0;
+                    m_nCarTwoWheelCounter    = 0;
+                    m_nCarLess3WheelCounter  = 0;
+                } else {
+                    // Отсрочка: тихий период ещё не истёк
+                    m_nTempBufferCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                    m_nCarTwoWheelCounter   = 0;
+                    m_nCarLess3WheelCounter = 0;
+                }
+            } else {
+                if (m_nBikeRearWheelCounter != 0) {
+                    // Вилли был в процессе — финализируем
+                    RecordWheelie();
+                    m_nTempBufferCounter     = 0;
+                    m_nCarTwoWheelCounter    = 0;
+                    m_nCarLess3WheelCounter  = 0;
+                } else {
+                    bool skipBufferReset = false;
+                    if (hist[2] == 1.0f && hist[3] == 1.0f) {
+                        if (hist[0] < 1.0f || (hist[1] < 1.0f && veh->m_fDamageIntensity == 0.0f)) {
+                            // Стоппи активен
+                            m_nBikeFrontWheelCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                            m_fBikeFrontWheelDist += veh->m_fMovingSpeed;
+                            DecayTempBuffer(0.2f);
+                            skipBufferReset = true;
+                        } else if (m_nBikeFrontWheelCounter != 0 && m_nTempBufferCounter < 500) {
+                            m_nTempBufferCounter += static_cast<uint32>(CTimer::GetTimeStepInMS());
+                            m_nCarTwoWheelCounter   = 0;
+                            m_nCarLess3WheelCounter = 0;
+                            skipBufferReset = true;
+                        } else {
+                            RecordStoppie();
+                        }
+                    } else {
+                        RecordStoppie();
+                    }
+                    if (!skipBufferReset) {
+                        m_nTempBufferCounter     = 0;
+                        m_nCarTwoWheelCounter    = 0;
+                        m_nCarLess3WheelCounter  = 0;
+                    }
+                }
+            }
+        } else {
+            ResetStuntCounters();
+        }
+    }
+
+    WorkOutEnergyFromHunger();
+
+    // Отображаемые деньги догоняют реальные (шаг зависит от разницы)
+    if (m_nDisplayMoney != m_nMoney) {
+        const auto diff    = m_nMoney - m_nDisplayMoney;
+        const auto absDiff = std::abs(diff);
+        auto step = absDiff < 100'001
+            ? (absDiff < 10'001
+                ? (absDiff < 1'001
+                    ? (absDiff < 51 ? 1 : 42)
+                    : 123)
+                : 1'234)
+            : 12'345;
+        if (diff < 0) {
+            step = -step;
+        }
+        m_nDisplayMoney += step;
+    }
+
+    // Максимум здоровья из статов
+    m_pPed->m_fMaxHealth = CStats::GetFatAndMuscleModifier(STAT_MOD_MAX_HEALTH);
+    m_nMaxHealth = static_cast<uint8>(m_pPed->m_fMaxHealth);
+
+    // Парашют: стримим при высоком навыке полёта в воздушном транспорте
+    if (m_pPed->bInVehicle && CStats::GetStatValue(STAT_FLYING_SKILL) >= 400.0f) {
+        StreamParachuteWeapon(true);
+    } else if (m_bParachuteReferenced && CGameLogic::IsCoopGameGoingOn() && m_bParachuteReferenced) {
+        CStreaming::SetModelIsDeletable(MODEL_GUN_PARA);
+        m_bParachuteReferenced   = false;
+        m_nRequireParachuteTimer = 0;
+    }
+
+    // Плотность дорог вокруг игрока (раз в 16 кадров), кламп [0.5, 1.45]
+    if ((CTimer::m_FrameCounter & 0xF) == 0) {
+        const auto& pos = m_pPed->bInVehicle
+            ? m_pPed->m_pVehicle->GetPosition()
+            : m_pPed->GetPosition();
+        // 0x44EFC0: в репо не реверснуто (только объявление, хук закомменчен)
+        m_fRoadDensityAroundPlayer = plugin::CallAndReturn<float, 0x44EFC0, float, float>(pos.x, pos.y);
+    }
+    m_fRoadDensityAroundPlayer = (m_fRoadDensityAroundPlayer - 1.0f) * 0.6f + 1.0f;
+    m_fRoadDensityAroundPlayer = std::max(m_fRoadDensityAroundPlayer, 0.5f);
+    m_fRoadDensityAroundPlayer = std::min(m_fRoadDensityAroundPlayer, 1.45f);
+
+    // Вход/выход из машины по кнопкам
+    // skipEnterExit == goto LAB_00570aa5: прервать вход/выход, продолжить со следующего блока
+    auto skipEnterExit = false;
+    if (!pad->GetTarget()
+        && ped->bCanExitCar
+        && !ped->bUsingMobilePhone
+        && (pad->ExitVehicleJustDown()
+            || (m_bTryingToExitCar && pad->GetExitVehicle() && ped->bInVehicle))
+    ) {
+        m_bTryingToExitCar = false;
+        if (!ped->bInVehicle) {
+            if (!ped->m_pAttachedTo) {
+                const auto entity      = CPlayerInfo::FindObjectToSteal(ped);
+                const auto activeTask  = ped->GetTaskManager().GetSimplestActiveTask();
+                const auto holdTask    = ped->GetIntelligence()->GetTaskHold(false);
+                const auto fightTask   = ped->GetIntelligence()->GetTaskFighting();
+                if (activeTask->GetTaskType() != TASK_SIMPLE_CLIMB
+                    && !fightTask
+                    && (!holdTask || !holdTask->m_pEntityToHold)
+                ) {
+                    if (!entity) {
+                        // Сканируем секторы в поисках машины
+                        CVehicle* foundVehicle = nullptr;
+                        float     foundVehDist = 0.0f;
+                        const auto& pos  = ped->GetPosition();
+                        const auto minX  = pos.x - 10.0f, maxX = pos.x + 10.0f;
+                        const auto minY  = pos.y - 10.0f, maxY = pos.y + 10.0f;
+                        const auto SectorOf = [](float c) { return static_cast<int32>(c * 0.02f + 60.0f); };
+                        CWorld::AdvanceCurrentScanCode();
+                        for (auto y = SectorOf(minY); y <= SectorOf(maxY); y++) {
+                            for (auto x = SectorOf(minX); x <= SectorOf(maxX); x++) {
+                                FindClosestCarSectorList(CWorld::GetRepeatSector(x, y).Vehicles, ped, minX, minY, maxX, maxY, &foundVehDist, &foundVehicle);
+                            }
+                        }
+
+                        if (foundVehicle) {
+                            // Прицеп — интересуемся тягачом
+                            if (foundVehicle->m_nVehicleSubType == VEHICLE_TYPE_TRAILER && foundVehicle->m_pTowingVehicle) {
+                                foundVehicle = foundVehicle->m_pTowingVehicle;
+                            }
+                            if (foundVehicle && foundVehicle->CanBeDriven()) {
+                                if (const auto jetpack = ped->GetIntelligence()->GetTaskJetPack()) {
+                                    jetpack->DropJetPack(ped);
+                                }
+
+                                // Добавить задачу входа (с учётом второго игрока). true = skipEnterExit.
+                                const auto AddEnterCarTask = [&]() -> bool {
+                                    if (!CWorld::Players[1].m_pPed || CGameLogic::bPlayersCanBeInSeparateCars) {
+                                        // Одиночная игра — за руль
+                                        ped->GetTaskManager().SetTask(new CTaskComplexEnterCarAsDriver{foundVehicle}, TASK_PRIMARY_PRIMARY, false);
+                                        return false;
+                                    }
+                                    // 2 игрока: если второй уже (собирается) в этой машине — пассажиром
+                                    const auto otherPed  = CWorld::Players[(playerIndex + 1) % 2].m_pPed;
+                                    const auto& otherMgr = otherPed->GetTaskManager();
+                                    // Раскладка CTaskManager (декомпил Flush 0x681850): 5 primary-слотов @+0x0, secondary-массив @+0x14.
+                                    // Оригинал читает manager+0x10 = m_aPrimaryTasks[TASK_PRIMARY_DEFAULT]
+                                    // и manager+0x14 = m_aSecondaryTasks[TASK_SECONDARY_ATTACK] (там живёт CAR_DRIVE/PLAYER_IN_CAR).
+                                    const auto otherDefault = otherMgr.m_aPrimaryTasks[TASK_PRIMARY_DEFAULT];
+                                    const auto otherAttack  = otherMgr.m_aSecondaryTasks[TASK_SECONDARY_ATTACK];
+                                    const auto TaskTargetCar = [](CTask* t) {
+                                        return *reinterpret_cast<CVehicle**>(reinterpret_cast<uintptr_t>(t) + 0xC); // CTaskComplexEnterCar::m_Car
+                                    };
+                                    auto otherCar        = static_cast<CVehicle*>(nullptr);
+                                    auto otherPrimaryCar = static_cast<CVehicle*>(nullptr);
+                                    const auto defaultType = otherDefault ? otherDefault->GetTaskType() : TASK_NONE;
+                                    const auto attackType  = otherAttack  ? otherAttack->GetTaskType()  : TASK_NONE;
+                                    switch (defaultType) {
+                                    case TASK_COMPLEX_ENTER_CAR_AS_DRIVER:      // 701
+                                    case TASK_COMPLEX_STEAL_CAR:                // 702
+                                    case TASK_COMPLEX_DRAG_PED_FROM_CAR:        // 703
+                                    case TASK_COMPLEX_ENTER_BOAT_AS_DRIVER:     // 715
+                                        otherCar = TaskTargetCar(otherDefault);
+                                        break;
+                                    default:
+                                        break;
+                                    }
+                                    if (attackType != TASK_SIMPLE_PLAYER_IN_CAR && defaultType != TASK_SIMPLE_PLAYER_IN_CAR // декомпил: тип 1
+                                        && attackType != TASK_SIMPLE_CAR_DRIVE && defaultType != TASK_SIMPLE_CAR_DRIVE     // 709
+                                    ) {
+                                        // otherCar остаётся как есть, otherPrimaryCar = null
+                                    } else if (otherPed->m_pVehicle && otherPed->m_pVehicle->m_pDriver == otherPed) {
+                                        otherCar = otherPed->m_pVehicle;
+                                    }
+                                    if (defaultType == TASK_COMPLEX_ENTER_CAR_AS_PASSENGER) { // 700
+                                        otherPrimaryCar = TaskTargetCar(otherDefault);
+                                    }
+                                    if (otherCar == foundVehicle) {
+                                        ped->GetTaskManager().SetTask(new CTaskComplexEnterCarAsPassenger{foundVehicle, 0, false}, TASK_PRIMARY_PRIMARY, false);
+                                        return false;
+                                    }
+                                    if (otherPrimaryCar != foundVehicle && (otherCar || otherPrimaryCar)) {
+                                        return true;
+                                    }
+                                    ped->GetTaskManager().SetTask(new CTaskComplexEnterCarAsDriver{foundVehicle}, TASK_PRIMARY_PRIMARY, false);
+                                    return false;
+                                };
+
+                                if (foundVehicle->m_nVehicleType == VEHICLE_TYPE_BOAT) {
+                                    // Лодка с пустым местом за рулём — всегда за руль
+                                    if (!foundVehicle->m_pDriver) {
+                                        const auto task = ped->GetTaskManager().GetActiveTask();
+                                        if (!task || task->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr)) {
+                                            ped->GetTaskManager().SetTask(new CTaskComplexEnterCarAsDriver{foundVehicle}, TASK_PRIMARY_PRIMARY, false);
+                                        }
+                                    }
+                                } else {
+                                    const auto task = ped->GetTaskManager().GetActiveTask();
+                                    if (task) {
+                                        auto skipAbort = false;
+                                        if (task->GetTaskType() == TASK_COMPLEX_IN_WATER) {
+                                            if (const auto swim = ped->GetIntelligence()->GetTaskSwim()) {
+                                                switch (foundVehicle->m_nModelIndex) {
+                                                case MODEL_SKIMMER:
+                                                case MODEL_VORTEX:
+                                                case MODEL_SEASPAR:
+                                                case MODEL_LEVIATHN: {
+                                                    CVector doorPos;
+                                                    int32   doorId = 0;
+                                                    if (CCarEnterExit::GetNearestCarDoor(ped, foundVehicle, doorPos, doorId)) {
+                                                        swim->m_vecPos    = doorPos;
+                                                        swim->m_nTimeStep = 5000;
+                                                        skipAbort = true;
+                                                    }
+                                                    break;
+                                                }
+                                                default:
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (!skipAbort && !task->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr)) {
+                                            skipEnterExit = true;
+                                        } else {
+                                            skipEnterExit = AddEnterCarTask();
+                                        }
+                                    } else {
+                                        skipEnterExit = AddEnterCarTask();
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Перед педом подбираемый объект — идём его подбирать
+                        const auto curTask = ped->GetTaskManager().GetActiveTask();
+                        if (!curTask || curTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr)) {
+                            const auto mem = CTask::operator new(sizeof(CTaskComplexGoPickUpEntity));
+                            // 0x6919C0: CTaskComplexGoPickUpEntity::ctor(CEntity*, int32 animGroup=0x51) — не реверснут.
+                            // (Оригинал берёт указатель задачи из eax после ctor'а; здесь надёжнее — сам mem.)
+                            if (mem) {
+                                // plugin::CallMethod требует классовый this (requires std::is_class_v) — даём тип задачи:
+                                plugin::CallMethod<0x6919C0, CTaskComplexGoPickUpEntity*, CEntity*, int32>(
+                                    reinterpret_cast<CTaskComplexGoPickUpEntity*>(mem), entity, 0x51);
+                            }
+                            CTask* pickupTask = static_cast<CTask*>(mem);
+                            CEventScriptCommand event{3, pickupTask, false};
+                            CWorld::Players[CWorld::PlayerInFocus].m_pPed->GetEventGroup().Add(&event, false);
+                            event.~CEventScriptCommand();
+                        }
+                    }
+                }
+            }
+        } else if (!m_pRemoteVehicle
+            && (!ped->m_pVehicle->m_pEntityWeAreOn
+                || !CBridge::ThisIsABridgeObjectMovingUp(ped->m_pVehicle->m_pEntityWeAreOn->m_nModelIndex))
+        ) {
+            // Выход из машины
+            const auto veh    = ped->m_pVehicle;
+            const auto status = veh->GetStatus();
+            if (status != STATUS_WRECKED
+                && status != STATUS_TRAIN_MOVING
+                && veh->m_nDoorLock != CARLOCK_LOCKED_PLAYER_INSIDE
+            ) {
+                const auto task = ped->GetTaskManager().GetActiveTask();
+                if (!task || task->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr)) {
+                    if (veh->m_nVehicleType == VEHICLE_TYPE_BOAT) {
+                        ped->GetTaskManager().SetTask(new CTaskComplexLeaveCar{veh, 0, 0, true, false}, TASK_PRIMARY_PRIMARY, false);
+                        ped->bTryingToReachDryLand = true;
+                    } else if (veh->CanPedStepOutCar(false) || veh->CanPedJumpOutCar(ped)) {
+                        ped->GetTaskManager().SetTask(new CTaskComplexLeaveCar{veh, 0, 0, true, false}, TASK_PRIMARY_PRIMARY, false);
+                        m_bTryingToExitCar = true;
+                        GivePlayerParachute();
+                    } else if (status == STATUS_PLAYER) {
+                        m_bTryingToExitCar = true;
+                    }
+                } else {
+                    m_bTryingToExitCar = true;
+                }
+            }
+        }
+    }
+
+    // (LAB_00570aa5: сюда приходит «прерывание» входа/выхода — просто продолжаем)
+    (void)skipEnterExit;
+
+    // Взрыв удалённо управляемой машины: затемнение + рестарт камеры/таймера
+    if (m_bAfterRemoteVehicleExplosion) {
+        const auto now = CTimer::GetTimeInMS();
+        if (CTimer::m_snPreviousTimeInMilliseconds - m_nTimeOfRemoteVehicleExplosion < 1000
+            && now - m_nTimeOfRemoteVehicleExplosion > 999
+            && m_nPlayerState == PLAYERSTATE_PLAYING // декомпил: (char)param_1[0x37] == 0 → +0xDC = m_nPlayerState
+            && m_bFadeAfterRemoteVehicleExplosion
+        ) {
+            TheCamera.SetFadeColour(0, 0, 0);
+            TheCamera.Fade(1.0f, eFadeFlag::FADE_IN);
+        }
+        if (now - m_nTimeOfRemoteVehicleExplosion > 2000) {
+            if (m_nPlayerState == PLAYERSTATE_PLAYING && m_bFadeAfterRemoteVehicleExplosion) { // декомпил: param_1[0x37] == 0
+                TheCamera.RestoreWithJumpCut();
+                TheCamera.SetFadeColour(0, 0, 0);
+                TheCamera.Fade(1.0f, eFadeFlag::FADE_OUT);
+                TheCamera.Process();
+                CTimer::Stop();
+                CRenderer::RequestObjectsInFrustum(nullptr, 0);
+                CStreaming::LoadAllRequestedModels(false);
+                CTimer::Update();
+            }
+            m_bAfterRemoteVehicleExplosion = false;
+
+            auto& remoteVehicle = CWorld::Players[CWorld::PlayerInFocus].m_pRemoteVehicle;
+            if (remoteVehicle) {
+                remoteVehicle->m_bRemoveFromWorld = true;
+            }
+            remoteVehicle = nullptr;
+
+            const auto focusPed = CWorld::Players[CWorld::PlayerInFocus].m_pPed;
+            if (focusPed && focusPed->bInVehicle && focusPed->m_pVehicle) {
+                if (focusPed->bInVehicle) {
+                    focusPed->m_pVehicle->SetStatus(STATUS_PLAYER);
+                } else {
+                    focusPed->SetStatus(STATUS_PLAYER);
+                }
+            }
+        }
+    }
+
+    // Счётчик «вверх ногами» сфокусированного игрока (раз в 32 кадра) → взрыв машины
+    if ((CTimer::m_FrameCounter & 0x1F) == 0) {
+        const auto focusPed = CWorld::Players[CWorld::PlayerInFocus].m_pPed;
+        const auto focusVeh = (focusPed && focusPed->bInVehicle) ? focusPed->m_pVehicle : nullptr;
+        if (!focusPed || !focusPed->bInVehicle || !focusVeh || !m_pPed->bInVehicle) {
+            m_nTimesUpsideDownInARow = 0;
+        } else if (focusVeh->m_matrix->GetUp().z >= 0.0f || focusVeh->m_vecMoveSpeed.Magnitude() >= 0.05f) {
+            m_nTimesUpsideDownInARow = 0;
+        } else if (focusVeh->m_nVehicleType != VEHICLE_TYPE_AUTOMOBILE && focusVeh->m_nVehicleType != VEHICLE_TYPE_BOAT) {
+            m_nTimesUpsideDownInARow = 0;
+        } else if (focusVeh->physicalFlags.bSubmergedInWater) {
+            m_nTimesUpsideDownInARow = 0;
+        } else {
+            m_nTimesUpsideDownInARow += focusVeh->m_matrix->GetUp().z >= -0.5f ? 1 : 2;
+        }
+
+        if (m_nTimesUpsideDownInARow > 6) {
+            const auto veh = (focusPed && focusPed->bInVehicle) ? focusPed->m_pVehicle : nullptr;
+            if (veh && veh->vehicleFlags.bCanBeDamaged) {
+                veh->m_fHealth = std::min(veh->m_fHealth, 249.0f);
+                if (veh->m_nVehicleType == VEHICLE_TYPE_AUTOMOBILE) {
+                    veh->AsAutomobile()->GetDamageManager().SetEngineStatus(225); // 0xE1 — двигатель на грани
+                    *reinterpret_cast<uint32*>(reinterpret_cast<uintptr_t>(veh) + 0x928) = 0; // CAutomobile::field_928 (не именовано в репо)
+                }
+            }
+        }
+    }
+
+    // Статистика сфокусированного игрока: пешком/плавание/джетпак/транспорт
+    {
+        const auto focusPed = CWorld::Players[CWorld::PlayerInFocus].m_pPed;
+        const auto focusVeh = (focusPed && focusPed->bInVehicle) ? focusPed->m_pVehicle : nullptr;
+        if (!focusPed || !focusPed->bInVehicle || !focusVeh) {
+            if (focusPed && focusPed->m_fMovingSpeed > 0.0f) {
+                if (focusPed->GetIntelligence()->GetTaskSwim()) {
+                    // В воде: только пока гребёт (кнопки)
+                    if (CPad::GetPad(0)->GetPedWalkLeftRight() || CPad::GetPad(0)->GetAccelerate()) {
+                        CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_SWIMMING, focusPed->m_fMovingSpeed);
+                    }
+                } else if (focusPed->GetIntelligence()->GetTaskJetPack()) {
+                    CStats::IncrementStat(STAT_TIME_ON_JETPACK, CTimer::ms_fTimeStep * 16.0f);
+                } else {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_ON_FOOT, focusPed->m_fMovingSpeed);
+                }
+            }
+        } else {
+            if (focusVeh->m_nModelIndex == MODEL_CADDY) {
+                CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_GOLF_CART, focusVeh->m_fMovingSpeed);
+            } else {
+                if (focusVeh->m_nVehicleSubType == VEHICLE_TYPE_BMX) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_BICYCLE, focusVeh->m_fMovingSpeed);
+                }
+                if (focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_HELI) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_HELICOPTER, focusVeh->m_fMovingSpeed);
+                }
+                if (focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_PLANE) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_PLANE, focusVeh->m_fMovingSpeed);
+                }
+                if (focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_AUTOMOBILE) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_CAR, focusVeh->m_fMovingSpeed);
+                }
+                if (focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_BIKE) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_MOTORBIKE, focusVeh->m_fMovingSpeed);
+                }
+                if (focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_BOAT) {
+                    CStats::IncrementStat(STAT_DISTANCE_TRAVELLED_BY_BOAT, focusVeh->m_fMovingSpeed);
+                }
+                if ((focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_PLANE
+                    || focusVeh->GetVehicleAppearance() == VEHICLE_APPEARANCE_HELI)
+                    && focusVeh->m_vecMoveSpeed.Magnitude() > 0.2f
+                ) {
+                    CStats::IncrementStat(STAT_FLIGHT_TIME, CTimer::ms_fTimeStep * 16.0f);
+                }
+            }
+
+            if (!FindPlayerTrain(-1)) {
+                const auto& spd = focusVeh->m_vecMoveSpeed;
+                if (spd.x * spd.x + spd.y * spd.y + spd.z * spd.z > 0.0f) {
+                    switch (focusVeh->GetVehicleAppearance()) {
+                    case VEHICLE_APPEARANCE_BIKE:
+                        if (focusVeh->m_nVehicleSubType != VEHICLE_TYPE_BMX) {
+                            CStats::UpdateStatsWhenDriving(focusVeh);
+                        }
+                        break;
+                    case VEHICLE_APPEARANCE_HELI:
+                    case VEHICLE_APPEARANCE_PLANE:
+                        CStats::UpdateStatsWhenFlying(focusVeh);
+                        break;
+                    case VEHICLE_APPEARANCE_BOAT:
+                        break;
+                    default:
+                        CStats::UpdateStatsWhenDriving(focusVeh);
+                    }
+                }
+            }
+        }
+    }
+
+    // Значение погони (m_fCurrentChaseValue)
+    {
+        const auto wanted = m_pPed->GetPlayerData() ? m_pPed->GetPlayerWanted() : nullptr; // ped+0x480 → m_pWanted (+0x0)
+        if (!wanted || wanted->m_WantedLevel == eWantedLevel::WANTED_CLEAN || CTheScripts::IsPlayerOnAMission()) {
+            m_fCurrentChaseValue = 0.0f;
+        } else {
+            if ((Process_ChasePosInitialized_ & 1) == 0) {
+                Process_ChasePosInitialized_ |= 1;
+            }
+            if (CTimer::GetTimeInMS() / 20000 != CTimer::m_snPreviousTimeInMilliseconds / 20000) {
+                const auto pos1 = FindPlayerCoors(-1);
+                Process_ChasePlayerMovedFar_ =
+                    (pos1 - static_cast<const CVector&>(Process_ChaseCachedPlayerPos_)).Magnitude() >= 10.0f;
+
+                const auto pos2 = FindPlayerCoors(-1);
+                Process_ChaseCachedPlayerPos_ = pos2;
+
+                const auto pos3 = FindPlayerCoors(-1);
+                const auto node = ThePaths.FindNodeClosestToCoors(pos3, PATH_TYPE_VEH, 60.0f, 1, 0, 0, 0, 0);
+                // Оригинал проверяет только первое слово адреса (m_wAreaId != -1)
+                Process_ChaseNodeFound_ = node.IsAreaValid();
+            }
+
+            auto maxChaseDist = 0.0f;
+            switch (wanted->m_WantedLevel) {
+            case eWantedLevel::WANTED_LEVEL_1: maxChaseDist = 31.0f;   break;
+            case eWantedLevel::WANTED_LEVEL_2: maxChaseDist = 62.0f;   break;
+            case eWantedLevel::WANTED_LEVEL_3: maxChaseDist = 125.0f;  break;
+            case eWantedLevel::WANTED_LEVEL_4: maxChaseDist = 250.0f;  break;
+            case eWantedLevel::WANTED_LEVEL_5: maxChaseDist = 500.0f;  break;
+            case eWantedLevel::WANTED_LEVEL_6: maxChaseDist = 1000.0f; break;
+            default:                           maxChaseDist = 0.0f;    break;
+            }
+
+            const auto delta = (maxChaseDist - m_fCurrentChaseValue) * CTimer::ms_fTimeStep * 0.0001f;
+            if (delta < 0.0f
+                || (Process_ChasePlayerMovedFar_
+                    && Process_ChaseNodeFound_
+                    && !CCullZones::NoPolice()
+                    && !CCullZones::PoliceAbandonCars()
+                    && CGame::currArea == eAreaCodes::AREA_CODE_NORMAL_WORLD)
+            ) {
+                m_fCurrentChaseValue = delta + m_fCurrentChaseValue;
+            }
+        }
+    }
+
+    // Процессинг прицела (вложенный подобъект this+0x158: m_nCrosshairActivated + m_vecCrosshairTarget).
+    // 0x56EC80 — не реверснут, класса для подобъекта в репо нет. this = сырая память (&m_nCrosshairActivated),
+    // поэтому plugin::CallMethod (требует класс) неприменим — прямой thiscall-каст.
+    reinterpret_cast<void(__thiscall*)(void*, uint32, CPad*)>(0x56EC80)(&m_nCrosshairActivated, playerIndex, pad);
+
+    m_nMoney        = std::min(m_nMoney, 999'999'999);
+    m_nDisplayMoney = std::min(m_nDisplayMoney, 999'999'999);
 }
+
+// ============================================================================
+// STATUS — финальный блок (что осталось на plugin::Call, нереверснуто в репо):
+//
+//  1) 0x56EC80 (plugin::CallMethod, this = &m_nCrosshairActivated == this+0x158)
+//     Метод вложенного подобъекта «прицел» (m_nCrosshairActivated + m_vecCrosshairTarget, 12 байт).
+//     Принимает (uint32 playerIndex, CPad* pad). В репо класса нет, вызов оставлен как есть.
+//  2) 0x6919C0 (plugin::CallMethod, this = CTask::operator new(0x34))
+//     CTaskComplexGoPickUpEntity::ctor(CEntity* entity, int32 animGroup = 0x51).
+//     Класс и размер (0x34) подтверждены (vtable 0x870B98, GetTaskType → 310 = TASK_COMPLEX_GO_PICKUP_ENTITY),
+//     конструктор не реверснут. 0x51 кладётся в поле m_nAnimGroupId (+0x2C).
+//  3) 0x44EFC0 (plugin::CallAndReturn<float>)
+//     CPathFind::CalcRoadDensity(float x, float y). Объявлена в PathFind.h:238, тела/хука нет
+//     (закомментирован в PathFind.cpp:84).
+//
+//  Всё остальное (≈45 вызовов) резолвится в реверснутый код репо напрямую:
+//  CPad::GetPad/GetTarget/ExitVehicleJustDown/GetExitVehicle/GetPedWalkLeftRight/GetAccelerate,
+//  CTimer::GetTimeInMS/GetTimeStepInMS/Stop/Update/m_FrameCounter/ms_fTimeStep/m_snPreviousTimeInMilliseconds,
+//  CStats::GetFatAndMuscleModifier/GetStatValue/IncrementStat/SetNewRecordStat/UpdateStatsWhenDriving/
+//  UpdateStatsWhenFlying, CStreaming::SetModelIsDeletable/LoadAllRequestedModels, CGameLogic::IsCoopGameGoingOn/
+//  bPlayersCanBeInSeparateCars, CReplay::Mode, CPlayerInfo::FindObjectToSteal/FindClosestCarSectorList/
+//  WorkOutEnergyFromHunger/StreamParachuteWeapon/GivePlayerParachute, CWorld::GetRepeatSector/
+//  AdvanceCurrentScanCode/Players/PlayerInFocus, FindPlayerCoors/FindPlayerTrain, CPathFind::FindNodeClosestToCoors,
+//  CBridge::ThisIsABridgeObjectMovingUp, CTheScripts::IsPlayerOnAMission, CCullZones::NoPolice/PoliceAbandonCars,
+//  TheCamera::Fade/RestoreWithJumpCut/SetFadeColour/Process, CRenderer::RequestObjectsInFrustum,
+//  CTaskManager::GetSimplestActiveTask/GetActiveTask/SetTask, CPedIntelligence::GetTaskSwim/GetTaskJetPack/
+//  GetTaskHold/GetTaskFighting, CTaskSimpleJetPack::DropJetPack, CCarEnterExit::GetNearestCarDoor,
+//  CTaskComplexEnterCarAsDriver/AsPassenger/LeaveCar (ctor'ы), CEventScriptCommand + CEventGroup::Add,
+//  CVehicle::CanBeDriven/CanPedStepOutCar/CanPedJumpOutCar/GetVehicleAppearance, CVector::Magnitude,
+//  CDamageManager::SetEngineStatus, CGame::currArea.
+// ============================================================================
 
 // 0x56F4E0
 // Константы из gta_sa.exe (1.0 US): 0x858C24=0.3f 0x858624=1.0f 0x858CA0=2.0f 0x85862C=10.0f

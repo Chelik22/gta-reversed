@@ -46,14 +46,16 @@ private: // Wrappers for hooks
     }
 
 private:
-    int32                  m_Duration;
-    InteriorInfo_t*        m_InteriorInfo;
-    bool                   m_bDoInstantly;
-    CAnimBlendAssociation* m_Anim;
-    AnimationId            m_PrevAnimId{ANIM_ID_UNDEFINED};
-    CTaskTimer             m_TaskTimer;
-    CTaskTimer             m_AnimTimer;
-    bool                   m_bUpdatePedPos;
-    bool                   m_bTaskFinished;
-    bool                   m_bTaskAborting;
+    int32                  m_Duration;                      // +0x08
+    InteriorInfo_t*        m_InteriorInfo;                  // +0x0C
+    bool                   m_bDoInstantly;                  // +0x10 (0x676010: +0x10 = param_4)
+    CAnimBlendAssociation* m_Anim{nullptr};                 // +0x14 (0x676010: обнуляется)
+    AnimationId            m_PrevAnimId{ANIM_ID_UNDEFINED}; // +0x18 (0x676010: param_1[6] = -1)
+    CTaskTimer             m_TaskTimer;                     // +0x1C..+0x27 (m_bStarted@+0x24 == "флаг А" декомпила 0x677920)
+    CTaskTimer             m_AnimTimer;                     // +0x28..+0x33 (m_bStarted@+0x30 == "флаг B")
+    bool                   m_bUpdatePedPos{false};          // +0x34 - телепорт на стул запущен (0x676010: обнуляется)
+    bool                   m_bTaskFinished{false};          // +0x35 (0x676010: обнуляется)
+    bool                   m_bTaskAborting{false};          // +0x36 (0x676010: обнуляется)
 };
+
+VALIDATE_SIZE(CTaskInteriorSitAtDesk, 0x38);
