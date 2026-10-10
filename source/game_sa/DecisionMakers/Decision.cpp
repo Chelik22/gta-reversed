@@ -6,7 +6,7 @@ void CDecision::InjectHooks() {
     RH_ScopedClass(CDecision);
     RH_ScopedCategory("DecisionMakers");
 
-    RH_ScopedInstall(SetDefault, 0x600530, { .Reversed = false });
+    RH_ScopedInstall(SetDefault, 0x600530);
     RH_ScopedInstall(Set, 0x600570);
     //RH_ScopedInstall(Add, 0x600600);
     RH_ScopedInstall(From, 0x6006B0);
@@ -21,7 +21,14 @@ CDecision::CDecision() {
 
 // 0x600530
 void CDecision::SetDefault() {
-    plugin::CallMethod<0x600530, CDecision*>(this);
+    for (auto i = 0; i < MAX_NUM_CHOICES; i++) {
+        m_Tasks[i] = (eTaskType)-1;
+        for (auto j = 0; j < 4; j++) {
+            m_Probs[i][j] = 0;
+        }
+        m_Bools[0][i] = false;
+        m_Bools[1][i] = false;
+    }
 }
 
 // 0x6006B0

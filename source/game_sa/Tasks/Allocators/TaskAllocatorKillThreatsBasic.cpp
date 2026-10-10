@@ -68,8 +68,75 @@ CTaskAllocator* CTaskAllocatorKillThreatsBasic::ProcessGroup(CPedGroupIntelligen
 }
 
 // 0x69C850
+// Ставит peds[group1MemberSlot] = ближайший живой член group2 (один-к-одному);
+// незакрытые слоты заполняются лидером group1, иначе первым живым членом group1 (слоты 0..6).
 void CTaskAllocatorKillThreatsBasic::ComputeClosestPeds(CPedGroup& group1, CPedGroup& group2, CPed** peds) {
-    plugin::Call<0x69C850, CPedGroup&, CPedGroup&, CPed**>(group1, group2, peds);
+    const auto g1 = &group1.GetMembership();
+    const auto g2 = &group2.GetMembership();
+
+    std::ranges::fill(std::span{ peds, (size_t)TOTAL_PED_GROUP_MEMBERS }, nullptr);
+
+    float distSq[TOTAL_PED_GROUP_MEMBERS][TOTAL_PED_GROUP_MEMBERS]; // [слот group1][слот group2]
+    for (auto& row : distSq) {
+        std::ranges::fill(row, FLT_MAX);
+    }
+
+    for (auto r = 0; r < TOTAL_PED_GROUP_MEMBERS; r++) { // 0x69C89A
+        const auto p1 = g1->GetMember(r);
+        if (p1 && p1->IsAlive() && !p1->IsPlayer()) {
+            for (auto c = 0; c < TOTAL_PED_GROUP_MEMBERS; c++) { // 0x69C8C8
+                const auto p2 = g2->GetMember(c);
+                if (p2 && p2->IsAlive()) {
+                    distSq[r][c] = (p2->GetPosition() - p1->GetPosition()).SquaredMagnitude();
+                }
+            }
+        }
+    }
+
+    // Жадный подбор ближайших пар (один group1-член <-> один group2-член)
+    for (auto n = TOTAL_PED_GROUP_MEMBERS; n--; ) { // 0x69C955
+        auto  bestR    = -1;
+        auto  bestC    = -1;
+        float minDistSq = FLT_MAX;
+        for (auto r = 0; r < TOTAL_PED_GROUP_MEMBERS; r++) {
+            for (auto c = 0; c < TOTAL_PED_GROUP_MEMBERS; c++) {
+                if (distSq[r][c] < minDistSq) {
+                    minDistSq = distSq[r][c];
+                    bestR     = r;
+                    bestC     = c;
+                }
+            }
+        }
+        if (bestR != -1 && bestC != -1) {
+            std::ranges::fill(distSq[bestR], FLT_MAX);           // занять строку
+            for (auto& row : distSq) row[bestC] = FLT_MAX;       // и столбец
+            peds[bestR] = g2->GetMember(bestC);
+        }
+    }
+
+    // Заполнить пустые слоты одним педом (оригинал: общий блок 0x69CABA)
+    const auto FillUnassignedWith = [&](CPed* ped) {
+        for (auto i = 0; i < TOTAL_PED_GROUP_MEMBERS; i++) {
+            if (g1->GetMember(i) && !peds[i]) {
+                peds[i] = ped;
+            }
+        }
+    };
+
+    if (const auto leader = g1->GetLeader()) {
+        if (leader->IsAlive()) {
+            FillUnassignedWith(leader);
+            return;
+        }
+    }
+    for (auto i = 0; i < TOTAL_PED_GROUP_MEMBERS - 1; i++) { // слоты 0..6, седьмой не проверяется
+        if (const auto m = g1->GetMember(i)) {
+            if (m->IsAlive()) {
+                FillUnassignedWith(m);
+                return;
+            }
+        }
+    }
 }
 
 void CTaskAllocatorKillThreatsBasic::InjectHooks() {
@@ -79,7 +146,7 @@ void CTaskAllocatorKillThreatsBasic::InjectHooks() {
     RH_ScopedInstall(Constructor, 0x69C710);
     RH_ScopedInstall(Destructor, 0x69C780);
 
-    RH_ScopedGlobalInstall(ComputeClosestPeds, 0x69C850, { .Reversed = false });
+    RH_ScopedGlobalInstall(ComputeClosestPeds, 0x69C850);
     RH_ScopedVMTInstall(GetType, 0x69C770);
     RH_ScopedVMTInstall(AllocateTasks, 0x69D170);
     RH_ScopedVMTInstall(ProcessGroup, 0x69C7E0);

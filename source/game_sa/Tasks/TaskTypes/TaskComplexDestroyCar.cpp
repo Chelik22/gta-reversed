@@ -19,7 +19,7 @@ void CTaskComplexDestroyCar::InjectHooks() {
     RH_ScopedVMTInstall(MakeAbortable, 0x621C80);
     RH_ScopedVMTInstall(CreateNextSubTask, 0x62D9E0);
     RH_ScopedVMTInstall(CreateFirstSubTask, 0x62DA90);
-    RH_ScopedVMTInstall(ControlSubTask, 0x6288C0, { .Reversed = false });
+    RH_ScopedVMTInstall(ControlSubTask, 0x6288C0);
 }
 
 // 0x621C00
@@ -94,5 +94,48 @@ CTask* CTaskComplexDestroyCar::CreateSubTask(eTaskType taskType, CPed* ped) {
 
 // 0x6288C0
 CTask* CTaskComplexDestroyCar::ControlSubTask(CPed* ped) {
-    return plugin::CallMethodAndReturn<CTask*, 0x6288C0, CTaskComplexDestroyCar*, CPed*>(this, ped);
+    if (!m_VehicleToDestroy || m_VehicleToDestroy->m_fHealth <= 0.0f) { // +0x4C0; оригинал: (h < 0.f) != (h == 0.f) <=> h <= 0.f
+        return nullptr;
+    }
+
+    if (m_arg0) { // bool @+0xC (сбрасывается в CreateFirstSubTask); по декомпилу: (char)this[3] != 0
+        return CreateFirstSubTask(ped); // vtable+0x24
+    }
+
+    eTaskType newTaskType{};
+    switch (m_pSubTask->GetTaskType()) { // vtable+0x10
+    case TASK_COMPLEX_DESTROY_CAR_MELEE: { // 1004 (0x3EC)
+        if (ped->GetActiveWeapon().IsTypeMelee()) { // 0x73B1C0
+            return m_pSubTask;
+        }
+        newTaskType = TASK_COMPLEX_DESTROY_CAR_ARMED; // 1005 (0x3ED)
+        break;
+    }
+    case TASK_COMPLEX_DESTROY_CAR_ARMED: { // 1005 (0x3ED)
+        if (ped->GetWeaponInSlot(ped->m_nActiveWeaponSlot).m_Type != WEAPON_UNARMED || ped->IsPlayer()) { // m_aWeapons[slot].m_Type @0x5AC
+            return m_pSubTask;
+        }
+        // Найти любой слот с оружием и взять его
+        int32 slot{};
+        for (; slot < static_cast<int32>(NUM_WEAPON_SLOTS); slot++) { // 13 слотов, stride 0x1C (m_aWeapons @0x5AC)
+            if (ped->m_aWeapons[slot].m_Type > WEAPON_UNARMED) {
+                ped->SetCurrentWeapon(slot); // 0x5E61F0
+                break;
+            }
+        }
+        if (slot != static_cast<int32>(NUM_WEAPON_SLOTS)) {
+            return m_pSubTask;
+        }
+        ped->SetCurrentWeapon(0); // кулаки
+        newTaskType = TASK_COMPLEX_DESTROY_CAR_MELEE;
+        break;
+    }
+    default:
+        return m_pSubTask;
+    }
+
+    if (m_pSubTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr)) { // vtable+0x18
+        return CreateSubTask(newTaskType, ped); // 0x6287A0
+    }
+    return m_pSubTask;
 }

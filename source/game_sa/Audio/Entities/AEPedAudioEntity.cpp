@@ -25,11 +25,11 @@ void CAEPedAudioEntity::InjectHooks() {
     RH_ScopedInstall(HandleLandingEvent, 0x4E18E0);
     RH_ScopedInstall(HandlePedSwing, 0x4E1A40);
     RH_ScopedInstall(HandlePedHit, 0x4E1CC0);
-    RH_ScopedInstall(HandlePedJacked, 0x4E2350, { .Reversed = false });
+    RH_ScopedInstall(HandlePedJacked, 0x4E2350);
     RH_ScopedInstall(HandleSwimSplash, 0x4E26A0);
     RH_ScopedInstall(HandleSwimWake, 0x4E2790);
     RH_ScopedInstall(PlayShirtFlap, 0x4E2A90);
-    RH_ScopedInstall(Service, 0x4E2EE0, { .Reversed = false });
+    RH_ScopedInstall(Service, 0x4E2EE0);
 }
 
 // 0x5DE8D0
@@ -868,7 +868,97 @@ void CAEPedAudioEntity::HandlePedHit(eAudioEvents event, CPhysical* physical, ui
 
 // 0x4E2350
 void CAEPedAudioEntity::HandlePedJacked(eAudioEvents event) {
-    plugin::CallMethod<0x4E2350, CAEPedAudioEntity*, int32>(this, event);
+    if (!AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_WEAPONS, SND_BANK_SLOT_WEAPON_GEN)) {
+        AEAudioHardware.LoadSoundBank(SND_BANK_GENRL_WEAPONS, SND_BANK_SLOT_WEAPON_GEN);
+        return;
+    }
+
+    const auto PlayJackSound = [&](eSoundID sfxId, uint32 clientVar, eSoundBankSlot slot = SND_BANK_SLOT_WEAPON_GEN) {
+        AESoundManager.PlaySound({
+            .BankSlotID         = slot,
+            .SoundID            = sfxId,
+            .AudioEntity        = this,
+            .Pos                = m_pPed->GetPosition(),
+            .Volume             = GetDefaultVolume(event),
+            .Speed              = 2.0f,
+            .Flags              = SOUND_LIFESPAN_TIED_TO_PHYSICAL_ENTITY | SOUND_REQUEST_UPDATES,
+            .RegisterWithEntity = m_pPed,
+            .EventID            = event,
+            .ClientVariable     = static_cast<float>(clientVar)
+        });
+    };
+
+    const auto now          = CTimer::GetTimeInMS();
+    auto       nextPlayTime = now;
+    switch (event) {
+    case AE_PED_JACKED_CAR_PUNCH:
+        nextPlayTime += 2'133;
+
+        PlayJackSound(SND_GENRL_WEAPONS_KNUCKLE, now + 500);
+        PlayJackSound(
+            CAEAudioUtility::GetRandomNumberInRange<eSoundID>(
+                SND_GENRL_WEAPONS_BOX_FACE1,
+                SND_GENRL_WEAPONS_BOX_FACE4
+            ),
+            now + 500
+        );
+        break;
+    case AE_PED_JACKED_CAR_HEAD_BANG:
+        nextPlayTime += 2'633;
+
+        PlayJackSound(SND_GENRL_WEAPONS_DILDO, now + 933);
+        PlayJackSound(
+            CAEAudioUtility::GetRandomNumberInRange<eSoundID>(
+                SND_GENRL_WEAPONS_BODY_PUNCH1,
+                SND_GENRL_WEAPONS_BODY_PUNCH4
+            ),
+            now + 933
+        );
+        break;
+    case AE_PED_JACKED_CAR_KICK:
+        nextPlayTime += 2'800;
+
+        PlayJackSound(
+            CAEAudioUtility::GetRandomNumberInRange<eSoundID>(
+                SND_GENRL_WEAPONS_BOX_FACE1,
+                SND_GENRL_WEAPONS_BOX_FACE4
+            ),
+            now + 900
+        );
+        break;
+    case AE_PED_JACKED_BIKE:
+        nextPlayTime += 366;
+
+        PlayJackSound(SND_GENRL_WEAPONS_KNUCKLE, now + 33);
+        PlayJackSound(
+            CAEAudioUtility::GetRandomNumberInRange<eSoundID>(
+                SND_GENRL_WEAPONS_BOX_FACE1,
+                SND_GENRL_WEAPONS_BOX_FACE4
+            ),
+            now + 33
+        );
+        break;
+    case AE_PED_JACKED_DOZER:
+        nextPlayTime += 833;
+
+        PlayJackSound(
+            CAEAudioUtility::GetRandomNumberInRange<eSoundID>(
+                SND_GENRL_WEAPONS_BODY_PUNCH1,
+                SND_GENRL_WEAPONS_BODY_PUNCH4
+            ),
+            now + 266
+        );
+        break;
+    default:
+        break;
+    }
+
+    if (!AEAudioHardware.IsSoundBankLoaded(SND_BANK_FEET_GENERIC, SND_BANK_SLOT_FOOTSTEPS_GENERIC)) {
+        AEAudioHardware.LoadSoundBank(SND_BANK_FEET_GENERIC, SND_BANK_SLOT_FOOTSTEPS_GENERIC);
+        return;
+    }
+    // Original passes sfxId=0 here (SND_BANK_FEET_GENERIC == 0, same value).
+    PlayJackSound((eSoundID)SND_BANK_FEET_GENERIC, nextPlayTime, SND_BANK_SLOT_FOOTSTEPS_GENERIC);
 }
 
 // 0x4E26A0
@@ -924,6 +1014,115 @@ void CAEPedAudioEntity::PlayShirtFlap(float volume, float speed) {
 }
 
 // 0x4E2EE0
+// Wind rush / shirt flap of the local player.
 void CAEPedAudioEntity::Service() {
-    plugin::CallMethod<0x4E2EE0, CAEPedAudioEntity*>(this);
+    static auto& s_VolBase          = StaticRef<float>(0x8AE650); // wind volume (not BMX)
+    static auto& s_VolBaseBmx       = StaticRef<float>(0x8AE654); // wind volume (BMX)
+    static auto& s_FreqBase         = StaticRef<float>(0x8AE658);
+    static auto& s_VolBaseNoPara    = StaticRef<float>(0x8AE660); // without parachute
+    static auto& s_VolBasePara      = StaticRef<float>(0x8AE664); // with parachute
+    static auto& s_FreqBaseNoPara   = StaticRef<float>(0x8AE668);
+    static auto& s_VolStepUp        = StaticRef<float>(0x8AE670);
+    static auto& s_VolStepDown      = StaticRef<float>(0x8AE674);
+    static auto& s_FlapFreqMul      = StaticRef<float>(0x8AE644); // "FALL_SkyDive_accel" multiplier in freq
+    static auto& s_FlapVolMulAccel  = StaticRef<float>(0x8AE648);
+    static auto& s_FlapVolMulDecel  = StaticRef<float>(0x8AE64C);
+    static auto& s_NoParaThresh     = StaticRef<float>(0x8AE69C); // speed threshold without parachute
+    static auto& s_StopVolThresh    = StaticRef<float>(0x8AE6A0);
+    static auto& s_SpeedDiv         = StaticRef<float>(0x8AE6A4); // ped speed divisor
+    static auto& s_DrivingFreqMul   = StaticRef<float>(0xB613BC);
+    static auto& s_FlapFreqMul2     = StaticRef<float>(0xB613C0);
+    static auto& s_NoParaFreqDiv    = StaticRef<float>(0xB613CC);
+    static auto& s_SilenceVol       = StaticRef<float>(0x859014); // -100.f
+
+    const auto ped = m_pPed;
+
+    if (!ped->IsPlayer()) { // 0x5DF8F0
+        return;
+    }
+
+    auto volume       = -100.0f;
+    auto speedFactor  = 1.0f;
+    auto flapFreqAdd  = 0.0f; // "FALL_SkyDive_accel" (OG local_10)
+    auto paraBlend    = 0.0f; // "Para_decel" (OG local_c)
+    bool playFlap     = true;
+
+    // 0x4E2F1B - no flapping when attached to a vehicle or in a vehicle
+    if ((ped->m_pAttachedTo && ped->m_pAttachedTo->GetType() == ENTITY_TYPE_VEHICLE) || ped->bInVehicle) {
+        playFlap = false;
+    }
+
+    // 0x4E2F4C - wind while driving (CHOPPA bike or open top car)
+    if (ped->IsStateDriving()) { // OG: *(int*)(ped+0x530) == 0x32
+        if (const auto veh = ped->m_pVehicle) {
+            // OG: *(u16*)(veh+0x650); for bikes this is m_RideAnimData.AnimGroup
+            const auto rideAnimGroup = *reinterpret_cast<AssocGroupId*>(reinterpret_cast<uintptr_t>(veh) + 0x650);
+            if (rideAnimGroup == ANIM_GROUP_CHOPPA /*9*/ || (rideAnimGroup == ANIM_GROUP_DEFAULT /*0*/ && veh->IsOpenTopCar())) {
+                const auto vehSpeed = veh->m_vecMoveSpeed.Magnitude();
+                if (vehSpeed > 0.f) {
+                    const auto volBase = veh->m_vehicleAudio.m_AuSettings.VehicleAudioType == AE_BMX // OG: byte veh+0x1B8 == 2
+                        ? s_VolBaseBmx
+                        : s_VolBase;
+                    speedFactor = std::clamp(vehSpeed, 0.f, 1.f);
+                    volume      = CAEAudioUtility::AudioLog10(speedFactor) * 20.f + volBase;
+                    speedFactor = s_DrivingFreqMul * speedFactor + s_FreqBase;
+                }
+            }
+        }
+    }
+
+    bool usingParachute = false;
+    if (ped->GetIntelligence()) { // OG: ped+0x47C
+        usingParachute = ped->GetIntelligence()->GetUsingParachute(); // 0x6011B0
+    }
+
+    if (playFlap) {
+        // 0x4E3095
+        speedFactor = ped->m_vecMoveSpeed.Magnitude() / s_SpeedDiv;
+
+        if (!usingParachute) {
+            // 0x4E30BC - speed normalization
+            if (s_NoParaThresh <= speedFactor) {
+                speedFactor = (speedFactor - s_NoParaThresh) / s_NoParaFreqDiv;
+            } else {
+                speedFactor = 0.f;
+            }
+            speedFactor = std::clamp(speedFactor, 0.f, 1.f);
+            volume      = CAEAudioUtility::AudioLog10(speedFactor) * 20.f + s_VolBaseNoPara;
+        } else {
+            // 0x4E310F - interpolate by the parachute anims' blend deltas
+            if (const auto assoc = RpAnimBlendClumpGetAssociation(ped->GetRpClump(), "FALL_SkyDive_accel")) { // 0x4D6870
+                flapFreqAdd = std::clamp(assoc->m_BlendDelta /*OG: +0x18*/, 0.f, 1.f);
+            }
+            if (const auto assoc = RpAnimBlendClumpGetAssociation(ped->GetRpClump(), "Para_decel")) {
+                paraBlend = std::clamp(assoc->m_BlendDelta /*OG: +0x18*/, 0.f, 1.f);
+            }
+            speedFactor = std::clamp(speedFactor, 0.f, 1.f);
+            volume      = CAEAudioUtility::AudioLog10(speedFactor) * 20.f + s_VolBasePara;
+        }
+        speedFactor = s_FlapFreqMul2 * speedFactor + s_FreqBaseNoPara; // 0x4E31CE/0x4E3216
+    }
+
+    // 0x4E3222 - final mix
+    const auto targetVol = s_FlapVolMulDecel * paraBlend + s_FlapVolMulAccel * flapFreqAdd + volume;
+    const auto flapFreq  = s_FlapFreqMul * flapFreqAdd;
+
+    // 0x4E3237 - step field_158 towards targetVol (up/down steps)
+    if (targetVol > field_158) {
+        const auto stepped = field_158 + s_VolStepUp;
+        field_158 = targetVol <= stepped ? targetVol : stepped;
+    } else if (targetVol < field_158) {
+        const auto stepped = field_158 - s_VolStepDown;
+        field_158 = stepped <= targetVol ? targetVol : stepped;
+    }
+    if (targetVol < s_StopVolThresh && field_158 < s_StopVolThresh) {
+        field_158 = targetVol;
+    }
+
+    // 0x4E32C4 - OG: (a<b)==(a==b) <=> a>b
+    if (field_158 > s_SilenceVol) {
+        PlayShirtFlap(field_158, flapFreq * speedFactor); // 0x4E2A90
+    } else {
+        m_sTwinLoopSoundEntity.StopSoundAndForget(); // 0x4F2960
+    }
 }

@@ -230,7 +230,7 @@ void CVehicle::InjectHooks() {
     RH_ScopedGlobalInstall(IsVehiclePointerValid, 0x6E38F0);
     // RH_ScopedGlobalInstall(RemoveUpgradeCB, 0x6D3300);
     // RH_ScopedGlobalInstall(FindUpgradeCB, 0x6D3370);
-    RH_ScopedGlobalOverloadedInstall(RemoveObjectsCB, "Object", 0x6D33B0, RwObject*(*)(RwObject*, void*), { .Reversed = false });
+    RH_ScopedGlobalOverloadedInstall(RemoveObjectsCB, "Object", 0x6D33B0, RwObject*(*)(RwObject*, void*));
     RH_ScopedGlobalOverloadedInstall(RemoveObjectsCB, "Frame", 0x6D3420, RwFrame*(*)(RwFrame*, void*));
     RH_ScopedGlobalInstall(CopyObjectsCB, 0x6D3450);
     // RH_ScopedGlobalInstall(FindReplacementUpgradeCB, 0x6D3490);
@@ -2285,8 +2285,32 @@ RpAtomic* FindUpgradeCB(RpAtomic* atomic, void* data) {
 }
 
 // 0x6D33B0
+// Writes the id of the first atomic found into `data` and destroys it (unless it has the ATOMIC_UPGRADE flag).
+// NOTE: Ghidra lost the `this` of FUN_004c4bb0 - it is CBaseModelInfo::RemoveRef (thiscall).
 RwObject* RemoveObjectsCB(RwObject* object, void* data) {
-    return ((RwObject * (__cdecl*)(RwObject*, void*))0x6D33B0)(object, data);
+    if (RwObjectGetType(object) == rpATOMIC) {
+        const auto atomic = (RpAtomic*)object;
+
+        const auto atomicId = CVisibilityPlugins::GetAtomicId(atomic);
+        *static_cast<uint32*>(data) = (uint32)atomicId;
+
+        if ((atomicId & ATOMIC_UPGRADE) == 0) {
+            const auto modelInfo = CVisibilityPlugins::GetModelInfo(atomic);
+            const auto frame     = static_cast<RwFrame*>(object->parent);
+
+            RpClumpRemoveAtomic(atomic->clump, atomic);
+            RpAtomicDestroy(atomic);
+
+            if (CVisibilityPlugins::GetFrameHierarchyId(frame) == 0) {
+                RwFrameDestroy(frame);
+            }
+
+            if (modelInfo) {
+                modelInfo->RemoveRef();
+            }
+        }
+    }
+    return object;
 }
 
 // 0x6D3420

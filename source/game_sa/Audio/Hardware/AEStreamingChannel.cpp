@@ -12,6 +12,12 @@ static inline DSFXParamEq s_FXParamEqPresets[(+eBassSetting::NUM)][2]{
     {{ 80.f, 36.f, -15.f }, { 80.f,  36.f, -15.f }}, // Preset CUT
 };
 
+// 0x4F1800
+CAEStreamingChannel::CAEStreamingChannel(IDirectSound* directSound, uint16 channelId)
+    : CAEAudioChannel(directSound, channelId, 48000, 16)
+{
+}
+
 // 0x4F2200
 CAEStreamingChannel::~CAEStreamingChannel() {
     DirectSoundBufferFadeToSilence();
@@ -491,15 +497,112 @@ void CAEStreamingChannel::Stop() {
 }
 
 // 0x4F2550
+// Circular streaming into the DirectSound buffer (3 slots of 0x60000 bytes).
 void CAEStreamingChannel::Service() {
-    plugin::CallMethod<0x4F2550, CAEStreamingChannel*>(this);
+    UpdateStatus(); // 0x4D7BD0 - updates m_nBufferStatus
+
+    // 0x4F2569 - state machine (OG: byte +0x17 & 1 - DSBSTATUS_PLAYING)
+    if (!IsBufferPlaying()) {
+        if (m_nState == StreamingChannelState::Stopping) {
+            m_nState = StreamingChannelState::Stopped;
+        }
+    } else {
+        if (m_nState == StreamingChannelState::Started) {
+            m_nState = StreamingChannelState::UNK_MINUS_3;
+        } else if (m_nState != StreamingChannelState::UNK_MINUS_3 && m_nState != StreamingChannelState::Finished) {
+            if (m_nState == StreamingChannelState::Stopping) {
+                if (++m_lStoppingFrameCount > 6) { // OG: if (6 < count+1)
+                    m_pDirectSoundBuffer->Stop();  // OG: vtbl+0x48
+                }
+            } else {
+                m_lStoppingFrameCount = 0;
+                if (m_nState != StreamingChannelState::UNK_MINUS_2 && m_nState == StreamingChannelState::Stopped) {
+                    m_pDirectSoundBuffer->Stop();
+                }
+            }
+        }
+    }
+
+    // 0x4F25C2
+    if (m_nState == StreamingChannelState::UNK_MINUS_3 && !IsBufferPlaying()) {
+        m_nState = StreamingChannelState::Paused;
+    }
+
+    // 0x4F25E6 - active streaming
+    if (m_nState == StreamingChannelState::UNK_MINUS_3 || m_nState == StreamingChannelState::Finished || m_nState == StreamingChannelState::Paused) {
+        // 0x4F2608 - keep the buffer frequency in sync with the decoder
+        if (m_pStreamingDecoder->GetSampleRate() != m_nOriginalFrequency) {
+            SetOriginalFrequency(m_pStreamingDecoder->GetSampleRate()); // 0x4D7A70
+        }
+
+        // 0x4F264C - slot of the current playback cursor
+        DWORD playCursor{};
+        m_pDirectSoundBuffer->GetCurrentPosition(&playCursor, nullptr); // OG: vtbl+0x10
+        const auto curSlot = static_cast<uint8>(playCursor / 0x60000);
+
+        if (curSlot == m_lastSlot) {
+            return;
+        }
+
+        size_t filled{};
+        if (m_nState == StreamingChannelState::Finished) {
+            if (m_bLooped) {
+                m_pDirectSoundBuffer->Stop(); // OG: vtbl+0x48
+                m_nState  = StreamingChannelState::Stopped;
+                m_bLooped = false;
+                return;
+            }
+            m_bLooped = true;
+        } else if (!m_bSilenced) {
+            if (m_bNeedSwitch) {
+                auto nextDecoder        = m_pNextStreamingDecoder;
+                m_pNextStreamingDecoder = nullptr;
+                m_nState                = StreamingChannelState::Paused;
+                Stop(false);                      // 0x4F1A90
+                PrepareStream(nextDecoder, 0, 0); // 0x4F23D0
+                Play(0, 0, 1.0f);                 // OG: vtbl+0x14 (slot 5)
+                return;
+            }
+            if (m_bNeedToFinish) {
+                m_nState = StreamingChannelState::Finished;
+                return;
+            }
+            filled            = FillBuffer(m_pBuffer, 0x60000); // 0x4F1E20
+            m_lastWrittenSlot = curSlot;
+        } else {
+            m_bSilenced   = false;
+            m_bNeedSwitch = true;
+        }
+
+        // 0x4F2713 - rewrite the slot the cursor just left
+        void*  audioPtr{};
+        DWORD  audioBytes{};
+        if (SUCCEEDED(m_pDirectSoundBuffer->Lock(m_lastSlot * 0x60000, 0x60000, &audioPtr, &audioBytes, nullptr, nullptr, 0))) { // OG: vtbl+0x2C
+            auto dst = static_cast<uint8*>(audioPtr);
+
+            const auto toCopy = std::min<size_t>(audioBytes, filled);
+            std::copy_n(static_cast<const uint8*>(m_pBuffer), toCopy, dst);
+            std::fill_n(dst + toCopy, 0x60000 - toCopy, uint8{ 0 });
+
+            // 0x4F2866 - OR 0x10001 into every dword (silence 0 -> 0x0001 in each 16-bit sample)
+            if ((audioBytes & ~3u) != 0) {
+                for (auto dwordIt = reinterpret_cast<uint32*>(dst), end = dwordIt + audioBytes / 4; dwordIt != end; ++dwordIt) {
+                    *dwordIt |= 0x10001;
+                }
+            }
+
+            m_pDirectSoundBuffer->Unlock(audioPtr, audioBytes, nullptr, 0); // OG: vtbl+0x4C
+        }
+
+        m_lastSlot = curSlot;
+    }
 }
 
 void CAEStreamingChannel::InjectHooks() {
     RH_ScopedVirtualClass(CAEStreamingChannel, 0x85F3F0, 9);
     RH_ScopedCategory("Audio/Hardware");
 
-    RH_ScopedInstall(Constructor, 0x4F1800, { .Reversed = false }); // makes game not load radio
+    RH_ScopedInstall(Constructor, 0x4F1800); // makes game not load radio
     RH_ScopedInstall(Destructor, 0x4F2200);
     RH_ScopedInstall(SynchPlayback, 0x4F1870);
     RH_ScopedInstall(PrepareStream, 0x4F23D0);
@@ -516,7 +619,7 @@ void CAEStreamingChannel::InjectHooks() {
     RH_ScopedInstall(GetActiveTrackID, 0x4F1A40);
     RH_ScopedInstall(UpdatePlayTime, 0x4F18A0);
     RH_ScopedInstall(RemoveFX, 0x4F1C20);
-    RH_ScopedVMTInstall(Service, 0x4F2550, { .Reversed = false });
+    RH_ScopedVMTInstall(Service, 0x4F2550);
     RH_ScopedVMTInstall(IsSoundPlaying, 0x4F2040);
     RH_ScopedVMTInstall(GetPlayTime, 0x4F19E0);
     RH_ScopedVMTInstall(GetLength, 0x4F1880);

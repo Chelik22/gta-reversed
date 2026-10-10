@@ -3761,8 +3761,115 @@ void CAEVehicleAudioEntity::ProcessDummySeaPlane(tVehicleParams& vp) {
 #pragma region Jet
 
 // 0x4FF900
+// Signature verified against ProcessPlayerJet/ProcessDummyJet (callers) - 7 args, thiscall.
+// Ghidra aliased `this` (ECX) and `&vp` into one param_1; unaff_retaddr = this.
+// NOTE: the switch is on the model index - only 4 models; the default case was merged
+// with the !bEngineOn branch by the compiler (ProcessAircraft only calls this for those).
 void CAEVehicleAudioEntity::ProcessGenericJet(bool bEngineOn, tVehicleParams& params, float fEngineSpeed, float fAccelRatio, float fBrakeRatio, float fStalledVolume, float fStalledFrequency) {
-    plugin::CallMethod<0x4FF900, CAEVehicleAudioEntity*, uint8, tVehicleParams&, float, float, float, float, float>(this, bEngineOn, params, fEngineSpeed, fAccelRatio, fBrakeRatio, fStalledVolume, fStalledFrequency);
+    static auto& s_FrontVolShamal   = StaticRef<float>(0x8CBE68);
+    static auto& s_RearVolShamal    = StaticRef<float>(0x8CBE6C);
+    static auto& s_DistVolShamal    = StaticRef<float>(0x8CBE78);
+    static auto& s_ThrustVolShamal  = StaticRef<float>(0xB6B9F4); // runtime
+    static auto& s_FrontVolHydra    = StaticRef<float>(0x8CBE7C);
+    static auto& s_RearVolHydra     = StaticRef<float>(0x8CBE80);
+    static auto& s_DistVolHydra     = StaticRef<float>(0x8CBE8C);
+    static auto& s_ThrustVolHydra   = StaticRef<float>(0xB6B9F8); // runtime
+    static auto& s_FrontVolAt400    = StaticRef<float>(0x8CBE90);
+    static auto& s_RearVolAt400     = StaticRef<float>(0x8CBE94);
+    static auto& s_ThrustVolAt400   = StaticRef<float>(0x8CBE98);
+    static auto& s_DistVolAt400     = StaticRef<float>(0x8CBEA4);
+    static auto& s_FrontVolAndrom   = StaticRef<float>(0x8CBEA8);
+    static auto& s_RearVolAndrom    = StaticRef<float>(0x8CBEAC);
+    static auto& s_DistVolAndrom    = StaticRef<float>(0x8CBEB8);
+    static auto& s_ThrustVolAndrom  = StaticRef<float>(0xB6B9FC); // runtime
+    static auto& s_PitchFreqFactor  = StaticRef<float>(0x858FCC);
+    static auto& s_RollFreqFactor   = StaticRef<float>(0x858B1C); // 0.1f?
+    static auto& s_BrakeFreqSub     = StaticRef<float>(0x858C28);
+    static auto& s_ThrustVolDecay   = StaticRef<float>(0x85A310);
+    static auto& s_RotorFreqStep    = StaticRef<float>(0x862D04);
+
+    if (!AEAudioHardware.IsSoundBankLoaded(SND_BANK_GENRL_VEHICLE_GEN, SND_BANK_SLOT_VEHICLE_GEN)) { // 0x4FF907: (0x8A, 0x13)
+        return;
+    }
+
+    if (!bEngineOn) { // 0x4FF999: default-case merged with this branch
+        CancelAllVehicleEngineSounds();
+        return;
+    }
+
+    // 0x4FF999 - per-model sound parameters
+    float frontVolBase, rearVolBase, distantVol;
+    const float* thrustVol;
+    switch (params.Vehicle->GetModelIndex()) { // OG: *(u16*)(veh+0x22)
+    case MODEL_SHAMAL:
+        frontVolBase = s_FrontVolShamal;  rearVolBase = s_RearVolShamal;
+        distantVol   = s_DistVolShamal;   thrustVol   = &s_ThrustVolShamal;
+        break;
+    case MODEL_HYDRA:
+        frontVolBase = s_FrontVolHydra;   rearVolBase = s_RearVolHydra;
+        distantVol   = s_DistVolHydra;    thrustVol   = &s_ThrustVolHydra;
+        break;
+    case MODEL_AT400:
+        frontVolBase = s_FrontVolAt400;   rearVolBase = s_RearVolAt400;
+        distantVol   = s_DistVolAt400;    thrustVol   = &s_ThrustVolAt400;
+        break;
+    case MODEL_ANDROM:
+        frontVolBase = s_FrontVolAndrom;  rearVolBase = s_RearVolAndrom;
+        distantVol   = s_DistVolAndrom;   thrustVol   = &s_ThrustVolAndrom;
+        break;
+    default:
+        CancelAllVehicleEngineSounds();
+        return;
+    }
+
+    auto* const plane = params.Vehicle->AsPlane();
+
+    // 0x4FFA02 - OG: (m[2] | m[4..6]) + Normalise(delta) -> Dot -> (*0.5 + *0.5)
+    const auto camPoVFactor = GetAircraftCameraPoVFactor(plane);
+    const auto fwdZ         = plane->GetMatrix().GetForward().z;  // OG: RwMatrix.up.z [6]
+    const auto rollZ        = std::abs(plane->GetMatrix().GetRight().z); // OG: fabs(RwMatrix.right.z [2])
+
+    // 0x4FFA74 - thrust volume: reset while engine running / decay otherwise
+    if (fEngineSpeed > 0.f) {
+        m_CurrentDummyEngineVolume = *thrustVol;
+    } else {
+        m_CurrentDummyEngineVolume = m_CurrentDummyEngineVolume - s_ThrustVolDecay;
+    }
+
+    // 0x4FFA9C - accel/brake frequency adjustments
+    auto accelFreqAdj = 0.f;
+    if (fAccelRatio > 0.f) {
+        accelFreqAdj = 0.1f;
+    }
+    if (fBrakeRatio > 0.f) {
+        accelFreqAdj = accelFreqAdj - s_BrakeFreqSub;
+    }
+
+    // 0x4FFAB6 - target frequency with pitch/roll and stalled multiplier
+    const auto targetFreq = ((-fwdZ * s_PitchFreqFactor) + (rollZ * s_RollFreqFactor) + accelFreqAdj + 1.f) * fStalledFrequency; // OG: * -1.0f(0x862D10)
+
+    // 0x4FFB0C - smooth m_CurrentRotorFrequency (steps of +-s_RotorFreqStep)
+    if (m_CurrentRotorFrequency < 0.f) {
+        m_CurrentRotorFrequency = targetFreq;
+    }
+    if (targetFreq < m_CurrentRotorFrequency) {
+        const auto stepped = m_CurrentRotorFrequency - s_RotorFreqStep;
+        m_CurrentRotorFrequency = stepped < targetFreq ? targetFreq : stepped;
+    } else {
+        const auto stepped = m_CurrentRotorFrequency + s_RotorFreqStep;
+        m_CurrentRotorFrequency = targetFreq < stepped ? targetFreq : stepped;
+    }
+
+    // 0x4FFC1E - volumes
+    const auto frontVol       = CAEAudioUtility::AudioLog10((1.f - s_Config.RotorVolTiltFactor * camPoVFactor) * fEngineSpeed) * 20.f + frontVolBase; // OG: *(1.0f - *0x8CBD98 * PoV)
+    const auto rearVol        = CAEAudioUtility::AudioLog10((camPoVFactor * 0.5f + 0.5f) * fEngineSpeed) * 20.f + rearVolBase;
+    const auto thrustVolCur   = CAEAudioUtility::AudioLog10(fEngineSpeed) * 20.f + m_CurrentDummyEngineVolume + fStalledVolume;
+
+    // 0x4FFD00 - 4 sounds: FRONT(sfx 10), REAR(sfx 11), THRUST(sfx 26), JET_DISTANT(sfx 14)
+    PlayAircraftSound(AE_SOUND_AIRCRAFT_FRONT,       SND_BANK_SLOT_VEHICLE_GEN, 10, frontVol, m_CurrentRotorFrequency);
+    PlayAircraftSound(AE_SOUND_AIRCRAFT_REAR,        SND_BANK_SLOT_VEHICLE_GEN, 11, rearVol, m_CurrentRotorFrequency);
+    PlayAircraftSound(AE_SOUND_AIRCRAFT_THRUST,      SND_BANK_SLOT_VEHICLE_GEN, 26, thrustVolCur, 1.f);
+    PlayAircraftSound(AE_SOUND_AIRCRAFT_JET_DISTANT, SND_BANK_SLOT_VEHICLE_GEN, 14, distantVol, 1.f);
 }
 
 // 0x501960
@@ -3814,8 +3921,93 @@ void CAEVehicleAudioEntity::ProcessPlayerJet(tVehicleParams& vp) {
 
 #pragma region Hovercraft (Vortex)
 // 0x500F50
+// OG took the vehicle from m_tempSound.m_PhysicalEntity (this+0x10); equivalently params.Vehicle here.
+// OG fields: m_DummySlot=+0xE0, m_DummyEngineBank=+0xDC, m_State=+0xA9, m_IsWreckedVehicle=+0xA8,
+//            m_CurrentRotorFrequency=+0x22C; veh: vehicleFlags=+0x428 (bEngineOn=0x10), status=+0x36,
+//            m_EngineSpeed=+0x988, m_BoatDoor.m_angle=+0x9C4 (Vortex fan angle).
 void CAEVehicleAudioEntity::ProcessDummyHovercraft(tVehicleParams& params) {
-    plugin::CallMethod<0x500F50, CAEVehicleAudioEntity*, tVehicleParams&>(this, params);
+    static auto& s_EngineSpeedFactor   = StaticRef<float>(0x862D68); // m_EngineSpeed multiplier (like /0.22f in ProcessPlayerSeaPlane)
+    static auto& s_PadSpeedThreshold   = StaticRef<float>(0x858CDC);
+    static auto& s_AccelFreqOffset     = StaticRef<float>(0x858B1C);
+    static auto& s_BrakeFreqOffset     = StaticRef<float>(0x85901C);
+    static auto& s_FanAngleFactor      = StaticRef<float>(0x862D18);
+    static auto& s_RotorFreqStep       = StaticRef<float>(0x862D04);
+    static auto& s_VolFromFanAngleMul  = StaticRef<float>(0xB6BA90);
+    static auto& s_VolFromFanAngleBase = StaticRef<float>(0x8CBFAC);
+    static auto& s_FreqFromSpeedMul    = StaticRef<float>(0x8CBFBC);
+    static auto& s_FreqFromFanAngleMul = StaticRef<float>(0xB6BA94);
+    static auto& s_FreqBase            = StaticRef<float>(0x8CBFB4);
+
+    const auto pad = CPad::GetPad(0); // 0x53FB70
+
+    // 0x500F55
+    if (m_DummySlot == SND_BANK_SLOT_NONE) {
+        m_DummySlot = RequestBankSlot(m_DummyEngineBank); // 0x4F4D10
+        if (m_DummySlot == SND_BANK_SLOT_NONE) {
+            return;
+        }
+    }
+
+    // 0x500F84
+    if (!AEAudioHardware.IsSoundBankLoaded(m_DummyEngineBank, m_DummySlot)) { // 0x4D88C0
+        const auto slotIdx = m_DummySlot - SND_BANK_SLOT_DUMMY_FIRST;
+        if (slotIdx >= 0 && slotIdx < (int32)std::size(s_DummyEngineSlots) && s_DummyEngineSlots[slotIdx].BankID == m_DummyEngineBank) {
+            return; // inlined DoesBankSlotContainThisBank
+        }
+        m_DummySlot = RequestBankSlot(m_DummyEngineBank);
+        m_State     = eAEState::CAR_OFF; // OG: byte +0xA9 = 0
+        return;
+    }
+
+    const auto vortex = params.Vehicle;
+    if (!vortex->vehicleFlags.bEngineOn || m_IsWreckedVehicle) { // 0x501026: (veh[0x428] & 0x10)==0 || m_IsWreckedVehicle
+        CancelAllVehicleEngineSounds(); // 0x4F55C0 over slots 0..11
+        return;
+    }
+
+    auto* const boat = vortex->AsBoat(); // Vortex is built on CBoat
+
+    // 0x50102E - speed factor: clamp01(|m_EngineSpeed * k|)
+    const auto speedFactor = std::clamp(std::abs(boat->m_EngineSpeed * s_EngineSpeedFactor), 0.f, 1.f);
+
+    // 0x501073 - accel/brake: from pads if player driven, otherwise from the speed factor
+    int16 accel, brake;
+    if (vortex->GetStatus() == STATUS_PLAYER) { // OG: (veh[0x36] & 0xF8) == 0
+        if (params.Speed >= s_PadSpeedThreshold) {
+            brake = pad->GetBrake();        // 0x540080
+            accel = pad->GetAccelerate();   // 0x5403F0
+        } else {
+            accel = static_cast<int16>(pad->GetAccelerate() - pad->GetBrake());
+            brake = 0;
+        }
+    } else {
+        accel = brake = static_cast<int16>(speedFactor);
+    }
+
+    auto freqOffset = speedFactor; // 0x5010BD
+    if (accel > 0) {
+        freqOffset = s_AccelFreqOffset;
+    }
+    if (brake > 0) {
+        freqOffset = s_BrakeFreqOffset;
+    }
+
+    // 0x5010D1 - clamp01(fan angle * k)
+    const auto fanAngle = std::clamp(boat->m_BoatDoor.m_angle * s_FanAngleFactor, 0.f, 1.f);
+
+    auto vol   = s_VolFromFanAngleMul * fanAngle + s_VolFromFanAngleBase;
+    auto speed = s_FreqFromSpeedMul * speedFactor + s_FreqFromFanAngleMul * fanAngle + s_FreqBase + freqOffset;
+
+    // 0x5010EF - smooth frequency
+    if (m_CurrentRotorFrequency < 0.f) {
+        m_CurrentRotorFrequency = speed;
+    } else {
+        m_CurrentRotorFrequency = notsa::step_to(m_CurrentRotorFrequency, speed, s_RotorFreqStep, s_RotorFreqStep);
+    }
+    speed = m_CurrentRotorFrequency;
+
+    // 0x501213
+    UpdateGenericVehicleSound(AE_SOUND_CAR_REV, m_DummySlot, m_DummyEngineBank, 0, speed, vol, 3.5f);
 }
 
 // Android
@@ -4933,7 +5125,7 @@ void CAEVehicleAudioEntity::InjectHooks() {
     // Jet
     RH_ScopedInstall(ProcessPlayerJet, 0x501650);
     RH_ScopedInstall(ProcessDummyJet, 0x501960);
-    RH_ScopedInstall(ProcessGenericJet, 0x4FF900, { .Reversed = false });
+    RH_ScopedInstall(ProcessGenericJet, 0x4FF900);
 
     // Bicycle
     RH_ScopedInstall(PlayBicycleSound, 0x4F9710);
@@ -4943,7 +5135,7 @@ void CAEVehicleAudioEntity::InjectHooks() {
 
     RH_ScopedInstall(ProcessPlayerCombine, 0x500CE0);
     RH_ScopedInstall(ProcessDummyRCCar, 0x500DC0);
-    RH_ScopedInstall(ProcessDummyHovercraft, 0x500F50, { .Reversed = false });
+    RH_ScopedInstall(ProcessDummyHovercraft, 0x500F50);
     RH_ScopedInstall(ProcessDummyGolfCart, 0x501270);
     RH_ScopedInstall(ProcessDummyVehicleEngine, 0x501480);
     RH_ScopedInstall(ProcessSpecialVehicle, 0x501AB0);

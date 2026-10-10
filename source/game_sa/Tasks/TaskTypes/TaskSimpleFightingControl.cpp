@@ -10,6 +10,15 @@
 constexpr auto FIGHT_CTRL_MAX_ATTACK_ANGLE_RAD = DegreesToRadians(15);
 constexpr auto FIGHT_CTRL_FIGHT_IDLE_TIME = 60000.f;
 
+// Сверено с декомпилом 0x62A0A0 + дизасм ctor 0x61DC10 (поправки против фрагмента fresh/0x62A0A0.cpp):
+//  - раскладка хедера репо ВЕРНА (дизасм ctor: arg2(angleRad)->+0x10 m_angleRad, arg3(range)->+0x14
+//    m_maxAttackRange, +0x18=1.0f m_unk3, +0x1C=0 m_nextAttackTime, +0x20=0 m_someTime), правка хедера НЕ нужна;
+//  - время следующей атаки в декомпиле это +0x1C => в репо поле называется m_nextAttackTime (не m_unk3);
+//  - комбо-диапазон (m_aComboData[combo].m_fRanges) пишется в +0x14 => m_maxAttackRange (не m_angleRad);
+//  - ранний выход: оригинал возвращает true и при отсутствии цели, и при m_bool (0x62A0CE: mov al,1);
+//  - проверка типа цели: (byte)(target+0x36) & 7 != 3 => GetType() != ENTITY_TYPE_PED (m_info @+0x36);
+//  - NOTE: в ctor оригинала m_unk3 = 1.0f (0x61DC71: mov [esi+0x18], 0x3F800000) - текущий реверснутый
+//    ctor репо этого не пишет; на ProcessPed не влияет (поле +0x18 здесь не читается).
 void CTaskSimpleFightingControl::InjectHooks() {
     RH_ScopedVirtualClass(CTaskSimpleFightingControl, 0x86d700, 9);
     RH_ScopedCategory("Tasks/TaskTypes");
@@ -22,7 +31,7 @@ void CTaskSimpleFightingControl::InjectHooks() {
     RH_ScopedVMTInstall(Clone, 0x622EB0);
     RH_ScopedVMTInstall(GetTaskType, 0x61DC90);
     RH_ScopedVMTInstall(MakeAbortable, 0x61DD00);
-    RH_ScopedVMTInstall(ProcessPed, 0x62A0A0, { .Reversed = false });
+    RH_ScopedVMTInstall(ProcessPed, 0x62A0A0);
 }
 
 // 0x61DC10
@@ -174,42 +183,69 @@ bool CTaskSimpleFightingControl::MakeAbortable(CPed* ped, eAbortPriority priorit
 
 // 0x62A0A0
 bool CTaskSimpleFightingControl::ProcessPed(CPed* ped) {
-    return plugin::CallMethodAndReturn<bool, 0x62A0A0, CTaskSimpleFightingControl*, CPed*>(this, ped);
-
-    /*
-    * Code below should be good so far, I'm lazy to finish it
-    if (!m_target) {
-        return false;
+    if (!m_target || m_bool) {
+        return true; // 0x62A0CE: mov al,1 - в оригинале true в обоих случаях
     }
 
-    if (m_bool) {
-        return true;
+    // Вероятностный сид атаки: рейтинг стрельбы или флаги статов для некопов-не-миссионцев
+    auto attackRate = (float)ped->m_nWeaponShootingRate; // +0x719
+    if (!ped->IsCreatedBy(PED_MISSION) && ped->m_nPedType != PED_TYPE_COP && ped->m_nWeaponShootingRate == 0x28) {
+        attackRate = (float)ped->m_pStats->m_flags; // CPedStat+0x30
     }
 
-    const auto pedShootingRange = [ped] {
-        const auto range = (int16)ped->m_nWeaponShootingRate;
-        if (!ped->IsCreatedByMission() && ped->m_nPedType != PED_TYPE_COP && range == 40) {
-            return ped->m_pStats->m_wShootingRate;
+    ped->GiveWeaponAtStartOfFight(); // 0x5E8AB0
+
+    int32 command = 0; // iStack_14
+    auto* fightTask = ped->GetTaskManager().GetTaskSecondary(TASK_SECONDARY_ATTACK); // 0x681810
+    if (!fightTask) {
+        fightTask = new CTaskSimpleFight{ m_target, 0, (uint32)attackRate }; // 0x61A5A0 + ctor 0x61C470 (idlePeriod = _ftol2 от attackRate)
+        ped->GetTaskManager().SetTaskSecondary(fightTask, TASK_SECONDARY_ATTACK); // 0x681B60
+        m_nextAttackTime = 0; // +0x1C
+    } else if (fightTask->GetTaskType() != TASK_SIMPLE_FIGHT) { // 1016 (0x3F8)
+        return fightTask->MakeAbortable(ped, ABORT_PRIORITY_URGENT, nullptr); // vtable+0x18
+    } else if (m_nextAttackTime > CTimer::GetTimeInMS()) { // DAT_00b7cb84 < *(uint*)(this+0x1C)
+        command = 2;
+        // 2.0f * rate * 0.025f <= rand(0..100)?
+        const auto rand100 = CGeneral::GetRandomNumberInRange(0.0f, 100.0f); // 0x41BD90
+        if (m_target->GetType() != ENTITY_TYPE_PED // оригинал: (byte)(target+0x36) & 7 != 3
+            || m_someTime != 0 // +0x20
+            || 2.0f * attackRate * 0.025f <= rand100
+        ) {
+            if (m_someTime != 0) {
+                // NOTE: FPU-аргумент _ftol2 (0x821B40) в декомпиле потерян (вероятнее rand01*m_someTime)
+                const auto sub = (uint32)CGeneral::GetRandomNumberInRange(0.0f, (float)m_someTime);
+                m_someTime = sub < m_someTime ? m_someTime - sub : 0;
+            }
+        } else {
+            m_someTime = (uint32)CGeneral::GetRandomNumberInRange(500, 2000); // 0x407180, DAT_008d2e58/5c
         }
-        return range;
-    }();
-
-    ped->GiveWeaponAtStartOfFight();
-
-    // Create fight task for ped if not already
-    if (!ped->GetTaskManager().GetTaskSecondary(TASK_SECONDARY_ATTACK)) {
-        ped->GetTaskManager().SetTaskSecondary(new CTaskSimpleFight{ m_target, false, (uint32)FIGHT_CTRL_FIGHT_IDLE_TIME }, TASK_SECONDARY_ATTACK);
+    } else {
         m_nextAttackTime = 0;
+        command = 0xB;
+        if (ped->m_nFightingStyle != STYLE_STANDARD && ped->m_aWeapons[ped->m_nActiveWeaponSlot].m_Type == WEAPON_UNARMED) {
+            command = 0xC;
+        }
     }
 
-    const auto pedFightTask = ped->GetTaskManager().GetTaskSecondary(TASK_SECONDARY_ATTACK);
-    if (pedFightTask->GetTaskType() != TASK_SIMPLE_FIGHT) {
-        pedFightTask->MakeAbortable(ped);
-        return false;
+    // LAB_0062a2a4
+    auto* fight = static_cast<CTaskSimpleFight*>(
+        ped->GetTaskManager().GetTaskSecondary(TASK_SECONDARY_ATTACK)
+    );
+    const int32 combo = std::max<int32>((int8)fight->m_nComboSet - 4, 0); // оригинал: (x & ((x<0)-1))
+    m_maxAttackRange = CTaskSimpleFight::m_aComboData[combo].m_fRanges; // 0xC170D4[combo] (+4; subscript декомпила в DWORD-единицах = stride 0x88)
+
+    if (m_nextAttackTime == 0) {
+        // Инлайн в оригинале: m_nextAttackTime = (int)(_ftol2 0x821B40 от rand) + now; DAT_008d2e4c = 2000
+        m_nextAttackTime = (uint32)CGeneral::GetRandomNumberInRange(0, 2000) + CTimer::GetTimeInMS();
     }
 
-    if (m_nextAttackTime <= CTimer::GetTimeInMS()) {
-        m_nextAttackTime = 0;
+    if (fight->m_nComboSet < 2) {
+        const auto moveCmd = (uint16)CalcMoveCommand(ped); // 0x624B50
+        if (moveCmd > 0x7FFF) {
+            // Отрицательный (int16) командный код -> остаётся command из стейт-машины выше
+            return fight->ControlFight(m_target, (uint8)command); // 0x61C5E0
+        }
+        command = (int16)moveCmd;
     }
-    */
+    return fight->ControlFight(m_target, (uint8)command);
 }
