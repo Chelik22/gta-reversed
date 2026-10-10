@@ -20,10 +20,10 @@ RwBool RtAnimRegisterInterpolationScheme(RtAnimInterpolatorInfo* interpolatorInf
     auto& schemeCount = StaticRef<RwInt32>(0xC97900);                       // DAT_00c97900
     auto* schemeTable = reinterpret_cast<RtAnimInterpolatorInfo*>(0xC9B920); // scheme table
 
-    if (schemeCount > 0x10) {
+    if (schemeCount >= 0x10) {   // 0x7CCD40: cmp eax,0x10 / jge — таблица вмещает 16 схем
         RwError error;
         error.pluginID  = 0x1B7;   // rtanim module plugin ID
-        error.errorCode = ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(1); // 0x8088D0 = passthrough thunk (mov eax,[esp+4]; ret)
+        error.errorCode = ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(0); // 0x8088D0 = passthrough thunk; L_7CCD90: push 0
         RwErrorSet(&error);
         return FALSE;
     }
@@ -34,7 +34,7 @@ RwBool RtAnimRegisterInterpolationScheme(RtAnimInterpolatorInfo* interpolatorInf
             if (schemeTable[i].typeID == interpolatorInfo->typeID) {
                 RwError error;
                 error.pluginID  = 0x1B7;
-                error.errorCode = ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(0);
+                error.errorCode = ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(1); // L_7CCDB8: push 1
                 RwErrorSet(&error);
                 return FALSE;
             }
@@ -567,9 +567,11 @@ RwBool RtAnimInterpolatorSubAnimTime(RtAnimInterpolator* anim, RwReal time) {
     RwBool callLoopCB = FALSE;
 
     // crossed the callback time with this subtraction?
-    // (binary: bVar3 = currentTime > animCallBackTime && currentTime - time < animCallBackTime)
+    // 0x7CD760: bVar3 = (currentTime > animCallBackTime) && ((currentTime - time) <= animCallBackTime)
+    // (вт. условие НЕстрогое: FCOM-паттерн test ah,0x41/jp даёт TRUE на 'равно'; декомпил
+    //  кодирует это как (x < act) == (x == act))
     if (anim->currentTime > anim->animCallBackTime
-        && anim->currentTime - time < anim->animCallBackTime) {
+        && anim->currentTime - time <= anim->animCallBackTime) {
         callAnimCB = TRUE;
     }
 
@@ -852,7 +854,7 @@ RwBool RtAnimInterpolatorBlendSubInterpolator(RtAnimInterpolator* outAnim, RtAni
                outAnim->currentInterpKeyFrameSize * inAnim2->offsetInParent);
         RwInt32 in2Start = inAnim2->offsetInParent;
         RwInt32 j = in2Start;
-        if (in2Start < inAnim2->numNodes + in2Start) {
+        if (in2Start < inAnim2->numNodes + in2Start) {   // 0x7CDE68: jge → L_7CDEE1 — при пустом диапазоне хвостовой memcpy НЕ выполняется
             do {
                 outAnim->keyFrameBlendCB(
                     ((RwUInt8*)outAnim + 0x4C) + j * outAnim->currentInterpKeyFrameSize,
@@ -862,12 +864,12 @@ RwBool RtAnimInterpolatorBlendSubInterpolator(RtAnimInterpolator* outAnim, RtAni
                 j++;
                 in2Start = inAnim2->offsetInParent;  // re-read, as in the binary
             } while (j < inAnim2->numNodes + in2Start);
+            // tail: fill out frames after in2's range from in1 (только если цикл выполнялся)
+            in2Start = inAnim2->numNodes + inAnim2->offsetInParent;
+            memcpy(((RwUInt8*)outAnim + 0x4C) + in2Start * outAnim->currentInterpKeyFrameSize,
+                   ((RwUInt8*)inAnim1 + 0x4C) + in2Start * inAnim1->currentInterpKeyFrameSize,
+                   ((outAnim->numNodes - inAnim2->numNodes) - inAnim2->offsetInParent) * outAnim->currentInterpKeyFrameSize);
         }
-        // tail: fill out frames after in2's range from in1
-        in2Start = inAnim2->numNodes + inAnim2->offsetInParent;
-        memcpy(((RwUInt8*)outAnim + 0x4C) + in2Start * outAnim->currentInterpKeyFrameSize,
-               ((RwUInt8*)inAnim1 + 0x4C) + in2Start * inAnim1->currentInterpKeyFrameSize,
-               ((outAnim->numNodes - inAnim2->numNodes) - inAnim2->offsetInParent) * outAnim->currentInterpKeyFrameSize);
     }
     return TRUE;
 }

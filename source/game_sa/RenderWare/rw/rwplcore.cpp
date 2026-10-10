@@ -2164,7 +2164,7 @@ RwBool RwEngineOpen(RwEngineOpenParams* initParams) {
 RwBool RwEngineStart() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
     RwBool(__cdecl* engineSystem)(void*, RwInt32, void*, void*, RwInt32) = (RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0;
-    void* rwDevice = ((void*(__cdecl*)(void))0x7F9C20)();   // device struct &0x8E2498 (original dispatch arg1)
+    void* rwDevice = &engine->dOpenDevice;   // ORIGINAL 0x7F2E70: all three dispatches arg1 = RwEngineInstance+0x10 (mov eax,[EI]; lea esi,[eax+0x10])
 
     if (engineSystem(rwDevice, rwDEVICESYSTEMSTART, nullptr, nullptr, 0)) {
         if (_rwPluginRegistryInitObject(&rwCorePluginRegistry, RwEngineInstance)) {
@@ -2182,7 +2182,7 @@ RwBool RwEngineStart() {
 RwBool RwEngineStop() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
     RwBool(__cdecl* engineSystem)(void*, RwInt32, void*, void*, RwInt32) = (RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0;
-    void* rwDevice = ((void*(__cdecl*)(void))0x7F9C20)();   // device struct &0x8E2498
+    void* rwDevice = &engine->dOpenDevice;   // ORIGINAL 0x7F2E20: both dispatches arg1 = RwEngineInstance+0x10 (mov eax,[EI]; lea esi,[eax+0x10])
 
     engineSystem(rwDevice, rwDEVICESYSTEMINITIATESTOP, nullptr, nullptr, 0);
     _rwPluginRegistryDeInitObject(&rwCorePluginRegistry, RwEngineInstance);
@@ -2196,7 +2196,8 @@ RwBool RwEngineStop() {
 
 RwBool RwEngineClose() {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
-    RwBool closed = ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(((void*(__cdecl*)(void))0x7F9C20)(), rwDEVICESYSTEMCLOSE, nullptr, nullptr, 0);
+    // ORIGINAL 0x7F2F00: dispatch arg1 = RwEngineInstance+0x10 (mov eax,[EI]; add eax,0x10; push eax)
+    RwBool closed = ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMCLOSE, nullptr, nullptr, 0);
     if (closed) {
         RwGlobalsSA* oldEngine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
         RwEngineInstance = reinterpret_cast<RwGlobals*>(&rwGlobalsStatic);
@@ -2222,9 +2223,10 @@ RwBool RwEngineTerm() {
 
 
 RwInt32 RwEngineGetNumSubSystems() {
+    RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
     RwInt32 numSubSystems = 1;   // original default
     ((void(__cdecl*)(void*, RwInt32, RwInt32*, RwUInt32, RwInt32))0x7F2AB0)(
-        ((void*(__cdecl*)(void))0x7F9C20)(),   // device struct &0x8E2498 (original dispatch arg1)
+        &engine->dOpenDevice,   // ORIGINAL 0x7F2C00: dispatch arg1 = RwEngineInstance+0x10 (mov ecx,[EI]; add ecx,0x10; push ecx)
         0xD,
         &numSubSystems,
         0,
@@ -2632,8 +2634,9 @@ RwStream* RwStreamWriteReal(RwStream* stream, const RwReal* reals, RwUInt32 numB
 
 RwStream* RwStreamWriteInt32(RwStream* stream, const RwInt32* ints, RwUInt32 numBytes)
 {
-    RwStreamWrite(stream, ints, numBytes);
-    return stream;
+    // результат RwStreamWrite должен пробрасываться: оригинал (напр. _rpMeshWrite 0x758D70)
+    // проверяет test eax,eax после каждого write и возвращает NULL при ошибке
+    return RwStreamWrite(stream, ints, numBytes);
 }
 
 

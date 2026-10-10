@@ -10,11 +10,13 @@ void RtQuatSetupSlerpCache(RtQuat* qpFrom, RtQuat* qpTo, RtQuatSlerpCache* sCach
     /* scaled initial quaternion */
     sCache->raFrom = *qpFrom;
 
-    /* cosine of the angle between quaternions (operand order per decompile) */
-    dot = qpFrom->real * qpTo->real +
+    /* cosine of the angle between quaternions — summation tree per decompile
+     * (((imagX*imagX + imagY*imagY) + imagZ*imagZ) + real*real); FP addition
+     * is not associative, so the operand order must not be rearranged */
+    dot = qpFrom->imag.x * qpTo->imag.x +
+          qpFrom->imag.y * qpTo->imag.y +
           qpFrom->imag.z * qpTo->imag.z +
-          qpFrom->imag.x * qpTo->imag.x +
-          qpFrom->imag.y * qpTo->imag.y;
+          qpFrom->real * qpTo->real;
 
     if (dot >= 0.0f)
     {

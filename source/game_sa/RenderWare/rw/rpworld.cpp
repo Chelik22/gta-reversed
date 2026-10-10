@@ -2124,7 +2124,7 @@ RwStream* _rpMeshWrite(const RpMeshHeader* meshHeader, const void* object, RwStr
     if (RwStreamWriteInt32(stream, header, 0xC) == nullptr) {
         return nullptr;
     }
-    const RpMesh* mesh = reinterpret_cast<const RpMesh*>(reinterpret_cast<const RwUInt8*>(meshHeader) + meshHeader->firstMeshOffset + 0x10);
+    const RpMesh* mesh = reinterpret_cast<const RpMesh*>(reinterpret_cast<const RwUInt8*>(meshHeader) + 0x10);   // 0x758DC0: lea ebp,[esi+0x10] — БЕЗ firstMeshOffset
     RwUInt16 remaining = meshHeader->numMeshes;
     while (remaining != 0) {
         remaining--;
@@ -2202,14 +2202,14 @@ RpMeshHeader* _rpMeshRead(RwStream* stream, const void* object, const RpMaterial
                 ((*reinterpret_cast<const RwUInt32*>(reinterpret_cast<const RwUInt8*>(object) + 8) & 0x01000000) == 0)) {
                 RwUInt32 left = mesh->numIndices;
                 while (left != 0) {
-                    RwUInt16 buffer[512];   // auStack_400
+                    RwUInt32 buffer[256];   // auStack_400: оригинал читает u32 (шаг 4) и берёт младшее слово (0x759053: mov ax,[esi]; add esi,4)
                     RwUInt32 chunk = (left < 256) ? left : 256;
                     if (RwStreamReadInt32(stream, reinterpret_cast<RwInt32*>(buffer), chunk * 4) == nullptr) {
                         return nullptr;   // утечка meshHeader — как в оригинале
                     }
                     left -= chunk;
                     for (RwUInt32 i = 0; i < chunk; i++) {
-                        *indices++ = buffer[i];
+                        *indices++ = static_cast<RwUInt16>(buffer[i]);
                     }
                 }
             }
@@ -2247,7 +2247,7 @@ RpTriStripPolygon* RpTriStripPolygonFollowStrip(RpTriStripPolygon* curr, RpTriSt
     if (curr->numEdges != 0) {
         for (RwUInt32 i = 0; i < curr->numEdges; i++) {
             RpTriStripEdge* edge = curr->edges[i];
-            if ((edge->strip != 0) || (prev == edge->poly1) || (prev == edge->poly2)) {
+            if ((edge->strip == 0) || (prev == edge->poly1) || (prev == edge->poly2)) {   // 0x75C350: je(strip==0)→skip; 0x75C35A: jne(prev!=poly2)→FOUND — strip-флаг НУЖЕН
                 continue;
             }
             RpTriStripPolygon* next = edge->poly1;
@@ -2338,12 +2338,14 @@ RwUInt32 RpTriStripDefaultCost(RpTriStripPolygon* startPolygon, RwUInt32 testFra
                         if (!found) {
                             continue;                                  // LAB_0075b6a7
                         }
-                        found = FALSE;
-                        RwUInt32 idx = p3->numEdges;
-                        for (i = 0; i < p3->numEdges; i++) {          // поиск в p3
-                            if (vert == p3->vertIndex[i]) { found = TRUE; idx = i; break; }
+                        RwUInt32 idx = 0;   // 0x75B684: индекс p3-скана; numEdges==0 → 0, не найдена → numEdges (0x75B69F: cmp eax,esi = idx < p2->numEdges!)
+                        if (p3->numEdges != 0) {
+                            for (i = 0; i < p3->numEdges; i++) {      // поиск в p3
+                                if (vert == p3->vertIndex[i]) { break; }
+                                idx++;
+                            }
                         }
-                        if (found && (idx < p2->numEdges)) {           // общая всем четырём
+                        if (idx < p2->numEdges) {                      // общая всем четырём (порог — numEdges p2, как в оригинале)
                             dirtyStrips = 1;                           // uStack_20 = 1
                             cost += 10000;
                             restart = TRUE;                            // goto LAB_0075b6f1
@@ -2825,7 +2827,9 @@ RpMeshHeader* RpBuildMeshGenerateTriStrip(RpBuildMesh* buildMesh, void* data) {
             }
         }
     }
-    strips[numStrips2] = reinterpret_cast<RwUInt32* (__cdecl*)(RpBuildMeshTriangle**, RwUInt32)>(0x75C660)(tris + runStart, i - runStart);
+    // 0x75C380: финальный стрип — uVar11 - uVar5, где uVar11 = count только при count > 1,
+    // иначе 1 (оригинал прогоняет 1 мусорный треугольник на пустом меше)
+    strips[numStrips2] = reinterpret_cast<RwUInt32* (__cdecl*)(RpBuildMeshTriangle**, RwUInt32)>(0x75C660)(tris + runStart, (1 < count ? count : 1) - runStart);
     tsData->stripCB(reinterpret_cast<RpTriStripMesh*>(strips[numStrips2]), tsData->data);
 
     // итоговый RpMeshHeader (строки 80-116)
@@ -3966,9 +3970,11 @@ RpGeometryChunkInfo* _rpGeometryChunkInfoRead(RwStream* stream, RpGeometryChunkI
 }
 
 
-RpWorldSector* RpWorldSectorRender(RpWorldSector* worldSector) {
+RpWorldSector* RpWorldSectorRender(RpWorldSector* worldSector, void* pData) {
+    // decompile: tail-jmp [world+0x68] with the original argument pair intact —
+    // both worldSector AND pData are forwarded to the world's render callback
     RpWorld* world = reinterpret_cast<RpWorld*>(RwEngineInstance->curWorld);
-    return (reinterpret_cast<RpWorldSector*(__cdecl*)(RpWorldSector*)>(world->renderCallBack))(worldSector);
+    return (reinterpret_cast<RpWorldSector*(__cdecl*)(RpWorldSector*, void*)>(world->renderCallBack))(worldSector, pData);
 }
 
 
@@ -4186,7 +4192,10 @@ RwReal RpLightGetConeAngle(const RpLight* light)
 RpLight* RpLightSetConeAngle(RpLight* ight, RwReal angle) {
     // DAT_00858B50 = 0.0f (rpLIGHTMINCONEANGLE), _DAT_00858FE4 = 1.57079637f
     // (rpLIGHTMAXCONEANGLE = rwPIOVER2 для D3D9-сборки; .rdata проверена: 0x4577E4)
-    if (0.0f /*0x858B50*/ <= angle && angle <= 1.57079637f /*0x858FE4 = rwPIOVER2*/) {
+    // Оригинал 0x751D20: test ah,5/jnp -> NULL при angle<=0 (вкл. ==0); and 0x4100/je -> NULL
+    // при angle>pi/2; NaN проходит ОБА теста и попадает в fstp (хранится как есть) ->
+    // двойное отрицание воспроизводит обе флаговые ветки.
+    if (!(angle <= 0.0f /*0x858B50*/) && !(angle > 1.57079637f /*0x858FE4 = rwPIOVER2*/)) {
         // декомпил: x87 FCOS с float10-промежуточным -> CRT cos() в double
         ight->minusCosAngle = -(RwReal)cos((double)angle);
         return ight;
@@ -4214,7 +4223,7 @@ RpLight* RpLightStreamRead(RwStream* stream) {
 
     if (version < 0x34000 || 0x36003 < version) {
         RwError rwError;
-        rwError.pluginID  = 1;
+        rwError.pluginID  = 2;   // оригинал 0x751F00 (L_752027): mov dword ptr [esp+0x10], 2
         rwError.errorCode = ((RwInt32(__cdecl*)(RwInt32))0x8088D0)(0x80000004);   // _rwerror
         RwErrorSet(&rwError);
         return nullptr;
@@ -5192,6 +5201,7 @@ RpClump* RpClumpClone(RpClump* clump) {
                     RwResourcesFreeResEntry(static_cast<RwResEntry*>(atomic->repEntry));
                 }
                 RpAtomicSetGeometry(atomic, nullptr, 0);
+                _rwObjectHasFrameReleaseFrame(atomic); // decompile: fn_00804F40 before the freelist free
                 (*(void(__cdecl**)(void*, void*))((RwUInt8*)engine + 0x148))(atomicFreeList, atomic);
                 RwError rwError;
                 rwError.pluginID  = 2;
@@ -5223,7 +5233,9 @@ RpClump* RpClumpClone(RpClump* clump) {
         for (RwLLLink* link = newClump->lightList.link.next; link != &newClump->lightList.link;) {
             RwLLLink* next = link->next;
             RpLight* light = (RpLight*)((RwUInt8*)link - 4 - lightClumpFieldOffset);
-            ((RpLight * (__cdecl*)(RpLight*, void*))0x74A1C0)(light, nullptr);
+            if (((RpLight * (__cdecl*)(RpLight*, void*))0x74A1C0)(light, nullptr) == nullptr) {
+                break; // decompile: exits the teardown loop when the call fails
+            }
             link = next;
         }
         RpClumpForAllCameras(newClump, (RwCamera * (__cdecl*)(RwCamera*, void*))0x74A200, nullptr);
@@ -5511,21 +5523,23 @@ RpAtomic* RpAtomicStreamRead(RwStream* stream)
 
 RpAtomic* RpAtomicStreamWrite(RpAtomic* atomic, RwStream* stream)
 {
-    // 16-byte write context consumed by the internal writers 0x74A880 / 0x74AEA0 / 0x74AF20:
-    // { RwStream *stream; void *unk08; void *unk0C; RwBool ok; } (decompile of 0x74A850:
-    // {stream, 0, 0, 1}).
+    // 24-byte (0x18) write context consumed by the internal writers 0x74A880 / 0x74AEA0 /
+    // 0x74AF20. Decompile of the 0x74A850 caller: ctx+0x00 = stream, ctx+0x08 = 0,
+    // ctx+0x10 = 0, ctx+0x14 = 1 (ok); +0x04/+0x0C are left uninitialized by the caller.
     struct StreamWriteCtx
     {
-        RwStream *stream;
-        void     *unk08;
-        void     *unk0C;
-        RwBool    ok;
+        RwStream *stream;  // +0x00
+        void     *unk04;   // +0x04 (not initialized by the caller)
+        void     *unk08;   // +0x08
+        void     *unk0C;   // +0x0C (not initialized by the caller)
+        void     *unk10;   // +0x10
+        RwBool    ok;      // +0x14
     };
 
     StreamWriteCtx ctx;
     ctx.stream = stream;
     ctx.unk08  = NULL;
-    ctx.unk0C  = NULL;
+    ctx.unk10  = NULL;
     ctx.ok     = TRUE;
 
     // ABI note: the GTA binary discards the worker's return (decompile: void), but its eax —
@@ -6152,7 +6166,9 @@ RpWorld* _rpWorldSetupSectorBoundingBoxes(RpWorld* world) {
             pushed[4] = curBox[4];
             pushed[5] = curBox[5];
             const RwInt32 type = node->type;
-            *(RwReal*)(reinterpret_cast<RwUInt8*>(pushed) + type) = node->rightValue; // бокс правого поддерева
+            // оригинал: fstp [eax+type], eax = база записи стека + 0xC -> правый бокс патчится
+            // в inf-половине (float 3+type/4); левый — в sup-половине ([esp+0x10+type], float type/4)
+            *(RwReal*)(reinterpret_cast<RwUInt8*>(pushed) + type + 0xC) = node->rightValue; // бокс правого поддерева
             cur = node->leftSubTree;
             *(RwReal*)(reinterpret_cast<RwUInt8*>(curBox) + type) = node->leftValue;  // бокс левого поддерева
         }
@@ -6629,11 +6645,12 @@ RpWorld* RpWorldForAllWorldSectors(RpWorld* world, RpWorldSectorCallBack fpCallB
 
 
 RpWorld* RpWorldRender(RpWorld* world) {
-    // ABI-расхождение с repo-хедером: вендорская RwCameraForAllSectorsInFrustum(0x751660) первым
-    // аргументом получает RwGlobals* (RwEngineInstance), а не камеру (внутри берёт curCamera@+0).
-    // Сигнатуру оставляем по repo-хедеру, движок передаём кастом. Второй аргумент - внутренний
-    // статический сектор-коллбек вендора 0x74F590 (вне этажа, в rw_addr_map отсутствует).
-    RwCameraForAllSectorsInFrustum(reinterpret_cast<RwCamera*>(RwEngineInstance),
+    // Оригинал 0x74F570: mov ecx,[RwEngineInstance] (curCamera@[engine+0]); вызов
+    // 0x751660(curCamera, 0x74F590, world). 0x751660 читает [camera+gRpWorldCameraChunkOff],
+    // т.е. первым аргументом идёт ИМЕННО камера, а не RwGlobals*.
+    // Второй аргумент - внутренний статический сектор-коллбек вендора 0x74F590
+    // (вне этажа, в rw_addr_map отсутствует).
+    RwCameraForAllSectorsInFrustum(*reinterpret_cast<RwCamera* const*>(RwEngineInstance),   // curCamera
                                    reinterpret_cast<RpWorldSectorCallBack>(0x74F590),
                                    world);
     return world;
@@ -8320,21 +8337,20 @@ void _rpD3D9GetMinMaxValuesV3d(const RwV3d* src, RwInt32 numElements, RwV3d* min
     if (1 < numElements) {
         const RwV3d* v = src + 1;
         for (RwInt32 i = 0; i < numElements - 1; i++, v++) {
-            if (min->x <= v->x) {
-                if (max->x < v->x) max->x = v->x;
-            } else {
+            // декомпил 0x755830: fld min / fcomp v / and 0x4100 / jne-skip -> min обновляется
+            // только при упорядоченном min>v; форма (v < min) точна и для NaN (как и max<v)
+            if (v->x < min->x) {
                 min->x = v->x;
             }
-            if (min->y <= v->y) {
-                if (max->y < v->y) max->y = v->y;
-            } else {
+            if (max->x < v->x) max->x = v->x;
+            if (v->y < min->y) {
                 min->y = v->y;
             }
-            if (min->z <= v->z) {
-                if (max->z < v->z) max->z = v->z;
-            } else {
+            if (max->y < v->y) max->y = v->y;
+            if (v->z < min->z) {
                 min->z = v->z;
             }
+            if (max->z < v->z) max->z = v->z;
         }
     }
 }
@@ -8347,19 +8363,18 @@ void _rpD3D9GetMinMaxValuesV2d(const RwV2d* src, RwInt32 numElements, RwV2d* min
     if (1 < numElements) {
         numElements--;
         do {
-            if (min->x <= src->x) {
-                if (max->x < src->x) {
-                    max->x = src->x;
-                }
-            } else {
+            // декомпил 0x7558F0: and 0x4100/jne -> min обновляется только при упорядоченном min>v
+            if (src->x < min->x) {
                 min->x = src->x;
             }
-            if (min->y <= src->y) {
-                if (max->y < src->y) {
-                    max->y = src->y;
-                }
-            } else {
+            if (max->x < src->x) {
+                max->x = src->x;
+            }
+            if (src->y < min->y) {
                 min->y = src->y;
+            }
+            if (max->y < src->y) {
+                max->y = src->y;
             }
             src++;
             numElements--;
@@ -8374,7 +8389,9 @@ RwUInt32 _rpD3D9FindFormatV3d(const RwV3d* src, RwInt32 numElements)
     _rpD3D9GetMinMaxValuesV3d(src, numElements, &min, &max);   // 0x755830, репо-обёртка
 
     RwUInt32 format = D3DFVF_XYZ /* 0x2 */;
-    if (max.x < 1.0f /*0x858624*/ && max.y < 1.0f && max.z < 1.0f) {
+    // декомпил 0x755980: test ah,0x41/jp — выход только при max>1.0 или unordered;
+    // max == 1.0 ПРОДОЛЖАЕТ проверку (в C: max <= 1.0f)
+    if (max.x <= 1.0f /*0x858624*/ && max.y <= 1.0f && max.z <= 1.0f) {
         if (min.x < 0.0f /*0x858B50*/ || min.y < 0.0f || min.z < 0.0f) {
             // отрицательные координаты допустимы только в диапазоне [-1, 1] (0x858C1C = -1.0f)
             if (min.x >= -1.0f && min.y >= -1.0f && min.z >= -1.0f) {
@@ -8404,7 +8421,8 @@ RwUInt32 _rpD3D9FindFormatV2d(const RwV2d* src, RwInt32 numElements)
     _rpD3D9GetMinMaxValuesV2d(src, numElements, &min, &max);   // 0x7558F0, этот же батч
 
     RwUInt32 format = 1u;   // декомпил: cVar1 = 1 (default)
-    if (max.x < 1.0f /*0x858624*/ && max.y < 1.0f) {
+    // декомпил 0x755AA0: test ah,0x41/jp — max == 1.0 продолжает проверку (в C: max <= 1.0f)
+    if (max.x <= 1.0f /*0x858624*/ && max.y <= 1.0f) {
         if (min.x >= 0.0f /*0x858B50*/ && min.y >= 0.0f) {
             if ((rwD3D9FindFormatCapsBits & 0x10) != 0) {
                 return 0xBu;   // 11
@@ -8840,9 +8858,10 @@ RpWorld* RpWorldRemoveClump(RpWorld* world, RpClump* clump)
         link->next->prev = link->prev;
 
         // remove the clump's atomics/lights/cameras from the world (static helpers outside the floor -> raw casts)
-        RpClumpForAllAtomics(clump, (RpAtomicCallBack)0x751500, clumpWorld);
-        RpClumpForAllLights(clump, (RpLightCallBack)0x7515A0, clumpWorld);
-        RpClumpForAllCameras(clump, (RwCameraCallBack)0x751630, clumpWorld);
+        // оригинал 0x751460: data-аргумент всех трёх ForAll = world (arg1, push edi = [esp+0x18] = arg1), не clumpWorld
+        RpClumpForAllAtomics(clump, (RpAtomicCallBack)0x751500, world);
+        RpClumpForAllLights(clump, (RpLightCallBack)0x7515A0, world);
+        RpClumpForAllCameras(clump, (RwCameraCallBack)0x751630, world);
 
         *(RpWorld**)((RwUInt8*)clump + gRpWorldClumpChunkOff) = NULL;
         return world;
@@ -9693,7 +9712,20 @@ RpWorldChunkInfo* _rpWorldChunkInfoRead(RwStream* stream, RpWorldChunkInfo* worl
     }
     memset(worldChunkInfo, 0, 0x40);                             // декомпил: обнуление 16 dword
     if (version < 0x34001) {
-        rpWorldChunkInfo34000 oldInfo;                           // repo rpworld.h:2329
+        // decompile: this reader skips only 8 bytes between invWorldOrigin and numTriangles
+        // (unlike RpWorldStreamRead, whose 34000 layout carries the full 12-byte surfaceProps)
+        struct WorldChunkInfo34000Gta {
+            RwUInt32 rootIsWorldSector;   // 0x00
+            RwV3d    invWorldOrigin;      // 0x04
+            RwUInt32 unused[2];           // 0x10 (read, not copied)
+            RwInt32  numTriangles;        // 0x18
+            RwInt32  numVertices;         // 0x1C
+            RwInt32  numPlaneSectors;     // 0x20
+            RwInt32  numWorldSectors;     // 0x24
+            RwInt32  colSectorSize;       // 0x28
+            RwInt32  format;              // 0x2C
+            RwUInt32 tail;                // 0x30 (the binary zeroes 0x34 bytes; this reader never copies it)
+        } oldInfo;
         memset(&oldInfo, 0, 0x34);                               // декомпил: обнуление 13 dword
         if (RwStreamRead(stream, &oldInfo, length) != length) {
             return nullptr;
@@ -9706,7 +9738,7 @@ RpWorldChunkInfo* _rpWorldChunkInfoRead(RwStream* stream, RpWorldChunkInfo* worl
         worldChunkInfo->numWorldSectors   = oldInfo.numWorldSectors;
         worldChunkInfo->colSectorSize     = oldInfo.colSectorSize;
         worldChunkInfo->format            = oldInfo.format;
-        // oldInfo.surfaceProps отбрасывается (декомпил: dword-копия перепрыгивает old[4..6])
+        // oldInfo.unused отбрасывается (декомпил: dword-копия перепрыгивает old[4..5])
     } else {
         if (RwStreamRead(stream, worldChunkInfo, length) != length) {
             return nullptr;

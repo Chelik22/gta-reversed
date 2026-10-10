@@ -74,9 +74,17 @@ RpHAnimHierarchy* RpHAnimHierarchyCreate(RwInt32 numNodes, RwUInt32* nodeFlags, 
     for (RwInt32 i = 0; i < numNodes; i++)
     {
         hierarchy->pNodeInfo[i].pFrame    = NULL;
-        hierarchy->pNodeInfo[i].nodeID    = nodeIDs ? nodeIDs[i] : 0;
         hierarchy->pNodeInfo[i].nodeIndex = i;
-        hierarchy->pNodeInfo[i].flags     = nodeFlags ? nodeFlags[i] : 0;
+        /* бинарь (0x7C4C30): store выполняется ТОЛЬКО при ненулевом указателе
+         * (je +9 перескакивает и load, и store) — поле остаётся как есть из freelist */
+        if (nodeIDs)
+        {
+            hierarchy->pNodeInfo[i].nodeID = nodeIDs[i];
+        }
+        if (nodeFlags)
+        {
+            hierarchy->pNodeInfo[i].flags = nodeFlags[i];
+        }
     }
 
     hierarchy->parentHierarchy = hierarchy;
@@ -176,10 +184,16 @@ RpHAnimHierarchy* RpHAnimHierarchyCreateSubHierarchy(RpHAnimHierarchy* parentHie
             {
                 *sp++ = parentIdx;
             }
-            parentIdx = i;
+            /* бинарь (0x7C4DB0): parentIdx = i только в else-ветке (je 0x7C4E76);
+             * при PUSH без POP parentIdx НЕ меняется (важно: rootParentOffset == -1
+             * переключает root-путь в RpHAnimHierarchyUpdateMatrices) */
             if (node->flags & rpHANIMPOPPARENTMATRIX)
             {
                 parentIdx = *--sp;
+            }
+            else
+            {
+                parentIdx = i;
             }
         }
         hierarchy->rootParentOffset = parentIdx;
@@ -411,7 +425,10 @@ RwBool RpHAnimHierarchyUpdateMatrices(RpHAnimHierarchy* hierarchy)
                 *sp++ = rootMat;
                 rootMat = combinedMat;
                 break;
-            default:                                    /* 0x03 impossible, 0x00 plain */
+            case rpHANIMPOPPARENTMATRIX | rpHANIMPUSHPARENTMATRIX:
+                /* 0x03: бинарь (0x7C55AC jne) — no-op, rootMat не меняется */
+                break;
+            default:                                    /* 0x00 plain */
                 rootMat = combinedMat;
                 break;
             }
@@ -561,6 +578,9 @@ RwBool RpHAnimHierarchyUpdateMatrices(RpHAnimHierarchy* hierarchy)
             *sp++ = parentMat;
             parentMat = mat;
             break;
+        case rpHANIMPOPPARENTMATRIX | rpHANIMPUSHPARENTMATRIX:
+            /* 0x03: бинарь (0x7C5B06 jne) — no-op, parentMat не меняется */
+            break;
         default:                                    /* 0x00 plain child */
             parentMat = mat;
             break;
@@ -658,6 +678,89 @@ void RpHAnimKeyFrameApply(void* matrix, void* voidIFrame)
 }
 
 
+/* ==== Быстрый slerp (unit-ы 0x7C5CA0 / 0x7C60C0, 100% byte-match с VC7.1) ====
+ * Бинарь НЕ вызывает CRT acosf/sinf: RwSlerp инлайнит fast-acos + Taylor-sin
+ * (те же коэффициенты .rdata gta_sa.exe, что в RpLightGetConeAngle, rpworld.cpp).
+ * Аномалия бинаря воспроизведена: в ветке |dp| >= 0.5 ведущий коэффициент P
+ * высевается как scale1*C9 + C8 (fld scale1 / fmul [0x874E90]) — theta зависит
+ * от scale1. Полиномы в double (в бинаре — FPU-80; подход как в RpLightGetConeAngle). */
+static void
+_rpHAnimFastSlerpScales(RwReal dp, RwReal alpha, RwReal* outScale1, RwReal* outScale2)
+{
+    const double C9    = 3.479330916889012e-05;      /* 0x874E90 */
+    const double C8    = 7.915350178384632e-04;      /* 0x874E8C */
+    const double C7    = 4.005555361509323e-02;      /* 0x874E88 */
+    const double C6    = 2.012125253677368e-01;      /* 0x874E84 */
+    const double C5    = 3.255658149719238e-01;      /* 0x874E80 */
+    const double ONE6  = 1.666666716337204e-01;      /* 0x85F0A0 = 1/6 */
+    const double C3    = 7.703815400600433e-02;      /* 0x874E7C */
+    const double C2    = 6.882839798927307e-01;      /* 0x874E78 */
+    const double C1    = 2.020945787429810e+00;      /* 0x874E74 */
+    const double C0    = 2.403394937515259e+00;      /* 0x874E70 */
+    /* Taylor-sin: 0x86D2B0, 0x86D2AC, 0x86D2A8, 0x86D2A4, 0x864E0C, 0x85F0A0 */
+    const double S13   = 1.5896910177115586e-10;     /* 1/6227020800 */
+    const double S11   = 2.5050759688838298e-08;     /* 1/39916800 */
+    const double S9    = 2.7557314297155244e-06;     /* 1/362880 */
+    const double S7    = 1.9841270113829523e-04;     /* 1/5040 */
+    const double S5    = 0.008333333767950535;       /* 1/120 */
+    const double S3    = 1.666666716337204e-01;      /* 1/6 */
+
+    RwReal   scale1 = 1.0f - alpha;
+    RwReal   theta;
+    RwUInt32 dpBits;
+    memcpy(&dpBits, &dp, sizeof(dpBits));
+
+    if ((dpBits & 0x7FFFFFFF) >= 0x3F800000)                       /* |dp| >= 1 (недостижимо: dp < 0.999) */
+    {
+        theta = ((RwInt32)dpBits > 0) ? 0.0f /*0x858B50*/ : 3.14159274f /*0x858CB8 = pi*/;
+    }
+    else if ((dpBits & 0x7FFFFFFF) >= 0x3F000000)                  /* |dp| >= 0.5 */
+    {
+        /* theta = 2*asin(r), r = sqrt((1-dp)/2); r_hi = r с очищенными 12 младшими битами мантиссы */
+        float    z = (1.0f - dp) * 0.5f /*0x858B8C*/;
+        float    s = _rwSqrt(z);
+        RwUInt32 sb;
+        float    df;
+        memcpy(&sb, &s, sizeof(sb));
+        sb &= 0xFFFFF000;
+        memcpy(&df, &sb, sizeof(df));
+
+        double zd = (double)z;
+        double sd = (double)s;
+        double P  = ((((scale1 * C9 + C8) * zd - C7) * zd + C6) * zd - C5) * zd + ONE6;
+        double Q  = ((((zd * C3 - C2) * zd + C1) * zd - C0) * zd + 1.0);
+        theta = (RwReal)(2.0 * ((P / Q) * sd + (zd - (double)df * (double)df) / ((double)df + sd) + (double)df));
+    }
+    else if ((dpBits & 0x7FFFFFFF) <= 0x23000000)                  /* |dp| <= 2^-57 */
+    {
+        theta = 1.57079637f /*0x858FE4 = pi/2*/;
+    }
+    else
+    {
+        double t  = (double)dp * (double)dp;
+        double P  = (((((C9 * t + C8) * t - C7) * t + C6) * t - C5) * t + ONE6);
+        double Q  = ((((t * C3 - C2) * t + C1) * t - C0) * t + 1.0);
+        theta = (RwReal)(1.570796251296997 /*0x874E68 = pi/2_hi*/
+                         - ((double)dp - (7.549789415861596e-08 /*0x874E6C = pi/2_lo*/ - (P / Q) * (double)dp)));
+    }
+
+    /* sin(x) ~= x + x^3*poly(x^2); oneOverSinTheta = 1/sin(theta) */
+    double u      = (double)theta * (double)theta;
+    double poly   = ((((S13 * u - S11) * u + S9) * u - S7) * u + S5) * u - S3;
+    double sinT   = (double)theta + (u * (double)theta) * poly;
+    double invSin = 1.0 / sinT;
+
+    double x1  = (double)theta * (double)scale1;
+    double u1  = x1 * x1;
+    double p1  = ((((S13 * u1 - S11) * u1 + S9) * u1 - S7) * u1 + S5) * u1 - S3;
+    *outScale1 = (RwReal)((x1 + x1 * u1 * p1) * invSin);
+
+    double x2  = (double)theta * (double)alpha;
+    double u2  = x2 * x2;
+    double p2  = ((((S13 * u2 - S11) * u2 + S9) * u2 - S7) * u2 + S5) * u2 - S3;
+    *outScale2 = (RwReal)((x2 + x2 * u2 * p2) * invSin);
+}
+
 void RpHAnimKeyFrameBlend(void* voidOut, void* voidIn1, void* voidIn2, RwReal alpha)
 {
     const RpHAnimKeyFrame* in1 = (const RpHAnimKeyFrame*)voidIn1;
@@ -668,10 +771,11 @@ void RpHAnimKeyFrameBlend(void* voidOut, void* voidIn1, void* voidIn2, RwReal al
     out->t.y = (in2->t.y - in1->t.y) * alpha + in1->t.y;
     out->t.z = (in2->t.z - in1->t.z) * alpha + in1->t.z;
 
-    RwReal dp = in2->q.real * in1->q.real
-              + in2->q.imag.z * in1->q.imag.z
+    /* порядок суммирования как в бинаре (0x7C60CF..0x7C60EB): y, x, z, w */
+    RwReal dp = in2->q.imag.y * in1->q.imag.y
               + in2->q.imag.x * in1->q.imag.x
-              + in2->q.imag.y * in1->q.imag.y;
+              + in2->q.imag.z * in1->q.imag.z
+              + in2->q.real * in1->q.real;
 
     if (dp < 0.0f)
     {
@@ -687,10 +791,7 @@ void RpHAnimKeyFrameBlend(void* voidOut, void* voidIn1, void* voidIn2, RwReal al
 
     if (dp < 0.999f)
     {
-        const RwReal theta    = acosf(dp);
-        const RwReal sinTheta = sinf(theta);
-        scale1 = sinf((1.0f - alpha) * theta) / sinTheta;
-        scale2 = sinf(alpha * theta) / sinTheta;
+        _rpHAnimFastSlerpScales(dp, alpha, &scale1, &scale2);
     }
 
     out->q.imag.x = scale1 * in1->q.imag.x + scale2 * in2->q.imag.x;
@@ -712,10 +813,11 @@ void RpHAnimKeyFrameInterpolate(void* voidOut, void* voidIn1, void* voidIn2, RwR
     out->t.y = (in2->t.y - in1->t.y) * alpha + in1->t.y;
     out->t.z = (in2->t.z - in1->t.z) * alpha + in1->t.z;
 
-    RwReal dp = in2->q.real * in1->q.real
-              + in2->q.imag.z * in1->q.imag.z
+    /* порядок суммирования как в бинаре (0x7C5CAF..0x7C5CCB): x, y, z, w */
+    RwReal dp = in2->q.imag.x * in1->q.imag.x
               + in1->q.imag.y * in2->q.imag.y
-              + in2->q.imag.x * in1->q.imag.x;
+              + in2->q.imag.z * in1->q.imag.z
+              + in1->q.real * in2->q.real;
 
     if (dp < 0.0f)
     {
@@ -731,15 +833,12 @@ void RpHAnimKeyFrameInterpolate(void* voidOut, void* voidIn1, void* voidIn2, RwR
 
     if (dp < 0.999f)
     {
-        const RwReal theta    = acosf(dp);
-        const RwReal sinTheta = sinf(theta);
-        scale1 = sinf((1.0f - alpha) * theta) / sinTheta;
-        scale2 = sinf(alpha * theta) / sinTheta;
+        _rpHAnimFastSlerpScales(dp, alpha, &scale1, &scale2);
     }
 
-    out->q.imag.x = scale1 * in1->q.imag.x + scale2 * in2->q.imag.x;   /* decompile: scale1*x1 + scale2*x2 */
-    out->q.imag.y = scale2 * in2->q.imag.y + scale1 * in1->q.imag.y;   /* decompile: scale2*y2 + scale1*y1 */
-    out->q.imag.z = scale1 * in1->q.imag.z + scale2 * in2->q.imag.z;
+    out->q.imag.x = scale2 * in2->q.imag.x + scale1 * in1->q.imag.x;
+    out->q.imag.y = scale2 * in2->q.imag.y + scale1 * in1->q.imag.y;
+    out->q.imag.z = scale2 * in2->q.imag.z + scale1 * in1->q.imag.z;
     out->q.real = scale2 * in2->q.real + scale1 * in1->q.real;
 }
 

@@ -2456,7 +2456,7 @@ RwUInt32 RpGeometryStreamGetSize(const RpGeometry* geometry); // 0x74CE20
 const RpGeometry* RpGeometryStreamWrite(const RpGeometry* geometry, RwStream* stream); // 0x74CED0
 RpGeometry* RpGeometryStreamRead(RwStream* stream); // 0x74D190
 RpGeometryChunkInfo* _rpGeometryChunkInfoRead(RwStream* stream, RpGeometryChunkInfo* geometryChunkInfo, RwInt32* bytesRead); // 0x74D750
-RpWorldSector* RpWorldSectorRender(RpWorldSector* worldSector); // 0x761C50
+RpWorldSector* RpWorldSectorRender(RpWorldSector* worldSector, void* pData); // 0x761C50
 const RpWorldSector* RpWorldSectorForAllMeshes(const RpWorldSector* sector, RpMeshCallBack fpCallBack, void* data); // 0x761C60
 RwInt32 RpWorldSectorRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB); // 0x761C90
 RwInt32 RpWorldSectorRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB); // 0x761CC0

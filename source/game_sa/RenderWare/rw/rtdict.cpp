@@ -23,6 +23,20 @@ static RwGlobalsGta& RwGlobalsGtaGet()
 
 
 
+RtDictSchema* RtDictSchemaInit(RtDictSchema* schema)
+{
+    // 0x7CED40: schema->dictionaries = _rwSListCreate(4, schema->dictChunkType | 0x40000);
+    // успех → schema->current = NULL, return schema; неудача → return NULL
+    schema->dictionaries = _rwSListCreate(4, schema->dictChunkType | 0x40000);
+    if (schema->dictionaries == NULL)
+    {
+        return NULL;
+    }
+    schema->current = NULL;
+    return schema;
+}
+
+
 RwBool RtDictSchemaDestruct(RtDictSchema* schema)
 {
     _rwSListDestroy(schema->dictionaries);

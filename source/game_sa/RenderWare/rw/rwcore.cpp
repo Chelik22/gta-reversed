@@ -58,7 +58,7 @@ static_assert(sizeof(RwStringFuncsViewSA) == 0x44, "RwStringFuncsViewSA must cov
 struct RwGlobalsRwcoreGta
 {
     RwUInt8            pad0[0x68];           // 0x000..0x067
-    void*              textureRasterFnTable; // 0x068 ptr to device fn table; table[0](texture, raster, 0) = set-raster-for-texture
+    void*              textureRasterFnTable; // 0x068 fn ptr, called DIRECTLY: (texture, raster, 0) = set-raster-for-texture (unit 0x7F35D0 byte-match: call [engine+0x68], no table indirection)
     RwUInt8            pad1[0x84];           // 0x06C..0x0EF
     RwStringFuncsViewSA stringFuncs;         // 0x0F0 (17 used slots; repo RwStringFunctions is 28 ptrs — do not embed)
     RwUInt8            pad2[0x10];           // 0x134..0x143 (raw rwmalloc/rwrealloc/rwcalloc slots — ABI: see rwplcore-3 notes)
@@ -3940,7 +3940,7 @@ RwBool RwTextureDestroy(RwTexture* texture) {
 RwTexture* RwTextureSetRaster(RwTexture* texture, RwRaster* raster) {
     if (raster != nullptr) {
         RwGlobalsRwcoreGta* engine = RwGetGlobalsRwcoreGta();
-        const RwBool ok = ((RwBool(__cdecl*)(RwTexture*, RwRaster*, RwInt32))((void**)engine->textureRasterFnTable)[0])(texture, raster, 0);
+        const RwBool ok = ((RwBool(__cdecl*)(RwTexture*, RwRaster*, RwInt32))engine->textureRasterFnTable)(texture, raster, 0);
         return ok ? texture : nullptr;
     }
     texture->raster = nullptr;

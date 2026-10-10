@@ -47,9 +47,10 @@ RwImage* RtBMPImageWrite(RwImage* image, const RwChar* imageName) {
         RwStreamWriteInt32(stream, &entries, 4);    // biClrImportant
         const RwUInt8* pal = reinterpret_cast<const RwUInt8*>(image->palette) + 1;
         for (RwInt32 i = 0; i < entries; i++) {
-            // RGBA-палитра RW -> запись BMP BGRx (b | g<<8 | r<<16 | 0xFF<<24)
-            RwUInt32 entry = (RwUInt32)pal[1] |
-                             ((RwUInt32)pal[0] << 8) |
+            // 0x7CE990: байты записи = {palette[1], palette[2], palette[0], 0xFF} — зелёный в
+            // слоте blue, синий в слоте green (квирк оригинала, сохранён)
+            RwUInt32 entry = (RwUInt32)pal[0] |
+                             ((RwUInt32)pal[1] << 8) |
                              ((RwUInt32)pal[-1] << 16) |
                              0xFF000000u;
             RwStreamWrite(stream, &entry, 4);
