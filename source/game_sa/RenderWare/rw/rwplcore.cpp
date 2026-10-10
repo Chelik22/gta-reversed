@@ -2256,7 +2256,8 @@ RwInt32 RwEngineGetCurrentSubSystem() {
 
 RwBool RwEngineSetSubSystem(RwInt32 subSystemIndex) {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
-    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMSETSUBSYSTEM, nullptr, nullptr, subSystemIndex);
+    // original normalizes the dispatch result to 0/1 (neg/sbb/neg epilogue at 0x7F2C90)
+    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMSETSUBSYSTEM, nullptr, nullptr, subSystemIndex) != FALSE;
 }
 
 
@@ -2286,7 +2287,8 @@ RwInt32 RwEngineGetCurrentVideoMode() {
 
 RwBool RwEngineSetVideoMode(RwInt32 modeIndex) {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
-    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMUSEMODE, nullptr, nullptr, modeIndex);
+    // original normalizes the dispatch result to 0/1 (neg/sbb/neg epilogue at 0x7F2D50)
+    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMUSEMODE, nullptr, nullptr, modeIndex) != FALSE;
 }
 
 
@@ -2312,7 +2314,8 @@ RwInt32 RwEngineGetMaxTextureSize() {
 
 RwBool RwEngineSetFocus(RwBool enable) {
     RwGlobalsSA* engine = reinterpret_cast<RwGlobalsSA*>(RwEngineInstance);
-    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMFOCUS, nullptr, nullptr, enable);
+    // original normalizes the dispatch result to 0/1 (neg/sbb/neg epilogue at 0x7F2DE0)
+    return ((RwBool(__cdecl*)(void*, RwInt32, void*, void*, RwInt32))0x7F2AB0)(&engine->dOpenDevice, rwDEVICESYSTEMFOCUS, nullptr, nullptr, enable) != FALSE;
 }
 
 
