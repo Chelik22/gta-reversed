@@ -117,8 +117,13 @@ void FxManager_c::DestroyFxSystem(FxSystem_c* system) {
 
 // 0x4A98B0
 void FxManager_c::DestroyAllFxSystems() {
-    for (FxSystem_c* it = m_FxSystems.GetHead(); it; it = m_FxSystems.GetNext(it)) {
+    // OG caches next BEFORE destroying: DestroyFxSystem unlinks the item,
+    // so GetNext(it) after it reads freed memory (iterator invalidation — the
+    // "broken for some reason?" upstream note; caused FX-pool corruption crashes).
+    for (FxSystem_c* it = m_FxSystems.GetHead(); it;) {
+        FxSystem_c* next = m_FxSystems.GetNext(it);
         DestroyFxSystem(it);
+        it = next;
     }
 }
 
