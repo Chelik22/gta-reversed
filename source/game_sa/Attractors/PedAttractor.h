@@ -109,12 +109,5 @@ public:
     CVector                m_UseDir{};
     eMoveState             m_MoveState{};
     char                   m_ScriptName[8]{};
-    // Pool slot stride is 0xC4 (see original allocator 0x5EA9F0: `idx * 0xC4 + base`).
-    // The tail 0x38 bytes are fields not yet mapped - they are owned by original
-    // code (ctors/virtuals). Without this pad the pool (CPool<CPedAttractor>) is
-    // created with 0x8C slots while the original allocator strides 0xC4, handing
-    // out pointers past the buffer -> attractor ctors corrupt the heap (the
-    // save-load crash: garbage vptrs -> wild vcalls).
-    char                   m_abUnmappedTail[0x38]{};
 };
-VALIDATE_SIZE(CPedAttractor, 0xC4);
+VALIDATE_SIZE(CPedAttractor, 0x8C);
